@@ -9,10 +9,13 @@
 - [x] Write bounded twelve-task [bootstrap plan](docs/superpowers/plans/2026-09-27-repokit-bootstrap.md), with interfaces, tests/core snippets, red/green/commit steps and inline self-review.
 - [x] Mark old September 27 spec and all eight A–G/master plan documents SUPERSEDED / DO NOT EXECUTE; preserve historical bodies.
 - [x] Preserve already-selected **subagent-driven** execution method.
+- [x] Amend twelve tasks to Go before code: one `hermes-repokit` binary, offline Go default tests; independently packaged native plugin/Laya Python remains container-only.
 - [ ] Independently review corrected draft design/plan; fix findings before implementation.
 - [ ] Only after review/implementation authority, execute the replacement plan. Runtime, provider, download and inference permissions remain separately scoped.
 
 ## Boundary to preserve
+
+Go builds one standalone `hermes-repokit` executable; compiler needed only for build/development. First supported release is Linux amd64/arm64 with local Docker, not unqualified cross-platform support. No host Python/venv/pip/Node/Hermes dependency. Embed templates, CGO-disabled reproducible builds and checksummed binary distribution; no required remote installer/curl-to-shell. Native plugin/Laya Python remains inside runtime images. Default `go test ./...` is offline, runtime suites require explicit tags AND scoped authority. Go version/module pins require implementation qualification; no builds/downloads occurred.
 
 RepoKit generates readable `.hermes/compose.yaml` and persistent `.hermes/`, then is unnecessary. Standard Compose owns service lifecycle; native Hermes owns profiles, Kanban, plugins and execution. One Hermes runtime/project; OpenViking selected memory; optional Laya inference sidecar; separately installed self-contained native Nerve/review policy and Superpowers plugins. No resident manager, runtime DB, reconciliation or hidden plugin-to-installer dependency.
 
@@ -33,6 +36,6 @@ Owner config/Compose edits remain authoritative. Small optional `.hermes/repokit
 
 ## Release evidence still required
 
-Authorized disposable Pi-absent host → separate fresh target bootstrap → native setup/ordinary Compose → remove all installer checkout/binary/receipt artifacts from imports/subprocess/mount access → invoke generated launcher from unrelated cwd and raw native commands → restart → native administration and actual bounded same-card independent completion → restart again → addressable sessions/native logical history/actual selected memory/Nerve/cache persistence. PATH hiding alone is insufficient. Optional source-improvement dogfood is useful but no improved-CLI self-apply/promotion/host-release-root gate remains.
+Authorized disposable Pi-absent host → qualify binary without Go/Python/Node host tools (Docker/shell remain) → separate fresh target bootstrap → native setup/ordinary Compose → remove all installer checkout/binary/receipt artifacts from imports/subprocess/mount access → invoke generated launcher from unrelated cwd and raw native commands → restart → native administration and actual bounded same-card independent completion → restart again → addressable sessions/native logical history/actual selected memory/Nerve/cache persistence. PATH hiding alone is insufficient. Optional source-improvement dogfood is useful but no improved-CLI self-apply/promotion/host-release-root gate remains.
 
 Separate offline, credentialless authorized runtime and scoped actual inference evidence; none is claimed now. Keep interrupted bootstrap, stale lock, collision, scanner/pull failure, owner-edit and state-preserving native down/restart/rerun coverage. Historical September 26 Task 1 remains paused/superseded; this correction does not revive it.
