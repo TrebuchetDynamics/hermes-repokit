@@ -86,3 +86,15 @@ func privateDir(t *testing.T) string {
 	}
 	return p
 }
+
+func TestNativeReadableChildrenStayPrivateBehindRoot(t *testing.T) {
+	p := privateDir(t)
+	state := filepath.Join(p, ".hermes")
+	os.Mkdir(state, 0700)
+	os.Mkdir(filepath.Join(state, "profiles"), 0755)
+	os.WriteFile(filepath.Join(state, "config.yaml"), []byte("native config"), 0644)
+	id, _ := Resolve(p)
+	if issues := Inspect(id, ""); len(issues) != 0 {
+		t.Fatalf("private root protects native children: %v", issues)
+	}
+}

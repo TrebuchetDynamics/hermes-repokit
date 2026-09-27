@@ -79,7 +79,7 @@ func Inspect(id Identity, pathEnv string) []string {
 			if e != nil {
 				return e
 			}
-			if info.Mode()&os.ModeSymlink != 0 || (!info.IsDir() && !info.Mode().IsRegular()) || !owned(info) || info.Mode().Perm()&0077 != 0 {
+			if info.Mode()&os.ModeSymlink != 0 || (!info.IsDir() && !info.Mode().IsRegular()) || !owned(info) || info.Mode().Perm()&0022 != 0 || (p == state && info.Mode().Perm()&0077 != 0) {
 				issues = append(issues, "unsafe native path: "+strings.TrimPrefix(p, id.Root+"/"))
 			}
 			return nil

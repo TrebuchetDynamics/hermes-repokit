@@ -1,0 +1,1197 @@
+Warning: custom (unreviewed) source — not from the Hermes catalog.
+Cloning https://github.com/obra/superpowers.git...
+
+⚠ Security scan flagged this plugin:
+Scan: plugin (obra/superpowers/community)  Verdict: CAUTION
+  HIGH     persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:546 "- Modify: 
+`evals/CLAUDE.md` (drop SUPERPOWERS_ROOT setup ste"
+  HIGH     persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1068 "- Modify: 
+`CLAUDE.md` — add evals pointer"
+  HIGH     credential_exposure 
+docs/superpowers/plans/2026-06-11-visual-companion-final-hardening-fixup.md:331 
+"const preferredToken = 'abababababababababababababababab';"
+  HIGH     credential_exposure 
+docs/superpowers/plans/2026-06-11-visual-companion-final-hardening-fixup.md:387 
+"const explicitToken = 'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd';"
+  HIGH     persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:26 "5. Replace 
+hardcoded `CLAUDE.md` references with platform-ne"
+  HIGH     exfiltration   skills/systematic-debugging/SKILL.md:95 "env | grep 
+IDENTITY || echo "IDENTITY not in environment""
+  HIGH     persistence    tests/explicit-skill-requests/run-haiku-test.sh:27 "cp
+"$HOME/.claude/CLAUDE.md" "$PROJECT_DIR/.claude/CLAUDE.md"
+  MEDIUM   supply_chain   .opencode/INSTALL.md:108       "npm install 
+superpowers@git+https://github.com/obra/superpow"
+  MEDIUM   traversal      .opencode/plugins/superpowers.js:25 "const 
+superpowersSkillsDir = path.resolve(__dirname, '../../"
+  MEDIUM   traversal      .pi/extensions/superpowers.ts:10 "const packageRoot = 
+resolve(extensionDir, "../..");"
+  MEDIUM   supply_chain   README.md:294                  "git clone 
+https://github.com/obra/superpowers.git"
+  MEDIUM   supply_chain   docs/README.opencode.md:205    "npm install 
+superpowers@git+https://github.com/obra/superpow"
+  MEDIUM   traversal      docs/plans/2025-11-22-opencode-support-design.md:154 
+"const skillsCore = require('../../lib/skills-core');"
+  MEDIUM   traversal      docs/plans/2025-11-22-opencode-support-design.md:238 
+"- Import shared core from `../../lib/skills-core.js`"
+  MEDIUM   traversal      
+docs/plans/2025-11-22-opencode-support-implementation.md:466 "const skillsCore =
+require('../../lib/skills-core');"
+  MEDIUM   supply_chain   
+docs/plans/2025-11-22-opencode-support-implementation.md:783 "git clone 
+https://github.com/obra/superpowers.git ~/.config/"
+  MEDIUM   traversal      docs/plans/2026-01-17-visual-brainstorming.md:292 
+"const SERVER_PATH = path.join(__dirname, '../../lib/brainsto"
+  MEDIUM   supply_chain   docs/plans/2026-01-17-visual-brainstorming.md:395 
+"Run: `cd tests/brainstorm-server && npm install ws && node s"
+  MEDIUM   persistence    docs/porting-to-a-new-harness.md:70 
+"`trustedFolders.json`, a hand-edited `~/.bashrc`, etc.) to i"
+  MEDIUM   traversal      
+docs/superpowers/plans/2026-02-19-visual-brainstorming-refactor.md:331 
+"path.join(__dirname, '../../lib/brainstorm-server/frame-temp"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-03-11-zero-dep-brainstorm-server.md:391 "Run: `cd 
+tests/brainstorm-server && npm install && node serv"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:314 "assert 
+os.environ["SUPERPOWERS_ROOT"] == str(PROJECT_ROOT.pa"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:325 "assert 
+os.environ["SUPERPOWERS_ROOT"] == "/custom/path""
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:368 
+"os.environ.setdefault("SUPERPOWERS_ROOT", str(PROJECT_ROOT.p"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:374 "The 
+bottom-of-module call to `_set_superpowers_root_default("
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:397 "Existing env 
+values are respected as overrides via os.enviro"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:412 "The five 
+`claude*.yaml` backend configs interpolate `${SUPER"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:480 "os.environ 
+access, which the new cli.py default helper suppl"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:653 "If FAIL, debug 
+before continuing. The path-defaults change i"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:235 "uv run drill 
+list 2>&1 | head -5"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:332 "uv run pytest 
+tests/test_cli.py -k set_superpowers_root_defa"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:380 "uv run pytest 
+tests/test_cli.py -k set_superpowers_root_defa"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:467 "uv run pytest -x
+2>&1 | tail -20"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:496 "uv run pytest 
+tests/test_backend.py -v 2>&1 | tail -30"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:527 "uv run pytest -x
+2>&1 | tail -10"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:617 "uv run pytest 
+2>&1 | tail -5"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:627 "uv run drill 
+list 2>&1 | head -10"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:648 "uv run drill run
+triggering-test-driven-development -b claud"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1108 "uv run drill 
+run triggering-test-driven-development -b claud"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1170 "uv run pytest 
+2>&1 | tail -5"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1183 "uv run drill 
+run triggering-test-driven-development -b claud"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1368 "- [ ] `cd evals
+&& unset SUPERPOWERS_ROOT && uv run pytest` "
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1369 "- [ ] `cd evals
+&& unset SUPERPOWERS_ROOT && uv run drill li"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1370 "- [ ] `cd evals
+&& unset SUPERPOWERS_ROOT && uv run drill ru"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-07-pi-extension-and-evals.md:107 "Run: `uv run 
+pytest evals/tests/test_backend.py evals/tests/"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-07-pi-extension-and-evals.md:121 "Run: `uv run 
+pytest evals/tests/test_backend.py evals/tests/"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-07-pi-extension-and-evals.md:140 "uv run pytest 
+evals/tests/test_backend.py evals/tests/test_s"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:662 "uv run
+setup-helpers run scaffold_sdd_quality_defect_plan"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:697 "uv run
+quorum check"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:698 "uv run
+ruff check"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:699 "uv run
+pytest -x -q"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:747 "uv run
+quorum run scenarios/sdd-rejects-extra-features --cod"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:748 "uv run
+quorum run scenarios/sdd-go-fractals --coding-agent c"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:749 "uv run
+quorum run scenarios/sdd-svelte-todo --coding-agent c"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:750 "uv run
+quorum run scenarios/spec-reviewer-catches-planted-fl"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:758 "uv run
+quorum run scenarios/sdd-rejects-extra-features --cod"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:759 "uv run
+quorum run scenarios/sdd-go-fractals --coding-agent c"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:760 "uv run
+quorum run scenarios/sdd-svelte-todo --coding-agent c"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:761 "uv run
+quorum run scenarios/spec-reviewer-catches-planted-fl"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:762 "uv run
+quorum run scenarios/sdd-quality-reviewer-catches-pla"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:763 "uv run
+quorum show"
+  MEDIUM   persistence    
+docs/superpowers/plans/2026-06-09-visual-companion-issues.md:254 "simplest, 
+matches what the issue asks for, lives in `.zshrc`"
+  MEDIUM   execution      
+docs/superpowers/plans/2026-06-11-visual-companion-final-hardening-fixup.md:543 
+"When each test creates a `SESS="$(mktemp -d)"`, immediately "
+  MEDIUM   execution      
+docs/superpowers/plans/2026-07-06-sdd-plan-scoped-workspace.md:541 "`cat "$(git 
+rev-parse --show-toplevel)/.superpowers/sdd/prog"
+  MEDIUM   traversal      
+docs/superpowers/plans/2026-07-06-sdd-plan-scoped-workspace.md:91 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   execution      
+docs/superpowers/plans/2026-07-15-sdd-fix-loop-redesign.md:398 "`cat "$(git 
+rev-parse --show-toplevel)/.superpowers/sdd/prog"
+  MEDIUM   traversal      
+docs/superpowers/plans/2026-08-06-hermes-version-bump-wiring.md:74 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      
+docs/superpowers/plans/2026-08-27-diagnosing-superpowers.md:189 "REPO_ROOT="$(cd
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   exfiltration   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:121 "**YAML 
+substitution audit.** Only the four `claude*.yaml` ba"
+  MEDIUM   exfiltration   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:125 "| 
+`drill/cli.py` | `load_dotenv(PROJECT_ROOT / ".env")` at m"
+  MEDIUM   exfiltration   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:126 "| 
+`drill/engine.py:233`, `drill/setup.py:25` | Direct `os.en"
+  MEDIUM   exfiltration   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:127 "| 
+`backends/claude*.yaml` (5 files) | `${SUPERPOWERS_ROOT}` "
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:110 "| Drill's
+own pytest suite | Subagent runs `cd evals && uv r"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:133 "| 
+`evals/lefthook.yml` | drill ships `lefthook.yml` defining"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:172 "├─ Run 
+drill's own pytest: `cd evals && uv run pytest` — mus"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:173 "└─ Run 
+cheap drill scenario: `cd evals && uv run drill run"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:204 "├─ `cd 
+evals && uv run pytest`"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:205 "└─ `cd 
+evals && uv run drill run triggering-test-driven-deve"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:225 "- `cd 
+evals && uv run pytest` passes (drill's own pytest sui"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:226 "- `cd 
+evals && uv run drill list` returns the same scenario "
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:227 "- `cd 
+evals && uv run drill run triggering-test-driven-devel"
+  MEDIUM   execution      
+docs/superpowers/specs/2026-07-06-sdd-plan-scoped-workspace-eval-results.md:135 
+"`ci` commit counter was incremented inside `$(commit_file .."
+  MEDIUM   execution      
+docs/superpowers/specs/2026-07-06-sdd-plan-scoped-workspace-eval-results.md:262 
+"# called via command substitution, which forks a subshell, s"
+  MEDIUM   execution      
+docs/superpowers/specs/2026-07-06-sdd-plan-scoped-workspace.md:15 "> `cat "$(git
+rev-parse --show-toplevel)/.superpowers/sdd/pr"
+  MEDIUM   execution      docs/windows/polyglot-hooks.md:112 "- Use `$(command)`
+instead of backticks"
+  MEDIUM   supply_chain   scripts/sync-to-codex-plugin.sh:277 "git clone -q 
+--no-local "$DEST_REPO" "$PREVIEW_REPO""
+  MEDIUM   supply_chain   skills/writing-skills/anthropic-best-practices.md:1082
+""Install required package: `pip install pypdf`"
+  MEDIUM   traversal      tests/antigravity/test-antigravity-tools.sh:14 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/brainstorm-server/auth.test.js:22 "const 
+SERVER_PATH = path.join(__dirname, '../../skills/brain"
+  MEDIUM   credential_exposure tests/brainstorm-server/auth.test.js:26 "const 
+TOKEN = 'testtoken-0123456789abcdef0123456789abcdef';"
+  MEDIUM   traversal      tests/brainstorm-server/branding.test.js:11 "const 
+REPO_ROOT = path.join(__dirname, '../..');"
+  MEDIUM   credential_exposure tests/brainstorm-server/branding.test.js:16 
+"const TOKEN = 'testtoken-branding-0123456789abcdef';"
+  MEDIUM   traversal      tests/brainstorm-server/browser-launcher.test.js:4 "} 
+= require('../../skills/brainstorming/scripts/server.cjs')"
+  MEDIUM   traversal      tests/brainstorm-server/helper.test.js:13 "const 
+HELPER = path.join(__dirname, '../../skills/brainstorm"
+  MEDIUM   traversal      tests/brainstorm-server/lifecycle.test.js:18 "const 
+SERVER = path.join(__dirname, '../../skills/brainstorm"
+  MEDIUM   traversal      tests/brainstorm-server/lifecycle.test.js:19 "const 
+START = path.join(__dirname, '../../skills/brainstormi"
+  MEDIUM   traversal      tests/brainstorm-server/lifecycle.test.js:20 "const 
+STOP = path.join(__dirname, '../../skills/brainstormin"
+  MEDIUM   credential_exposure tests/brainstorm-server/lifecycle.test.js:250 
+"const token = 'efefefefefefefefefefefefefefefef';"
+  MEDIUM   credential_exposure tests/brainstorm-server/lifecycle.test.js:353 
+"const preferredToken = 'abababababababababababababababab';"
+  MEDIUM   credential_exposure tests/brainstorm-server/lifecycle.test.js:403 
+"const explicitToken = 'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd';"
+  MEDIUM   traversal      tests/brainstorm-server/server.test.js:18 "const 
+SERVER_PATH = path.join(__dirname, '../../skills/brain"
+  MEDIUM   traversal      tests/brainstorm-server/server.test.js:547 
+"path.join(__dirname, '../../skills/brainstorming/scripts/hel"
+  MEDIUM   traversal      tests/brainstorm-server/server.test.js:561 
+"path.join(__dirname, '../../skills/brainstorming/scripts/fra"
+  MEDIUM   credential_exposure tests/brainstorm-server/server.test.js:25 "const 
+TOKEN = 'testtoken-server-0123456789abcdef';"
+  MEDIUM   traversal      tests/brainstorm-server/start-server.test.sh:6 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/brainstorm-server/stop-server.test.sh:10 
+"STOP="$SCRIPT_DIR/../../skills/brainstorming/scripts/stop-se"
+  MEDIUM   traversal      tests/brainstorm-server/stop-server.test.sh:11 
+"SERVER="$SCRIPT_DIR/../../skills/brainstorming/scripts/serve"
+  MEDIUM   traversal      tests/brainstorm-server/windows-lifecycle.test.sh:22 
+"REPO_ROOT="${SUPERPOWERS_ROOT:-$(cd "$SCRIPT_DIR/../.." && p"
+  MEDIUM   traversal      tests/brainstorm-server/ws-protocol.test.js:19 "const 
+SERVER_PATH = path.join(__dirname, '../../skills/brain"
+  MEDIUM   traversal      tests/claude-code/run-skill-tests.sh:13 "echo 
+"Repository: $(cd ../.. && pwd)""
+  MEDIUM   traversal      tests/claude-code/test-executing-plans-scripts.sh:9 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/claude-code/test-sdd-workspace.sh:8 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      
+tests/claude-code/test-subagent-driven-development-integration.sh:160 
+"PLUGIN_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)"
+  MEDIUM   traversal      tests/claude-code/test-worktree-path-policy.sh:8 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/codex/test-marketplace-manifest.sh:5 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/codex/test-package-codex-plugin.sh:5 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   supply_chain   tests/codex/test-package-codex-plugin.sh:274 "git 
+clone -q --no-local "$REPO_ROOT" "$dirty_repo""
+  MEDIUM   traversal      tests/codex-plugin-sync/test-sync-to-codex-plugin.sh:5
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/devin/test-devin-plugin.sh:15 "REPO_ROOT="$(cd 
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/diagnosing-superpowers/test-skill-structure.sh:9
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      
+tests/explicit-skill-requests/run-extended-multiturn-test.sh:8 "PLUGIN_DIR="$(cd
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/explicit-skill-requests/run-haiku-test.sh:8 
+"PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/explicit-skill-requests/run-multiturn-test.sh:11
+"PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/explicit-skill-requests/run-test.sh:25 
+"PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/hermes/test_bootstrap.py:8 
+"os.path.join(os.path.dirname(__file__), "../../.hermes-plugi"
+  MEDIUM   traversal      tests/hermes/test_plugin.py:12 
+"os.path.join(os.path.dirname(__file__), "../../.hermes-plugi"
+  MEDIUM   traversal      tests/hooks/test-session-start.sh:5 "REPO_ROOT="$(cd 
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/kimi/test-plugin-manifest.sh:5 "REPO_ROOT="$(cd 
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/opencode/run-tests.sh:13 "echo "Repository: $(cd
+../.. && pwd)""
+  MEDIUM   traversal      tests/opencode/setup.sh:7      "REPO_ROOT="$(cd 
+"$(dirname "$0")/../.." && pwd)""
+  MEDIUM   traversal      tests/opencode/setup.sh:18     "#   
+$OPENCODE_CONFIG_DIR/superpowers/skills/      ← skills d"
+  MEDIUM   traversal      tests/opencode/test-session-bootstrap.sh:4 "node 
+"$SCRIPT_DIR/test-session-bootstrap.mjs" "$SCRIPT_DIR/."
+  MEDIUM   traversal      tests/shell-lint/test-lint-shell.sh:5 "REPO_ROOT="$(cd
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/systematic-debugging/test-find-polluter.sh:5 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/version-bump/test-bump-version.sh:5 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/writing-skills/test-render-graphs.sh:5 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  LOW      persistence    RELEASE-NOTES.md:17            "- Removed `CLAUDE.md`.
+Claude Code now reads `AGENTS.md` dir"
+  LOW      persistence    RELEASE-NOTES.md:75            "- **`AGENTS.md` is now
+the canonical contributor guidelines."
+  LOW      persistence    RELEASE-NOTES.md:254           "- **Codex** now 
+bootstraps through its own SessionStart hook"
+  LOW      persistence    RELEASE-NOTES.md:260           "The skills used to 
+speak Claude Code's dialect — "use the Ta"
+  LOW      persistence    RELEASE-NOTES.md:317           "Two new sections at 
+the top of `CLAUDE.md` (symlinked to `AG"
+  LOW      persistence    RELEASE-NOTES.md:652           "1. User's explicit 
+instructions (CLAUDE.md, AGENTS.md, direc"
+  LOW      persistence    RELEASE-NOTES.md:656           "If CLAUDE.md or 
+AGENTS.md says "don't use TDD" and a skill s"
+  LOW      persistence    RELEASE-NOTES.md:1062          "- Bootstrap 
+integration with minimal AGENTS.md for automatic"
+  LOW      persistence    docs/porting-to-a-new-harness.md:24 "- Read 
+`CLAUDE.md` and `.github/PULL_REQUEST_TEMPLATE.md` in"
+  LOW      persistence    docs/porting-to-a-new-harness.md:69 "global or 
+personal config (`~/.gemini/config/AGENTS.md`, `se"
+  LOW      persistence    docs/porting-to-a-new-harness.md:188 "directory? a 
+per-project or global instructions file (`AGENT"
+  LOW      persistence    docs/porting-to-a-new-harness.md:272 
+"`GEMINI.md`/`AGENTS.md`" for shipping your own (rule 2)."
+  LOW      persistence    docs/porting-to-a-new-harness.md:677 "| Native plugin 
+marketplace | Claude Code | Register in `.cl"
+  LOW      persistence    
+docs/superpowers/plans/2026-04-06-worktree-rototill.md:23 "- Read: 
+`skills/writing-skills/testing-skills-with-subagents"
+  LOW      persistence    
+docs/superpowers/plans/2026-04-06-worktree-rototill.md:34 "# Framework: 
+RED-GREEN-REFACTOR per testing-skills-with-suba"
+  LOW      persistence    
+docs/superpowers/plans/2026-04-06-worktree-rototill.md:845 "1. No references to 
+old behavior (hardcoded `CLAUDE.md`, int"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:542 "## Task 8: 
+Update evals/README.md and evals/CLAUDE.md"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:546 "- Modify: 
+`evals/CLAUDE.md` (drop SUPERPOWERS_ROOT setup ste"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:571 "- [ ] **Step 2: 
+Edit evals/CLAUDE.md**"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:600 "git add 
+evals/README.md evals/CLAUDE.md"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:965 "- Possibly 
+modify: `docs/testing.md`, `README.md`, `CLAUDE.m"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1002 "| `CLAUDE.md`, 
+`GEMINI.md`, `AGENTS.md` | Update if they ref"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1068 "- Modify: 
+`CLAUDE.md` — add evals pointer"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1114 "- [ ] **Step 2:
+Update CLAUDE.md**"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1116 "Read the 
+current CLAUDE.md, find a spot near the project str"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1148 "git add 
+docs/testing.md CLAUDE.md README.md .gitignore"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1152 "- CLAUDE.md 
+adds Eval harness section pointing at evals/"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1299 "- README.md 
+Contributing and CLAUDE.md gain pointers to eval"
+  LOW      persistence    
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:434 "Lives 
+in the `evals/` **submodule** (separate repo, `superpo"
+  LOW      persistence    
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:740 "Live 
+quorum runs launch agent CLIs in permissive modes — **t"
+  LOW      persistence    
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:774 "After 
+all tasks pass: the evals submodule commit needs to la"
+  LOW      persistence    
+docs/superpowers/plans/2026-07-15-sdd-fix-loop-redesign.md:1649 "experiment log 
+per CLAUDE.md's eval-evidence requirement."
+  LOW      persistence    
+docs/superpowers/plans/2026-07-30-codex-efficiency-fixes.md:231 
+"`~/.codex/config.toml` so any spawn that slips through still"
+  LOW      persistence    
+docs/superpowers/plans/2026-08-27-diagnosing-superpowers.md:1068 "the session 
+(CLAUDE.md, AGENTS.md, GEMINI.md, or the harness"
+  LOW      persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:26 "5. Replace 
+hardcoded `CLAUDE.md` references with platform-ne"
+  LOW      persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:113 "1. Check the 
+project's agent instruction file (CLAUDE.md, GE"
+  LOW      persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:265 "All instances
+of hardcoded `CLAUDE.md` in worktree-related s"
+  LOW      persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:267 "> "your 
+project's agent instruction file (CLAUDE.md, GEMINI."
+  LOW      persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:332 "- **Common 
+Mistakes sections**: Update or remove items that "
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:5 
+"Phase A (see `2026-05-05-platform-neutral-prose-design.md`) "
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:7 "The 
+plugin runs on multiple harnesses, and each one reads it"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:13 "1. 
+**`skills/writing-skills/SKILL.md:58`** — `Project-specif"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:14 "2. 
+**`skills/receiving-code-review/SKILL.md:30`** — `"You're"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:18 "- 
+**`skills/using-superpowers/SKILL.md:22, 26`** — instructi"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:20 "- 
+`skills/systematic-debugging/CREATION-LOG.md` — attributio"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:21 "- 
+`skills/writing-skills/examples/CLAUDE_MD_TESTING.md` — th"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:34 "- 
+**Before:** `Project-specific conventions (put in CLAUDE.m"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:37 "Use
+a generic phrase rather than picking one filename. Diffe"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:39 "###
+Rule 2: the "(explicit CLAUDE.md violation)" parenthetic"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:43 "- 
+**Before:** `"You're absolutely right!" (explicit CLAUDE.m"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:46 "The
+parenthetical is doing real work — it signals this phras"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:52 "1. 
+**`writing-skills/SKILL.md`** — CLAUDE.md → "your instruc"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:53 "2. 
+**`receiving-code-review/SKILL.md`** — CLAUDE.md → instru"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:54 "3. 
+**Platform-tools reference docs** — add the preferred per"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:71 "- 
+Do not touch the priority list ordering in `using-superpow"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-prose-design.md:22 "- 
+**Config-file references** — CLAUDE.md, AGENTS.md, GEMINI."
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-prose-design.md:27 "- 
+**Filename / URL references** — `CLAUDE.md`, `claude.com`,"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-prose-design.md:46 "- 
+Filenames and URLs: `CLAUDE.md`, `claude.com`, `~/.claude/"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-prose-design.md:62 "| 
+`skills/writing-skills/examples/CLAUDE_MD_TESTING.md` | ~1"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:16 "4. 
+Top-level docs (`README.md`, `CLAUDE.md`, `docs/testing.m"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:40 "CLAUDE.md 
+(was drill's CLAUDE.md; pa"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:70 "CLAUDE.md 
+← one-line "Eval harness"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:111 "| 
+Reference scrubbing after deletion | Subagent greps the en"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:131 "| 
+`evals/CLAUDE.md` | Same | Same |"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:140 "- 
+`superpowers/CLAUDE.md`: add a one-line pointer "Eval harn"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:166 "├─ Update
+evals/README.md and evals/CLAUDE.md (drop SUPERPOW"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:190 "│  
+CLAUDE.md, GEMINI.md, AGENTS.md, README.md, .github/, scr"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:200 "├─ 
+CLAUDE.md pointer"
+  LOW      persistence    
+docs/superpowers/specs/2026-07-30-codex-efficiency-fixes-design.md:187 
+"`.default_subagent_reasoning_effort` in `~/.codex/co"
+  LOW      persistence    
+docs/superpowers/specs/2026-08-27-diagnosing-superpowers-design.md:150 
+"(CLAUDE.md, AGENTS.md, GEMINI.md, and the like) listed by pa"
+  LOW      persistence    
+docs/superpowers/specs/2026-08-27-diagnosing-superpowers-design.md:200 
+"instructions conflicting with CLAUDE.md/AGENTS.md, requests "
+  LOW      persistence    scripts/sync-to-codex-plugin.sh:66 ""/AGENTS.md""
+  LOW      persistence    scripts/sync-to-codex-plugin.sh:68 ""/CLAUDE.md""
+  LOW      persistence    
+skills/diagnosing-superpowers/prompts/request-conflicts.md:13 "the session 
+(CLAUDE.md, AGENTS.md, GEMINI.md, or the harness"
+  LOW      persistence    skills/systematic-debugging/CREATION-LOG.md:7 
+"Extracted debugging framework from `~/.claude/CLAUDE.md`:"
+  LOW      persistence    skills/using-superpowers/SKILL.md:65 "User 
+instructions (CLAUDE.md, AGENTS.md, GEMINI.md, etc, dir"
+  LOW      persistence    skills/using-superpowers/references/codex-tools.md:3 
+"Add to your Codex config (`~/.codex/config.toml`):"
+  LOW      persistence    skills/using-superpowers/references/codex-tools.md:71 
+"`~/.codex/config.toml` so any spawn that slips through still"
+  LOW      persistence    skills/using-superpowers/references/hermes-tools.md:23
+"When a skill mentions "your instructions file," on Hermes Ag"
+  LOW      persistence    skills/using-superpowers/references/hermes-tools.md:23
+"When a skill mentions "your instructions file," on Hermes Ag"
+  LOW      persistence    skills/using-superpowers/references/muse-tools.md:23 
+"When a skill mentions "your instructions file", on Muse this"
+  LOW      persistence    skills/writing-skills/SKILL.md:589 "**Testing 
+methodology:** See [testing-skills-with-subagents."
+  LOW      persistence    skills/writing-skills/examples/CLAUDE_MD_TESTING.md:1 
+"# Testing CLAUDE.md Skills Documentation"
+  LOW      persistence    skills/writing-skills/examples/CLAUDE_MD_TESTING.md:67
+"No mention of skills in CLAUDE.md at all."
+  LOW      persistence    
+skills/writing-skills/testing-skills-with-subagents.md:15 "**Complete worked 
+example:** See examples/CLAUDE_MD_TESTING."
+  LOW      persistence    tests/claude-code/test-worktree-native-preference.sh:3
+"# Framework: RED-GREEN-REFACTOR per testing-skills-with-suba"
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:2 "# 
+Test with haiku model and user's CLAUDE.md"
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:18 
+"echo "=== Haiku Model Test with User CLAUDE.md ===""
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:25 "# 
+Copy user's CLAUDE.md to simulate real environment"
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:26 "if
+[ -f "$HOME/.claude/CLAUDE.md" ]; then"
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:27 "cp
+"$HOME/.claude/CLAUDE.md" "$PROJECT_DIR/.claude/CLAUDE.md"
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:28 
+"echo "Copied user CLAUDE.md""
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:30 
+"echo "No user CLAUDE.md found, proceeding without""
+
+Decision: BLOCKED — Blocked (community source + caution verdict, 229 findings). 
+Use --force to override.
+Blocked: Security scan blocked plugin install: Requires confirmation (caution 
+verdict, 229 findings)
+
+Scan: plugin (obra/superpowers/community)  Verdict: CAUTION
+  HIGH     persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:546 "- Modify: 
+`evals/CLAUDE.md` (drop SUPERPOWERS_ROOT setup ste"
+  HIGH     persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1068 "- Modify: 
+`CLAUDE.md` — add evals pointer"
+  HIGH     credential_exposure 
+docs/superpowers/plans/2026-06-11-visual-companion-final-hardening-fixup.md:331 
+"const preferredToken = 'abababababababababababababababab';"
+  HIGH     credential_exposure 
+docs/superpowers/plans/2026-06-11-visual-companion-final-hardening-fixup.md:387 
+"const explicitToken = 'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd';"
+  HIGH     persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:26 "5. Replace 
+hardcoded `CLAUDE.md` references with platform-ne"
+  HIGH     exfiltration   skills/systematic-debugging/SKILL.md:95 "env | grep 
+IDENTITY || echo "IDENTITY not in environment""
+  HIGH     persistence    tests/explicit-skill-requests/run-haiku-test.sh:27 "cp
+"$HOME/.claude/CLAUDE.md" "$PROJECT_DIR/.claude/CLAUDE.md"
+  MEDIUM   supply_chain   .opencode/INSTALL.md:108       "npm install 
+superpowers@git+https://github.com/obra/superpow"
+  MEDIUM   traversal      .opencode/plugins/superpowers.js:25 "const 
+superpowersSkillsDir = path.resolve(__dirname, '../../"
+  MEDIUM   traversal      .pi/extensions/superpowers.ts:10 "const packageRoot = 
+resolve(extensionDir, "../..");"
+  MEDIUM   supply_chain   README.md:294                  "git clone 
+https://github.com/obra/superpowers.git"
+  MEDIUM   supply_chain   docs/README.opencode.md:205    "npm install 
+superpowers@git+https://github.com/obra/superpow"
+  MEDIUM   traversal      docs/plans/2025-11-22-opencode-support-design.md:154 
+"const skillsCore = require('../../lib/skills-core');"
+  MEDIUM   traversal      docs/plans/2025-11-22-opencode-support-design.md:238 
+"- Import shared core from `../../lib/skills-core.js`"
+  MEDIUM   traversal      
+docs/plans/2025-11-22-opencode-support-implementation.md:466 "const skillsCore =
+require('../../lib/skills-core');"
+  MEDIUM   supply_chain   
+docs/plans/2025-11-22-opencode-support-implementation.md:783 "git clone 
+https://github.com/obra/superpowers.git ~/.config/"
+  MEDIUM   traversal      docs/plans/2026-01-17-visual-brainstorming.md:292 
+"const SERVER_PATH = path.join(__dirname, '../../lib/brainsto"
+  MEDIUM   supply_chain   docs/plans/2026-01-17-visual-brainstorming.md:395 
+"Run: `cd tests/brainstorm-server && npm install ws && node s"
+  MEDIUM   persistence    docs/porting-to-a-new-harness.md:70 
+"`trustedFolders.json`, a hand-edited `~/.bashrc`, etc.) to i"
+  MEDIUM   traversal      
+docs/superpowers/plans/2026-02-19-visual-brainstorming-refactor.md:331 
+"path.join(__dirname, '../../lib/brainstorm-server/frame-temp"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-03-11-zero-dep-brainstorm-server.md:391 "Run: `cd 
+tests/brainstorm-server && npm install && node serv"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:314 "assert 
+os.environ["SUPERPOWERS_ROOT"] == str(PROJECT_ROOT.pa"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:325 "assert 
+os.environ["SUPERPOWERS_ROOT"] == "/custom/path""
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:368 
+"os.environ.setdefault("SUPERPOWERS_ROOT", str(PROJECT_ROOT.p"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:374 "The 
+bottom-of-module call to `_set_superpowers_root_default("
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:397 "Existing env 
+values are respected as overrides via os.enviro"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:412 "The five 
+`claude*.yaml` backend configs interpolate `${SUPER"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:480 "os.environ 
+access, which the new cli.py default helper suppl"
+  MEDIUM   exfiltration   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:653 "If FAIL, debug 
+before continuing. The path-defaults change i"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:235 "uv run drill 
+list 2>&1 | head -5"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:332 "uv run pytest 
+tests/test_cli.py -k set_superpowers_root_defa"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:380 "uv run pytest 
+tests/test_cli.py -k set_superpowers_root_defa"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:467 "uv run pytest -x
+2>&1 | tail -20"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:496 "uv run pytest 
+tests/test_backend.py -v 2>&1 | tail -30"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:527 "uv run pytest -x
+2>&1 | tail -10"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:617 "uv run pytest 
+2>&1 | tail -5"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:627 "uv run drill 
+list 2>&1 | head -10"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:648 "uv run drill run
+triggering-test-driven-development -b claud"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1108 "uv run drill 
+run triggering-test-driven-development -b claud"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1170 "uv run pytest 
+2>&1 | tail -5"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1183 "uv run drill 
+run triggering-test-driven-development -b claud"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1368 "- [ ] `cd evals
+&& unset SUPERPOWERS_ROOT && uv run pytest` "
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1369 "- [ ] `cd evals
+&& unset SUPERPOWERS_ROOT && uv run drill li"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1370 "- [ ] `cd evals
+&& unset SUPERPOWERS_ROOT && uv run drill ru"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-07-pi-extension-and-evals.md:107 "Run: `uv run 
+pytest evals/tests/test_backend.py evals/tests/"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-07-pi-extension-and-evals.md:121 "Run: `uv run 
+pytest evals/tests/test_backend.py evals/tests/"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-05-07-pi-extension-and-evals.md:140 "uv run pytest 
+evals/tests/test_backend.py evals/tests/test_s"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:662 "uv run
+setup-helpers run scaffold_sdd_quality_defect_plan"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:697 "uv run
+quorum check"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:698 "uv run
+ruff check"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:699 "uv run
+pytest -x -q"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:747 "uv run
+quorum run scenarios/sdd-rejects-extra-features --cod"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:748 "uv run
+quorum run scenarios/sdd-go-fractals --coding-agent c"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:749 "uv run
+quorum run scenarios/sdd-svelte-todo --coding-agent c"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:750 "uv run
+quorum run scenarios/spec-reviewer-catches-planted-fl"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:758 "uv run
+quorum run scenarios/sdd-rejects-extra-features --cod"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:759 "uv run
+quorum run scenarios/sdd-go-fractals --coding-agent c"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:760 "uv run
+quorum run scenarios/sdd-svelte-todo --coding-agent c"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:761 "uv run
+quorum run scenarios/spec-reviewer-catches-planted-fl"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:762 "uv run
+quorum run scenarios/sdd-quality-reviewer-catches-pla"
+  MEDIUM   supply_chain   
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:763 "uv run
+quorum show"
+  MEDIUM   persistence    
+docs/superpowers/plans/2026-06-09-visual-companion-issues.md:254 "simplest, 
+matches what the issue asks for, lives in `.zshrc`"
+  MEDIUM   execution      
+docs/superpowers/plans/2026-06-11-visual-companion-final-hardening-fixup.md:543 
+"When each test creates a `SESS="$(mktemp -d)"`, immediately "
+  MEDIUM   execution      
+docs/superpowers/plans/2026-07-06-sdd-plan-scoped-workspace.md:541 "`cat "$(git 
+rev-parse --show-toplevel)/.superpowers/sdd/prog"
+  MEDIUM   traversal      
+docs/superpowers/plans/2026-07-06-sdd-plan-scoped-workspace.md:91 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   execution      
+docs/superpowers/plans/2026-07-15-sdd-fix-loop-redesign.md:398 "`cat "$(git 
+rev-parse --show-toplevel)/.superpowers/sdd/prog"
+  MEDIUM   traversal      
+docs/superpowers/plans/2026-08-06-hermes-version-bump-wiring.md:74 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      
+docs/superpowers/plans/2026-08-27-diagnosing-superpowers.md:189 "REPO_ROOT="$(cd
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   exfiltration   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:121 "**YAML 
+substitution audit.** Only the four `claude*.yaml` ba"
+  MEDIUM   exfiltration   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:125 "| 
+`drill/cli.py` | `load_dotenv(PROJECT_ROOT / ".env")` at m"
+  MEDIUM   exfiltration   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:126 "| 
+`drill/engine.py:233`, `drill/setup.py:25` | Direct `os.en"
+  MEDIUM   exfiltration   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:127 "| 
+`backends/claude*.yaml` (5 files) | `${SUPERPOWERS_ROOT}` "
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:110 "| Drill's
+own pytest suite | Subagent runs `cd evals && uv r"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:133 "| 
+`evals/lefthook.yml` | drill ships `lefthook.yml` defining"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:172 "├─ Run 
+drill's own pytest: `cd evals && uv run pytest` — mus"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:173 "└─ Run 
+cheap drill scenario: `cd evals && uv run drill run"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:204 "├─ `cd 
+evals && uv run pytest`"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:205 "└─ `cd 
+evals && uv run drill run triggering-test-driven-deve"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:225 "- `cd 
+evals && uv run pytest` passes (drill's own pytest sui"
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:226 "- `cd 
+evals && uv run drill list` returns the same scenario "
+  MEDIUM   supply_chain   
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:227 "- `cd 
+evals && uv run drill run triggering-test-driven-devel"
+  MEDIUM   execution      
+docs/superpowers/specs/2026-07-06-sdd-plan-scoped-workspace-eval-results.md:135 
+"`ci` commit counter was incremented inside `$(commit_file .."
+  MEDIUM   execution      
+docs/superpowers/specs/2026-07-06-sdd-plan-scoped-workspace-eval-results.md:262 
+"# called via command substitution, which forks a subshell, s"
+  MEDIUM   execution      
+docs/superpowers/specs/2026-07-06-sdd-plan-scoped-workspace.md:15 "> `cat "$(git
+rev-parse --show-toplevel)/.superpowers/sdd/pr"
+  MEDIUM   execution      docs/windows/polyglot-hooks.md:112 "- Use `$(command)`
+instead of backticks"
+  MEDIUM   supply_chain   scripts/sync-to-codex-plugin.sh:277 "git clone -q 
+--no-local "$DEST_REPO" "$PREVIEW_REPO""
+  MEDIUM   supply_chain   skills/writing-skills/anthropic-best-practices.md:1082
+""Install required package: `pip install pypdf`"
+  MEDIUM   traversal      tests/antigravity/test-antigravity-tools.sh:14 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/brainstorm-server/auth.test.js:22 "const 
+SERVER_PATH = path.join(__dirname, '../../skills/brain"
+  MEDIUM   credential_exposure tests/brainstorm-server/auth.test.js:26 "const 
+TOKEN = 'testtoken-0123456789abcdef0123456789abcdef';"
+  MEDIUM   traversal      tests/brainstorm-server/branding.test.js:11 "const 
+REPO_ROOT = path.join(__dirname, '../..');"
+  MEDIUM   credential_exposure tests/brainstorm-server/branding.test.js:16 
+"const TOKEN = 'testtoken-branding-0123456789abcdef';"
+  MEDIUM   traversal      tests/brainstorm-server/browser-launcher.test.js:4 "} 
+= require('../../skills/brainstorming/scripts/server.cjs')"
+  MEDIUM   traversal      tests/brainstorm-server/helper.test.js:13 "const 
+HELPER = path.join(__dirname, '../../skills/brainstorm"
+  MEDIUM   traversal      tests/brainstorm-server/lifecycle.test.js:18 "const 
+SERVER = path.join(__dirname, '../../skills/brainstorm"
+  MEDIUM   traversal      tests/brainstorm-server/lifecycle.test.js:19 "const 
+START = path.join(__dirname, '../../skills/brainstormi"
+  MEDIUM   traversal      tests/brainstorm-server/lifecycle.test.js:20 "const 
+STOP = path.join(__dirname, '../../skills/brainstormin"
+  MEDIUM   credential_exposure tests/brainstorm-server/lifecycle.test.js:250 
+"const token = 'efefefefefefefefefefefefefefefef';"
+  MEDIUM   credential_exposure tests/brainstorm-server/lifecycle.test.js:353 
+"const preferredToken = 'abababababababababababababababab';"
+  MEDIUM   credential_exposure tests/brainstorm-server/lifecycle.test.js:403 
+"const explicitToken = 'cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd';"
+  MEDIUM   traversal      tests/brainstorm-server/server.test.js:18 "const 
+SERVER_PATH = path.join(__dirname, '../../skills/brain"
+  MEDIUM   traversal      tests/brainstorm-server/server.test.js:547 
+"path.join(__dirname, '../../skills/brainstorming/scripts/hel"
+  MEDIUM   traversal      tests/brainstorm-server/server.test.js:561 
+"path.join(__dirname, '../../skills/brainstorming/scripts/fra"
+  MEDIUM   credential_exposure tests/brainstorm-server/server.test.js:25 "const 
+TOKEN = 'testtoken-server-0123456789abcdef';"
+  MEDIUM   traversal      tests/brainstorm-server/start-server.test.sh:6 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/brainstorm-server/stop-server.test.sh:10 
+"STOP="$SCRIPT_DIR/../../skills/brainstorming/scripts/stop-se"
+  MEDIUM   traversal      tests/brainstorm-server/stop-server.test.sh:11 
+"SERVER="$SCRIPT_DIR/../../skills/brainstorming/scripts/serve"
+  MEDIUM   traversal      tests/brainstorm-server/windows-lifecycle.test.sh:22 
+"REPO_ROOT="${SUPERPOWERS_ROOT:-$(cd "$SCRIPT_DIR/../.." && p"
+  MEDIUM   traversal      tests/brainstorm-server/ws-protocol.test.js:19 "const 
+SERVER_PATH = path.join(__dirname, '../../skills/brain"
+  MEDIUM   traversal      tests/claude-code/run-skill-tests.sh:13 "echo 
+"Repository: $(cd ../.. && pwd)""
+  MEDIUM   traversal      tests/claude-code/test-executing-plans-scripts.sh:9 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/claude-code/test-sdd-workspace.sh:8 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      
+tests/claude-code/test-subagent-driven-development-integration.sh:160 
+"PLUGIN_DIR=$(cd "$SCRIPT_DIR/../.." && pwd)"
+  MEDIUM   traversal      tests/claude-code/test-worktree-path-policy.sh:8 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/codex/test-marketplace-manifest.sh:5 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/codex/test-package-codex-plugin.sh:5 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   supply_chain   tests/codex/test-package-codex-plugin.sh:274 "git 
+clone -q --no-local "$REPO_ROOT" "$dirty_repo""
+  MEDIUM   traversal      tests/codex-plugin-sync/test-sync-to-codex-plugin.sh:5
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/devin/test-devin-plugin.sh:15 "REPO_ROOT="$(cd 
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/diagnosing-superpowers/test-skill-structure.sh:9
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      
+tests/explicit-skill-requests/run-extended-multiturn-test.sh:8 "PLUGIN_DIR="$(cd
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/explicit-skill-requests/run-haiku-test.sh:8 
+"PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/explicit-skill-requests/run-multiturn-test.sh:11
+"PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/explicit-skill-requests/run-test.sh:25 
+"PLUGIN_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/hermes/test_bootstrap.py:8 
+"os.path.join(os.path.dirname(__file__), "../../.hermes-plugi"
+  MEDIUM   traversal      tests/hermes/test_plugin.py:12 
+"os.path.join(os.path.dirname(__file__), "../../.hermes-plugi"
+  MEDIUM   traversal      tests/hooks/test-session-start.sh:5 "REPO_ROOT="$(cd 
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/kimi/test-plugin-manifest.sh:5 "REPO_ROOT="$(cd 
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/opencode/run-tests.sh:13 "echo "Repository: $(cd
+../.. && pwd)""
+  MEDIUM   traversal      tests/opencode/setup.sh:7      "REPO_ROOT="$(cd 
+"$(dirname "$0")/../.." && pwd)""
+  MEDIUM   traversal      tests/opencode/setup.sh:18     "#   
+$OPENCODE_CONFIG_DIR/superpowers/skills/      ← skills d"
+  MEDIUM   traversal      tests/opencode/test-session-bootstrap.sh:4 "node 
+"$SCRIPT_DIR/test-session-bootstrap.mjs" "$SCRIPT_DIR/."
+  MEDIUM   traversal      tests/shell-lint/test-lint-shell.sh:5 "REPO_ROOT="$(cd
+"$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/systematic-debugging/test-find-polluter.sh:5 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/version-bump/test-bump-version.sh:5 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  MEDIUM   traversal      tests/writing-skills/test-render-graphs.sh:5 
+"REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)""
+  LOW      persistence    RELEASE-NOTES.md:17            "- Removed `CLAUDE.md`.
+Claude Code now reads `AGENTS.md` dir"
+  LOW      persistence    RELEASE-NOTES.md:75            "- **`AGENTS.md` is now
+the canonical contributor guidelines."
+  LOW      persistence    RELEASE-NOTES.md:254           "- **Codex** now 
+bootstraps through its own SessionStart hook"
+  LOW      persistence    RELEASE-NOTES.md:260           "The skills used to 
+speak Claude Code's dialect — "use the Ta"
+  LOW      persistence    RELEASE-NOTES.md:317           "Two new sections at 
+the top of `CLAUDE.md` (symlinked to `AG"
+  LOW      persistence    RELEASE-NOTES.md:652           "1. User's explicit 
+instructions (CLAUDE.md, AGENTS.md, direc"
+  LOW      persistence    RELEASE-NOTES.md:656           "If CLAUDE.md or 
+AGENTS.md says "don't use TDD" and a skill s"
+  LOW      persistence    RELEASE-NOTES.md:1062          "- Bootstrap 
+integration with minimal AGENTS.md for automatic"
+  LOW      persistence    docs/porting-to-a-new-harness.md:24 "- Read 
+`CLAUDE.md` and `.github/PULL_REQUEST_TEMPLATE.md` in"
+  LOW      persistence    docs/porting-to-a-new-harness.md:69 "global or 
+personal config (`~/.gemini/config/AGENTS.md`, `se"
+  LOW      persistence    docs/porting-to-a-new-harness.md:188 "directory? a 
+per-project or global instructions file (`AGENT"
+  LOW      persistence    docs/porting-to-a-new-harness.md:272 
+"`GEMINI.md`/`AGENTS.md`" for shipping your own (rule 2)."
+  LOW      persistence    docs/porting-to-a-new-harness.md:677 "| Native plugin 
+marketplace | Claude Code | Register in `.cl"
+  LOW      persistence    
+docs/superpowers/plans/2026-04-06-worktree-rototill.md:23 "- Read: 
+`skills/writing-skills/testing-skills-with-subagents"
+  LOW      persistence    
+docs/superpowers/plans/2026-04-06-worktree-rototill.md:34 "# Framework: 
+RED-GREEN-REFACTOR per testing-skills-with-suba"
+  LOW      persistence    
+docs/superpowers/plans/2026-04-06-worktree-rototill.md:845 "1. No references to 
+old behavior (hardcoded `CLAUDE.md`, int"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:542 "## Task 8: 
+Update evals/README.md and evals/CLAUDE.md"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:546 "- Modify: 
+`evals/CLAUDE.md` (drop SUPERPOWERS_ROOT setup ste"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:571 "- [ ] **Step 2: 
+Edit evals/CLAUDE.md**"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:600 "git add 
+evals/README.md evals/CLAUDE.md"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:965 "- Possibly 
+modify: `docs/testing.md`, `README.md`, `CLAUDE.m"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1002 "| `CLAUDE.md`, 
+`GEMINI.md`, `AGENTS.md` | Update if they ref"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1068 "- Modify: 
+`CLAUDE.md` — add evals pointer"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1114 "- [ ] **Step 2:
+Update CLAUDE.md**"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1116 "Read the 
+current CLAUDE.md, find a spot near the project str"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1148 "git add 
+docs/testing.md CLAUDE.md README.md .gitignore"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1152 "- CLAUDE.md 
+adds Eval harness section pointing at evals/"
+  LOW      persistence    
+docs/superpowers/plans/2026-05-06-lift-drill-into-evals.md:1299 "- README.md 
+Contributing and CLAUDE.md gain pointers to eval"
+  LOW      persistence    
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:434 "Lives 
+in the `evals/` **submodule** (separate repo, `superpo"
+  LOW      persistence    
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:740 "Live 
+quorum runs launch agent CLIs in permissive modes — **t"
+  LOW      persistence    
+docs/superpowers/plans/2026-06-09-sdd-task-scoped-review-dispatch.md:774 "After 
+all tasks pass: the evals submodule commit needs to la"
+  LOW      persistence    
+docs/superpowers/plans/2026-07-15-sdd-fix-loop-redesign.md:1649 "experiment log 
+per CLAUDE.md's eval-evidence requirement."
+  LOW      persistence    
+docs/superpowers/plans/2026-07-30-codex-efficiency-fixes.md:231 
+"`~/.codex/config.toml` so any spawn that slips through still"
+  LOW      persistence    
+docs/superpowers/plans/2026-08-27-diagnosing-superpowers.md:1068 "the session 
+(CLAUDE.md, AGENTS.md, GEMINI.md, or the harness"
+  LOW      persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:26 "5. Replace 
+hardcoded `CLAUDE.md` references with platform-ne"
+  LOW      persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:113 "1. Check the 
+project's agent instruction file (CLAUDE.md, GE"
+  LOW      persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:265 "All instances
+of hardcoded `CLAUDE.md` in worktree-related s"
+  LOW      persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:267 "> "your 
+project's agent instruction file (CLAUDE.md, GEMINI."
+  LOW      persistence    
+docs/superpowers/specs/2026-04-06-worktree-rototill-design.md:332 "- **Common 
+Mistakes sections**: Update or remove items that "
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:5 
+"Phase A (see `2026-05-05-platform-neutral-prose-design.md`) "
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:7 "The 
+plugin runs on multiple harnesses, and each one reads it"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:13 "1. 
+**`skills/writing-skills/SKILL.md:58`** — `Project-specif"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:14 "2. 
+**`skills/receiving-code-review/SKILL.md:30`** — `"You're"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:18 "- 
+**`skills/using-superpowers/SKILL.md:22, 26`** — instructi"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:20 "- 
+`skills/systematic-debugging/CREATION-LOG.md` — attributio"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:21 "- 
+`skills/writing-skills/examples/CLAUDE_MD_TESTING.md` — th"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:34 "- 
+**Before:** `Project-specific conventions (put in CLAUDE.m"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:37 "Use
+a generic phrase rather than picking one filename. Diffe"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:39 "###
+Rule 2: the "(explicit CLAUDE.md violation)" parenthetic"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:43 "- 
+**Before:** `"You're absolutely right!" (explicit CLAUDE.m"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:46 "The
+parenthetical is doing real work — it signals this phras"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:52 "1. 
+**`writing-skills/SKILL.md`** — CLAUDE.md → "your instruc"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:53 "2. 
+**`receiving-code-review/SKILL.md`** — CLAUDE.md → instru"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:54 "3. 
+**Platform-tools reference docs** — add the preferred per"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-config-refs-design.md:71 "- 
+Do not touch the priority list ordering in `using-superpow"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-prose-design.md:22 "- 
+**Config-file references** — CLAUDE.md, AGENTS.md, GEMINI."
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-prose-design.md:27 "- 
+**Filename / URL references** — `CLAUDE.md`, `claude.com`,"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-prose-design.md:46 "- 
+Filenames and URLs: `CLAUDE.md`, `claude.com`, `~/.claude/"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-05-platform-neutral-prose-design.md:62 "| 
+`skills/writing-skills/examples/CLAUDE_MD_TESTING.md` | ~1"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:16 "4. 
+Top-level docs (`README.md`, `CLAUDE.md`, `docs/testing.m"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:40 "CLAUDE.md 
+(was drill's CLAUDE.md; pa"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:70 "CLAUDE.md 
+← one-line "Eval harness"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:111 "| 
+Reference scrubbing after deletion | Subagent greps the en"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:131 "| 
+`evals/CLAUDE.md` | Same | Same |"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:140 "- 
+`superpowers/CLAUDE.md`: add a one-line pointer "Eval harn"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:166 "├─ Update
+evals/README.md and evals/CLAUDE.md (drop SUPERPOW"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:190 "│  
+CLAUDE.md, GEMINI.md, AGENTS.md, README.md, .github/, scr"
+  LOW      persistence    
+docs/superpowers/specs/2026-05-06-lift-drill-into-evals-design.md:200 "├─ 
+CLAUDE.md pointer"
+  LOW      persistence    
+docs/superpowers/specs/2026-07-30-codex-efficiency-fixes-design.md:187 
+"`.default_subagent_reasoning_effort` in `~/.codex/co"
+  LOW      persistence    
+docs/superpowers/specs/2026-08-27-diagnosing-superpowers-design.md:150 
+"(CLAUDE.md, AGENTS.md, GEMINI.md, and the like) listed by pa"
+  LOW      persistence    
+docs/superpowers/specs/2026-08-27-diagnosing-superpowers-design.md:200 
+"instructions conflicting with CLAUDE.md/AGENTS.md, requests "
+  LOW      persistence    scripts/sync-to-codex-plugin.sh:66 ""/AGENTS.md""
+  LOW      persistence    scripts/sync-to-codex-plugin.sh:68 ""/CLAUDE.md""
+  LOW      persistence    
+skills/diagnosing-superpowers/prompts/request-conflicts.md:13 "the session 
+(CLAUDE.md, AGENTS.md, GEMINI.md, or the harness"
+  LOW      persistence    skills/systematic-debugging/CREATION-LOG.md:7 
+"Extracted debugging framework from `~/.claude/CLAUDE.md`:"
+  LOW      persistence    skills/using-superpowers/SKILL.md:65 "User 
+instructions (CLAUDE.md, AGENTS.md, GEMINI.md, etc, dir"
+  LOW      persistence    skills/using-superpowers/references/codex-tools.md:3 
+"Add to your Codex config (`~/.codex/config.toml`):"
+  LOW      persistence    skills/using-superpowers/references/codex-tools.md:71 
+"`~/.codex/config.toml` so any spawn that slips through still"
+  LOW      persistence    skills/using-superpowers/references/hermes-tools.md:23
+"When a skill mentions "your instructions file," on Hermes Ag"
+  LOW      persistence    skills/using-superpowers/references/hermes-tools.md:23
+"When a skill mentions "your instructions file," on Hermes Ag"
+  LOW      persistence    skills/using-superpowers/references/muse-tools.md:23 
+"When a skill mentions "your instructions file", on Muse this"
+  LOW      persistence    skills/writing-skills/SKILL.md:589 "**Testing 
+methodology:** See [testing-skills-with-subagents."
+  LOW      persistence    skills/writing-skills/examples/CLAUDE_MD_TESTING.md:1 
+"# Testing CLAUDE.md Skills Documentation"
+  LOW      persistence    skills/writing-skills/examples/CLAUDE_MD_TESTING.md:67
+"No mention of skills in CLAUDE.md at all."
+  LOW      persistence    
+skills/writing-skills/testing-skills-with-subagents.md:15 "**Complete worked 
+example:** See examples/CLAUDE_MD_TESTING."
+  LOW      persistence    tests/claude-code/test-worktree-native-preference.sh:3
+"# Framework: RED-GREEN-REFACTOR per testing-skills-with-suba"
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:2 "# 
+Test with haiku model and user's CLAUDE.md"
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:18 
+"echo "=== Haiku Model Test with User CLAUDE.md ===""
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:25 "# 
+Copy user's CLAUDE.md to simulate real environment"
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:26 "if
+[ -f "$HOME/.claude/CLAUDE.md" ]; then"
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:27 "cp
+"$HOME/.claude/CLAUDE.md" "$PROJECT_DIR/.claude/CLAUDE.md"
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:28 
+"echo "Copied user CLAUDE.md""
+  LOW      persistence    tests/explicit-skill-requests/run-haiku-test.sh:30 
+"echo "No user CLAUDE.md found, proceeding without""
+
+Decision: BLOCKED — Blocked (community source + caution verdict, 229 findings). 
+Use --force to override.
+Review the findings above. Install only plugins from sources you trust. 
+(Scanning can be configured via plugins.scan_on_install in config.yaml.)
