@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 	"io"
 	"os"
@@ -29,7 +30,7 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		fmt.Fprintln(stderr, "target collisions:", strings.Join(report.Collisions, "; "))
 		return 1
 	}
-	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()})
+	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, UID: os.Getuid(), GID: os.Getgid()})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -40,11 +41,17 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		return 1
 	}
 	artifacts := map[string]install.Artifact{
-		"compose.yaml":        {Data: data, Mode: 0600},
-		"config.yaml":         {Data: []byte("kanban:\n  dispatch_in_gateway: false\n  auto_decompose: false\n  orchestrator_profile: default\n  max_in_progress: 1\ntoolsets: [kanban, memory]\nplatform_toolsets:\n  cli: [kanban, memory]\nterminal:\n  cwd: /workspace\n"), Mode: 0600},
-		"bin/" + id.Container: {Data: script, Mode: 0700},
+		"compose.yaml":          {Data: data, Mode: 0600},
+		"config.yaml":           {Data: []byte("kanban:\n  dispatch_in_gateway: false\n  auto_decompose: false\n  orchestrator_profile: default\n  max_in_progress: 1\ntoolsets: [kanban, memory]\nplatform_toolsets:\n  cli: [kanban, memory]\nterminal:\n  cwd: /workspace\n"), Mode: 0600},
+		"bin/" + id.Container:   {Data: script, Mode: 0700},
+		"openviking/.gitignore": {Data: []byte("*\n"), Mode: 0600},
 	}
-	created, err := install.PublishChecked(id, artifacts, func() error {
+	previousCompose, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()})
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	created, err := install.PublishOpenVikingChecked(id, artifacts, previousCompose, func() error {
 		current := a.plan(id, false)
 		if len(current.Collisions) > 0 {
 			return fmt.Errorf("target changed: %s", strings.Join(current.Collisions, "; "))
@@ -62,7 +69,7 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		return 1
 	}
 	if created {
-		fmt.Fprintln(stdout, "Created Hermes-only bootstrap artifacts.")
+		fmt.Fprintln(stdout, "Created Hermes and OpenViking bootstrap artifacts; memory configuration is pending.")
 	} else {
 		fmt.Fprintln(stdout, "Preserved existing Hermes deployment and native configuration.")
 	}
@@ -71,6 +78,9 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 	}
 	fmt.Fprintln(stdout, "Start Hermes with ordinary Compose:")
 	fmt.Fprintln(stdout, launcher.StartCommand(id.Compose, report.DockerContext))
+	fmt.Fprintln(stdout, "Start OpenViking with ordinary Compose (unconfigured service remains pending):")
+	fmt.Fprintln(stdout, launcher.StartMemoryCommand(id.Compose, report.DockerContext))
+	fmt.Fprintln(stdout, "After private default setup, run hermes-repokit setup --memory in your terminal.")
 	fmt.Fprintln(stdout, "After starting Hermes, run setup to configure default and provision the generic team. Rerun install to reconcile existing generated profiles.")
 	return 0
 }

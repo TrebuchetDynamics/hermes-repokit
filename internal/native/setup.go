@@ -14,6 +14,18 @@ import (
 
 func Setup(launcherPath, compose, dockerContext string, stdin io.Reader, stdout, stderr io.Writer) int {
 	cmd := exec.Command(launcherPath, "-p", "default", "setup")
+	code := runTerminal(cmd, stdin, stdout, stderr)
+	if code != 0 {
+		if dockerContext != "" {
+			fmt.Fprintf(stderr, "\nIf Hermes is stopped, start it with: %s\n", launcher.StartCommand(compose, dockerContext))
+		} else {
+			fmt.Fprintln(stderr, "Native launcher was modified; inspect its Docker context before starting Compose.")
+		}
+	}
+	return code
+}
+
+func runTerminal(cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.Writer) int {
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
@@ -40,12 +52,6 @@ func Setup(launcherPath, compose, dockerContext string, stdin io.Reader, stdout,
 	if err == nil {
 		return 0
 	}
-	if dockerContext != "" {
-		fmt.Fprintf(stderr, "\nIf Hermes is stopped, start it with: %s\n", launcher.StartCommand(compose, dockerContext))
-	} else {
-		fmt.Fprintln(stderr, "Native launcher was modified; inspect its Docker context before starting Compose.")
-	}
-
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
 		if s, ok := exit.Sys().(syscall.WaitStatus); ok && s.Signaled() {

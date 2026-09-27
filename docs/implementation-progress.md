@@ -45,14 +45,22 @@ future native initializer subprocesses need inherited locking before wiring.
 
 ## Outstanding, in order
 
-1. Foundation complete: real CLI plan/install/verify/rerun and source/binary removal were exercised with the pinned Hermes image. Offline tests also exercise setup delegation and receipt removal. No optional integration is enabled by this result.
-2. Next, admit exact Superpowers SHA/findings after explicit user approval and qualify actual native loading. Never promote scanner success from mocks.
-3. Historical Phase 7 used blank engineering profiles. The current six-role scaffold instead uses post-setup native config clones with fresh identity/memory, dispatch/decomposition off and existing profiles preserved. See [Phase 7 native evidence](qualification/phase7-native.md).
-4. Qualify Nerve catalog revision/scanner/profile loading and its Laya sidecar transport/checkpoint. Current upstream rejects `http://laya:8765`; choose and qualify a supported transport, do not invent another protocol.
-5. Finish official OpenViking scaffold/native provider configuration and operator handoff; actual model setup needs provider/model/budget selection and private native credential entry.
-6. Prove distinct same-card executor/reviewer actors. Add native policy only if an enforcement gap is demonstrated.
-7. Complete read-only component-specific evidence/probes, installation failure/recovery matrix and full authorized integration matrix.
-8. Perform the full removal-first release gate, then source dogfood, then release-qualified builds/checksums on both supported architectures.
+1. Finish live OpenViking qualification. The installer now scaffolds the pinned
+   official service, safely upgrades exact generated Hermes-only Compose, and
+   delegates private native configuration through `setup --memory`. Pending-mode
+   persistence is qualified; actual embedding/extraction/auth setup, cross-role
+   recall and cross-repository denial remain open. See
+   [wiring evidence](qualification/openviking-wiring.md).
+2. Promote the separately qualified local Nerve/Laya tuple into reproducible
+   generated Compose and pinned all-profile plugin configuration. Keep local-only
+   failure behavior and qualify restart/loss plus future specialists.
+3. Prove a real model-driven default → executor → reviewer correction cycle and
+   distinct same-card actors. Add native policy only for a demonstrated gap.
+4. Complete removal-first release acceptance and full self-dogfood. Controlled
+   development dogfood is preparation, not a release-gate claim.
+5. Resolve the exact Superpowers scanner admission independently. Its 229 CAUTION
+   findings require the explicit decision already recorded; they do not block
+   safe OpenViking or Nerve/Laya implementation.
 
 ## Scope and evidence rulings
 
@@ -79,7 +87,7 @@ The reviewer checked the fix and found no additional actionable issue.
   rerunning install on the running pinned deployment performs native initialization.
   An absent/stopped service never causes an implicit start.
 - Current ruling: the six-role roster is the default; `--engineering` is a
-  compatibility alias. Superpowers/Nerve/Laya/OpenViking deployment remains
+  compatibility alias. Superpowers/Nerve/Laya deployment and live OpenViking acceptance remain
   deferred; profile selection does not imply those integrations are installed.
 - Ruling: acquire the writer lock inside Docker for native operations. A host
   lock inherited by the Docker client does not cover surviving daemon-owned exec
@@ -105,4 +113,5 @@ Actual local typed Laya and native Nerve consumption passed in a separate
 disposable offline fixture. Production sidecar packaging/wiring and six-profile
 supervision remain unfinished. OpenViking needs real embedding/extraction
 configuration before live recall/isolation/persistence qualification. Full team
-acceptance and self-dogfood remain pending; no production integration was enabled.
+acceptance and release-qualification self-dogfood remain pending. OpenViking
+scaffolding now exists; its live integration acceptance is still open.

@@ -95,8 +95,8 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "openviking") || strings.Contains(string(data), "laya") {
-		t.Fatal("unexpected sidecar")
+	if !strings.Contains(string(data), "openviking") || strings.Contains(string(data), "laya") {
+		t.Fatal("unexpected sidecar selection")
 	}
 	r.runtime = fmt.Sprintf(`{"status":"running","image":%q,"project":%q,"workspace":%q,"home":%q}`, qualification.FoundationImage, r.id.Project, r.id.Root, filepath.Join(r.id.Root, ".hermes"))
 	if code, _, _ = invoke(t, a, "verify"); code == 0 {

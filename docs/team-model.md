@@ -120,9 +120,15 @@ Nerve and Laya are infrastructure, never extra profiles. Nerve must be installed
 disabled, configured for verified local Laya, and only then enabled. Hosted Jev
 fallback is forbidden. Do not create a competing task-status database.
 
-The installer currently provisions the native roster; it does **not** yet
-provision or activate OpenViking/Nerve/Laya. Plans expose proposed shared memory
-configuration without applying it. See [memory qualification](qualification/generic-team-memory.md)
+The installer provisions the native roster and scaffolds the official OpenViking
+service. It enables no provider during installation. After private native setup,
+`setup --memory` checks the effective connection under every profile's native
+secret scope, requires a normal repository user key, and links the same private
+native connection store across the six roles. Future specialists cloned from
+default inherit that link; steward must check their effective identity and peer
+overrides before use. Nerve/Laya deployment and live memory acceptance remain
+pending. See [wiring evidence](qualification/openviking-wiring.md),
+[memory qualification](qualification/generic-team-memory.md)
 and the [acceptance matrix](qualification/generic-team.md). Full team completion
 and RepoKit self-dogfood remain gated on the live integration evidence.
 

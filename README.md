@@ -37,7 +37,9 @@ Rerun `install` to initialize the shared board and inspect/reconcile an already
 provisioned team. `--engineering` remains a compatibility alias; the universal
 roster is now the default. Newly cloned profiles receive distinct SOULs and fresh
 curated memory. Existing user changes and unknown profiles are preserved.
-OpenViking and Nerve/Laya deployment remain pending integration qualification.
+Installation also scaffolds the pinned official OpenViking sidecar. Its private
+model/auth configuration and live memory qualification remain pending;
+Nerve/Laya deployment remains separate integration work.
 No PATH link or shell configuration change is automatic.
 
 Without a PATH link, the standalone command is
@@ -58,6 +60,7 @@ my-project/
     ├── compose.yaml
     ├── bin/hermes-my-project
     ├── config.yaml
+    ├── openviking/             # native service configuration and durable data
     └── .gitignore              # ignores all native state, including credentials
 ```
 
@@ -92,11 +95,15 @@ gates are implemented; it does not validate credentials. An edited Compose/launc
 | Hermes | Official immutable image tested for Compose startup, native exec, profiles, Kanban initialization and restart persistence. Authenticated chat/setup remain pending. |
 | Superpowers | Upstream `obra/superpowers`; exact candidate SHA received 229 CAUTION findings. Installation is blocked pending explicit approval of the [scanner report](docs/qualification/superpowers-8ca22dba-scan.txt). |
 | Nerve/Laya | Upstream plugin and its supported sidecar only. Pinned local CPU inference, native plugin consumption and offline recreation passed in a disposable fixture; installer sidecar deployment and all-role supervision remain pending. See [evidence](docs/qualification/generic-team-laya.md). |
-| OpenViking | Official image and native Hermes provider. Native setup handoff observed; embedding/VLM configuration, write/recall and isolation evidence remain pending. |
+| OpenViking | Pinned official sidecar, private persistent directory, native `setup --memory` handoff and shared connection linking. Pending-mode/recreation qualified; embedding/VLM setup, live write/recall and isolation remain pending. See [wiring evidence](docs/qualification/openviking-wiring.md). |
 | Same-card review | Native Hermes plus Nerve first. Distinct executor/reviewer actors must be proved before release; no speculative policy plugin. |
 
-OpenViking is not installed by the foundation. Its planned native integration
-can synchronize turns/tool results and extract memory automatically. Embedding/VLM configuration determines where model data
+OpenViking is scaffolded without guessed models or credentials. Start its service
+with the printed Compose command, then use `hermes-repokit setup --memory` in
+your private terminal after default/team setup. Follow the
+[native setup handoff](docs/bootstrap-quickstart.md#openviking-configuration).
+Its native integration can synchronize turns/tool results and extract memory
+automatically. Embedding/VLM configuration determines where model data
 is processed. RepoKit delegates credentials to native setup and does not impose
 invented durable-only memory semantics.
 
@@ -119,6 +126,7 @@ removing a disposable Docker project using the pinned official Hermes image:
 
 ```sh
 REPOKIT_DOCKER_TESTS=1 go test -tags=docker ./tests/acceptance -run TestDockerFoundation -v
+REPOKIT_DOCKER_TESTS=1 go test -tags=docker ./tests/acceptance -run TestDockerOpenVikingPending -v
 ```
 
 That fixture proves only credential-free foundation behavior. It does not

@@ -52,8 +52,11 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	flags.SetOutput(io.Discard)
 	flags.Usage = func() {}
 	engineering := false
+	memorySetup := false
 	if args[0] != "setup" {
 		flags.BoolVar(&engineering, "engineering", false, "legacy alias; generic team is the default")
+	} else {
+		flags.BoolVar(&memorySetup, "memory", false, "private native OpenViking setup and shared profile connection")
 	}
 	err := flags.Parse(args[1:])
 	if errors.Is(err, flag.ErrHelp) && len(args) == 2 && (args[1] == "-h" || args[1] == "--help") {
@@ -78,11 +81,18 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	}
 	switch args[0] {
 	case "setup":
+		if memorySetup && !native.InteractiveInput(a.Stdin) {
+			fmt.Fprintln(stderr, "Run setup --memory in your private terminal; credentials must remain in native setup.")
+			return 1
+		}
 		if issues := target.Inspect(id, ""); len(issues) > 0 {
 			fmt.Fprintln(stderr, "unsafe native state:", strings.Join(issues, "; "))
 			return 1
 		}
 		dockerContext, _ := launcher.Context(id)
+		if memorySetup {
+			return a.setupMemory(id, dockerContext, stdout, stderr)
+		}
 		if code := native.Setup(id.Launcher, id.Compose, dockerContext, a.Stdin, stdout, stderr); code != 0 {
 			return code
 		}
@@ -97,8 +107,8 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			probes = append(probes, verify.Probe{Component: "git", Status: verify.Degraded, Detail: strings.Join(issues, "; ")})
 		}
 		probes = append(probes, verify.Profiles(id)...)
+		probes = append(probes, verify.OpenViking(context.Background(), id, a.Runner)...)
 		probes = append(probes,
-			verify.Probe{Component: "openviking", Status: verify.Unknown, Detail: "shared memory write/recall, isolation and persistence acceptance not established"},
 			verify.Probe{Component: "nerve-laya", Status: verify.Unknown, Detail: "local inference fixture qualified; this deployment's all-profile supervision and sidecar lifecycle not established"},
 		)
 		if err := json.NewEncoder(stdout).Encode(probes); err != nil {
@@ -141,11 +151,12 @@ type Plan struct {
 }
 
 func (a App) plan(id target.Identity, engineering bool) Plan {
-	p := Plan{Target: id, Collisions: target.Inspect(id, a.Path), CandidateImages: map[string]string{"hermes": qualification.FoundationImage}, Profiles: []string{"default"}, Plugins: []string{}, Kanban: map[string]any{"dispatch_in_gateway": false, "auto_decompose": false, "orchestrator_profile": "default", "max_in_progress": 1}, OpenViking: "pending private native embedding/VLM setup and live memory qualification", NerveLaya: "pending qualified local sidecar deployment", ProposedChanges: []string{"private .hermes native state", "standalone Hermes-only Compose and launcher", "native safe-default config; operator starts Compose and runs setup"}}
+	p := Plan{Target: id, Collisions: target.Inspect(id, a.Path), CandidateImages: map[string]string{"hermes": qualification.FoundationImage, "openviking": projectmemory.Image}, Profiles: []string{"default"}, Plugins: []string{}, Kanban: map[string]any{"dispatch_in_gateway": false, "auto_decompose": false, "orchestrator_profile": "default", "max_in_progress": 1}, OpenViking: "pending private native embedding/VLM setup and live memory qualification", NerveLaya: "pending qualified local sidecar deployment", ProposedChanges: []string{"private .hermes native state", "standalone Hermes/OpenViking Compose and launcher", "native safe-default config; operator starts Compose and runs setup"}}
 
 	p.ProposedMemoryConfig, _ = projectmemory.NativeConfig(id.Project)
 	p.ProposedNerveSettings = supervision.LocalLayaSettings()
 	p.NerveRevision = supervision.NerveRevision
+	p.ProposedChanges = append(p.ProposedChanges, "private persistent OpenViking service; native setup required before memory activation")
 	p.Profiles = nil
 	for _, role := range team.Roster() {
 		p.Profiles = append(p.Profiles, role.Name)
@@ -154,7 +165,7 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 
 	if _, err := os.Lstat(filepath.Join(id.Root, ".hermes")); err == nil {
 		p.ExistingState = true
-		p.ProposedChanges = []string{"inspect and preserve existing native configuration; refuse ambiguous adoption", "initialize missing native Kanban in the running qualified container"}
+		p.ProposedChanges = []string{"inspect and preserve existing native configuration; refuse ambiguous adoption", "initialize missing native Kanban in the running qualified container", "upgrade only recognized Hermes-only Compose to include OpenViking; preserve native state and back up old Compose"}
 		p.ProposedChanges = append(p.ProposedChanges, "reconcile the six native team profiles after default setup; preserve user drift and unknown profiles; integrations remain pending")
 	}
 	ctx := context.Background()
@@ -208,5 +219,6 @@ func recognized(command string) bool {
 }
 func usage(w io.Writer) {
 	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify> [--engineering] [--help]")
+	fmt.Fprintln(w, "       hermes-repokit setup --memory")
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }

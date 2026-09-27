@@ -1,6 +1,6 @@
 # Bootstrap quickstart and native handoff
 
-The Hermes-only foundation is available. `plan` inspects without writing;
+The Hermes foundation and OpenViking service scaffold are available. `plan` inspects without writing;
 `install` publishes Compose, native defaults and a standalone launcher. It prints
 the exact Compose start command, including the selected Docker context.
 
@@ -20,7 +20,7 @@ The default roster is default/researcher/planner/executor/reviewer/steward.
 a real interactive terminal before cloning missing specialists. Existing
 profile edits are preserved and reported as drift. `default` is the normal user
 entry point; it delegates team changes to steward. See the [team model](team-model.md).
-Plugins and sidecars remain separate qualification work. No PATH link or shell rc edit
+Nerve/Laya and live memory remain separate qualification work. No PATH link or shell rc edit
 is automatic. The repository basename determines the full launcher/container
 name; collisions refuse rather than silently adding suffixes.
 
@@ -50,27 +50,77 @@ is an operator action and still needs full release qualification.
 Image pulls retain the stored immutable digest; updating a digest requires
 new qualification, not a moving `latest` deployment.
 
-## Later OpenViking configuration (not installed by the foundation)
+## OpenViking configuration
 
-Once upstream integration qualification is complete, the planned official service mounts `.hermes/openviking` at `/app/.openviking` and
-publishes no host port. When provisioned, run native setup in that service:
+Normal installation includes the pinned official v0.4.21 sidecar and a private
+`.hermes/openviking` directory mounted at `/app/.openviking`. No host port is
+published. Installation never starts it or activates the Hermes memory provider.
+The official entrypoint returns HTTP 503 until native configuration exists.
+
+For an existing installation, rerun `install`. Only byte-for-byte recognized
+Hermes-only Compose is upgraded, with the original saved as
+`.hermes/compose.hermes-only.yaml`. Edited Compose, unknown sidecar data and
+conflicting backups are preserved and refused. Native profiles and credentials
+are not replaced. A previous exact backup permits resuming interrupted directory
+preparation. Start the sidecar with the context-specific command printed by
+`install`, then complete private default setup and the six-role scaffold.
+
+In your own terminal:
+
+```sh
+hermes-repokit setup --memory
+```
+
+This delegates to native `openviking-server init` only when `ov.conf` is absent,
+then native `openviking-server doctor`, then
+`hermes -p default memory setup openviking`. Existing server configuration is
+preserved. Doctor may call your configured model services; this is deliberate
+setup behavior. `verify` never performs those calls. A failed or cancelled step
+leaves native state available for inspection and a later rerun.
+
+During native server setup, select remote binding `0.0.0.0`, port `1933` and
+API-key authentication. Configure actual embedding and extraction/VLM providers
+and credentials. Confirm `storage.workspace` is `/app/.openviking/data`; all
+service data must stay in that persistent mount. No model or budget is selected
+by RepoKit. Keep automatic extraction enabled. Local storage does not imply
+that your chosen models run locally.
+
+Before completing the Hermes wizard, use OpenViking's native admin API inside
+the service network to create account `repokit` and a normal user whose ID is
+the repository identity printed by `plan` and `setup --memory`. The selected
+server exposes `POST /api/v1/admin/accounts` with `account_id` and
+`admin_user_id`, followed by `POST /api/v1/admin/accounts/repokit/users` with
+`user_id` and `role: user`. These are native admin operations using the private
+server root/admin key; their returned keys stay in your terminal/native state.
+Do not give the root or account-admin key to Hermes. Existing accounts/users
+must be inspected rather than recreated or silently rotated. See the pinned
+[upstream admin API](https://github.com/volcengine/OpenViking/blob/3fca2577520f00b7f580d85d4ac6ae42bb9ba6f1/openviking/server/routers/admin.py).
+
+In the Hermes wizard, choose **Custom URL**, endpoint
+`http://openviking:1933`, the normal repository user key and **Mirror to
+OpenViking store**. Use no agent/peer. On reruns select the existing shared
+connection instead of making another one. The private native connection file
+lives below `/opt/data/.openviking` and remains authoritative after RepoKit is
+removed. RepoKit links its path through native config commands; it does not
+copy keys into six profile files.
+
+Before updating specialists, RepoKit checks all six effective native secret
+scopes and the server-derived account/user/role. Owner-selected providers or
+conflicting connection paths cause refusal. Built-in local memory remains
+enabled. Partial native config writes are preserved and can be inspected with
+native commands; RepoKit does not roll back credential state.
+
+To repair server configuration manually, use the same captured Docker context:
 
 ```sh
 docker compose --env-file /dev/null -f .hermes/compose.yaml exec openviking openviking-server init
 docker compose --env-file /dev/null -f .hermes/compose.yaml exec openviking openviking-server doctor
-.hermes/bin/hermes-my-project memory setup openviking
 ```
 
-The pinned v0.4.21 wizard reports `/app/.openviking/data` as its default durable
-workspace. Confirm `storage.workspace` is explicitly set to that absolute path
-in its `ov.conf`. Embedding and VLM setup are required; use the native wizard
-for credentials. Hermes uses `memory.provider: openviking` and endpoint
-`http://openviking:1933`. Configure native authorization; namespace strings are
-not access control. Real cross-repository denial is an outstanding release gate.
-
-This is separate from Hermes provider/chat setup. Native session sync and
-automatic memory extraction are accepted behavior. A 503 pending-configuration
-response or missing provider is not successful memory operation.
+Native synchronization and automatic extraction are intended behavior. Successful
+setup, a healthy service or a working resolver is not proof of durable recall.
+Real cross-profile write/recall, restart persistence and cross-repository denial
+remain the [live qualification gate](qualification/generic-team-memory.md).
 
 ## Qualification boundaries
 

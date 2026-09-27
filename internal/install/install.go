@@ -25,16 +25,22 @@ type Artifact struct {
 // state or spawn a native initializer. Future native subprocesses must hold
 // an explicitly inherited installer lock across their whole lifetime.
 func Publish(id target.Identity, files map[string]Artifact, prepare func() error) (bool, error) {
-	return publish(id, files, prepare, nil)
+	return publish(id, files, prepare, nil, nil)
 }
 
 // PublishChecked rechecks external read-only inventory while holding the same
 // publication lock, including on no-op reruns. The check must not mutate state.
 func PublishChecked(id target.Identity, files map[string]Artifact, check func() error) (bool, error) {
-	return publish(id, files, nil, check)
+	return publish(id, files, nil, check, nil)
 }
 
-func publish(id target.Identity, files map[string]Artifact, prepare, check func() error) (bool, error) {
+// PublishOpenVikingChecked additionally accepts exactly the former generated
+// Hermes-only Compose as an upgrade preimage. Native configuration is preserved.
+func PublishOpenVikingChecked(id target.Identity, files map[string]Artifact, previousCompose []byte, check func() error) (bool, error) {
+	return publish(id, files, nil, check, previousCompose)
+}
+
+func publish(id target.Identity, files map[string]Artifact, prepare, check func() error, previousCompose []byte) (bool, error) {
 	for name, a := range files {
 		if !fs.ValidPath(name) || name == "." || strings.Contains(name, "\\") || a.Mode.Perm()&0077 != 0 || !a.Mode.IsRegular() {
 			return false, fmt.Errorf("unsafe generated artifact")
@@ -83,10 +89,19 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 			}
 		}
 
-		for _, name := range []string{"compose.yaml", "bin/" + id.Container} {
+		for _, name := range []string{"bin/" + id.Container, "compose.yaml"} {
 			b, e := root.ReadFile(".hermes/" + name)
 			if e != nil || !bytes.Equal(b, files[name].Data) {
+				if e == nil && name == "compose.yaml" && len(previousCompose) > 0 && bytes.Equal(b, previousCompose) {
+					return addOpenViking(root, id, rootInfo, lockInfo, previousCompose, files[name].Data)
+				}
 				return false, fmt.Errorf("existing native deployment differs or is incomplete; refusing automatic adoption")
+			}
+		}
+		if _, selected := files["openviking/.gitignore"]; selected {
+			info, err := root.Lstat(".hermes/openviking")
+			if err != nil || !info.IsDir() {
+				return false, fmt.Errorf("OpenViking data directory absent; preserve native state and inspect before repair")
 			}
 		}
 		return false, nil

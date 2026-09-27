@@ -54,16 +54,25 @@ services:
 	if o.OpenVikingImage != "" {
 		fmt.Fprintf(&s, `  openviking:
     image: %q
+    user: %q
     restart: unless-stopped
     environment:
+      HOME: /app/.openviking
+      OPENVIKING_CONFIG_FILE: /app/.openviking/ov.conf
       OPENVIKING_WITH_BOT: "0"
+    healthcheck:
+      test: ["CMD", "openviking-entrypoint", "--healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     volumes:
       - type: bind
         source: "./openviking"
         target: /app/.openviking
         bind:
           create_host_path: false
-`, o.OpenVikingImage)
+`, o.OpenVikingImage, fmt.Sprintf("%d:%d", o.UID, o.GID))
 	}
 	return []byte(s.String()), nil
 }

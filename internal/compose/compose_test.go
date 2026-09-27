@@ -17,7 +17,7 @@ func TestRenderIsPinnedIsolatedAndStandalone(t *testing.T) {
 			t.Errorf("missing %q\n%s", part, out)
 		}
 	}
-	for _, part := range []string{"ports:", "latest", "privileged:", "docker.sock", "user:"} {
+	for _, part := range []string{"ports:", "latest", "privileged:", "docker.sock"} {
 		if strings.Contains(string(out), part) {
 			t.Errorf("unexpected %q", part)
 		}

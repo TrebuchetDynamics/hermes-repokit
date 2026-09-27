@@ -2,7 +2,7 @@
 
 ## Current stage
 
-The Go Hermes-only foundation is usable; **full v1 is not complete**. `plan`, `install`, native `setup` delegation and read-only metadata `verify` work. Installation publishes files and prints the ordinary Compose start command. The real CLI and generated deployment passed credential-free removal/restart acceptance. Native Kanban initialization and the six-role universal scaffold are implemented; see the [current acceptance matrix](docs/qualification/generic-team.md). Superpowers and optional sidecars remain unqualified.
+The Go Hermes-only foundation is usable; **full v1 is not complete**. `plan`, `install`, native `setup` delegation and read-only metadata `verify` work. Installation publishes files and prints the ordinary Compose start command. The real CLI and generated deployment passed credential-free removal/restart acceptance. Native Kanban initialization and the six-role universal scaffold are implemented; see the [current acceptance matrix](docs/qualification/generic-team.md). The official OpenViking scaffold and native configuration handoff are implemented; live memory, Superpowers and production Nerve/Laya remain unqualified.
 
 The [design](docs/superpowers/specs/2026-09-27-repokit-bootstrap-design.md) and [phase plan](docs/superpowers/plans/2026-09-27-repokit-bootstrap.md) follow the final upstream-first directive. The scope correction was committed separately as `a90381b`, before further implementation. Earlier runtime-manager/A–G plans must not execute. See [implementation evidence and remaining work](docs/implementation-progress.md).
 
@@ -19,7 +19,7 @@ A phase stays unchecked when its required qualification or runtime evidence is i
 - [x] 6: native setup delegation with inherited streams and context-correct recovery guidance.
 - [ ] 7: native Kanban/default config and six-role native clone scaffold implemented; full integration acceptance pending; exact Superpowers approval and fresh-session loading pending.
 - [ ] 8: upstream Nerve and its supported Laya sidecar.
-- [ ] 9: official OpenViking scaffold/native provider handoff and actual memory qualification.
+- [ ] 9: official OpenViking scaffold/native provider handoff implemented; private embedding/extraction/auth configuration and live memory qualification pending. See [wiring evidence](docs/qualification/openviking-wiring.md).
 - [ ] 10: same-card distinct executor/reviewer actor qualification; tiny policy only for a demonstrated actor-independence gap.
 - [ ] 11: four-command foundation implemented; optional component initialization/verification incomplete.
 - [x] 12: product README, native quickstart and development build documentation.

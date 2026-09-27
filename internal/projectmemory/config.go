@@ -11,6 +11,10 @@ import (
 const Endpoint = "http://openviking:1933"
 const Account = "repokit"
 
+// Image is the official v0.4.21 service qualified for native configuration and
+// pending-setup behavior. It does not establish model-backed memory acceptance.
+const Image = "ghcr.io/volcengine/openviking@sha256:569193efd49ad15a818c98ca66bfb566d1726713f1f3ec9c488b97fa66757d05"
+
 var nativeIdentity = regexp.MustCompile(`^[A-Za-z0-9_.@-]+$`)
 
 // NativeConfig returns the native Hermes memory section for every team profile.

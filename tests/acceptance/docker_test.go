@@ -25,6 +25,9 @@ import (
 //go:embed fixtures/team_lifecycle.py
 var teamLifecycle string
 
+//go:embed fixtures/memory_link.py
+var memoryLinkFixture string
+
 // This proves credential-free foundation behavior only. It is deliberately not
 // named the removal-first release gate: no paid chat, review or memory is faked.
 func TestDockerFoundation(t *testing.T) {
@@ -173,7 +176,7 @@ func TestDockerFoundation(t *testing.T) {
 		t.Fatalf("full acceptance falsely certified: %v %s", verifyErr, output)
 	}
 	for _, p := range probes {
-		if p.Component == "openviking" || p.Component == "nerve-laya" {
+		if strings.HasPrefix(p.Component, "openviking") || p.Component == "nerve-laya" {
 			if p.Status == verify.Healthy {
 				t.Fatal("integration falsely certified")
 			}
@@ -225,6 +228,13 @@ func TestDockerFoundation(t *testing.T) {
 			t.Fatal("role memory changed")
 		}
 	}
+	// Exercise the actual pinned native config setters and per-profile resolver.
+	// This fixture never contacts a memory service or claims authenticated recall.
+	memorySource, err := os.ReadFile("../../internal/native/memory.py")
+	if err != nil {
+		t.Fatal(err)
+	}
+	docker("exec", "-T", "--user", "hermes", "--env", "HOME=/opt/data", "hermes", "python", "-c", string(memorySource)+"\n"+memoryLinkFixture)
 	lifecycle := func(action, profile string) {
 		home := "/opt/data"
 		if profile != "default" {

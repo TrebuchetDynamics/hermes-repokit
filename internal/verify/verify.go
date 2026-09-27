@@ -8,6 +8,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
@@ -88,6 +89,8 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 		expected, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()})
 		if err == nil && matchesCompose(id, expected) {
 			artifact = Probe{"compose", Healthy, "generated Hermes-only Compose matches this repository"}
+		} else if expected, err = compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, UID: os.Getuid(), GID: os.Getgid()}); err == nil && matchesCompose(id, expected) {
+			artifact = Probe{"compose", Healthy, "generated Hermes/OpenViking Compose matches this repository"}
 		}
 	}
 	board := Probe{"kanban", PendingSetup, "native board absent; after Compose start rerun install"}

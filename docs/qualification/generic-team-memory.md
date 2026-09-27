@@ -73,7 +73,7 @@ acceptance needs an owner-supplied native `ov.conf` containing:
 | `storage.workspace` | `/app/.openviking/data`, backed by this repository's durable OpenViking directory. |
 | `memory.extraction_enabled` | `true` (also the pinned default). |
 | `server` | API-key authentication and a private root/bootstrap credential, used only to provision the account and normal repository user key. |
-| Hermes native secret scope | The repository user key via `OPENVIKING_API_KEY`, available to each role without adding peer isolation. |
+| Hermes native secret scope | A normal repository user key in the native mirrored connection under `/opt/data/.openviking`, linked by all six profiles without peer isolation. Conflicting `OPENVIKING_*` overrides must be reconciled in native setup. |
 
 Provider-specific fields such as API version, custom headers or access-key pairs
 must come from the actual chosen provider; no provider, model, private URL or
@@ -116,3 +116,11 @@ executed assertions above use the pinned images. Relevant source references:
 [VLM schema](https://github.com/volcengine/OpenViking/blob/3fca2577520f00b7f580d85d4ac6ae42bb9ba6f1/openviking_cli/utils/config/vlm_config.py),
 [memory schema](https://github.com/volcengine/OpenViking/blob/3fca2577520f00b7f580d85d4ac6ae42bb9ba6f1/openviking_cli/utils/config/memory_config.py),
 [API-key identity](https://github.com/volcengine/OpenViking/blob/3fca2577520f00b7f580d85d4ac6ae42bb9ba6f1/openviking/server/auth/plugins/api_key.py).
+
+## Production wiring follow-up
+
+Normal install now generates the pinned sidecar and private persistent directory;
+`setup --memory` delegates native server/connection setup and links the shared
+native connection across the roster. See [wiring evidence](openviking-wiring.md).
+The original resolver probes above remain configuration evidence; live memory
+rows are still pending.
