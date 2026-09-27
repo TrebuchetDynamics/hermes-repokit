@@ -2,7 +2,7 @@
 
 Date: 2026-09-27. **Source review, not runtime qualification or deployment approval.**
 
-This is the concise evidence companion to the [team-runtime design](../superpowers/specs/2026-09-27-repokit-team-runtime-design.md). The research inspected upstream source and package/model metadata without installing dependencies, executing upstream code, downloading weights, running Docker or invoking inference. No deployed stack, image digest, model budget or capability boundary has been qualified.
+This is the concise evidence companion to the [bootstrap design](../superpowers/specs/2026-09-27-repokit-bootstrap-design.md). The research inspected upstream source and package/model metadata without installing dependencies, executing upstream code, downloading weights, running Docker or invoking inference. No deployed stack, image digest, model budget or capability boundary has been qualified.
 
 ## Research revisions versus release selections
 
