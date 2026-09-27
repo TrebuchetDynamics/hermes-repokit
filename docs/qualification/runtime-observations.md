@@ -32,3 +32,23 @@ Image was pulled; setup, doctor and actual memory operation are not yet qualifie
 ## Outstanding gates
 
 Exact image exec UID/HOME, native setup terminal behavior, scanner approval/loading, OpenViking setup/storage/authorization, Nerve catalog pin and Laya transport/checkpoint, actual typed inference, distinct same-card run actors, removal-first acceptance and dogfood remain unproved. No offline fixture or successful pull satisfies these gates.
+
+## Additional executed evidence
+
+The environment-gated Go Docker foundation fixture passed in 9.08 seconds,
+creating its own disposable repository/project and cleaning it with Compose
+`down`. It validated generated Compose, native `--version`, board initialization
+from unrelated cwd and board file identity across raw Compose restart.
+
+`hermes profile describe builder --text TEXT`, `hermes setup --help` and
+`hermes memory setup --help` also succeeded. The official exec shim source
+inside the selected image exports HOME=/opt/data and drops root to `hermes`;
+the resulting board/profile files are owned by host UID/GID 1000:1000.
+
+OpenViking v0.4.21 started with its official entrypoint and no host-published
+port. **`openviking-server init --help` enters the wizard at this version**;
+it does not behave as a read-only help probe. It reported durable workspace
+`/app/.openviking/data`, cancelled without an API key, and reported missing
+configuration/embedding/VLM through its doctor output. No credentials were
+provided and no model operation was executed. This command must never be used
+by `verify`.

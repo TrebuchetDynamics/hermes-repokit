@@ -1,154 +1,108 @@
 # Hermes RepoKit
 
-Bootstrap a repository-specific, Docker-based Hermes Agent environment.
+Bootstrap a repository-specific Docker Hermes environment.
 
-RepoKit is being built to configure Docker Compose, private `.hermes` state,
-Kanban, plugins and a convenient `hermes-<repo>` launcher. After installation,
-the environment should keep working without RepoKit.
+RepoKit configures Docker Compose, private `.hermes` state, native Kanban,
+plugins, optional engineering profiles, OpenViking memory and Nerve/Laya
+supervision. After bootstrap, RepoKit is not required.
 
-**Early development — no usable installer yet.** The Go CLI skeleton,
-qualification contracts and unit tests exist. All four actions currently report
-`command not implemented`. The workflow and generated environment below are
-planned. See [current progress](TODO.md).
-
-## Why RepoKit?
-
-Setting up Hermes separately for each repository means repeating Compose,
-mounts, persistent state, plugin and launcher configuration. RepoKit aims to
-make that setup reproducible.
-
-**RepoKit is not a Hermes runtime or replacement CLI.** It is a bootstrap and
-configuration helper. Standard Docker Compose owns the deployment; native
-Hermes owns chat, profiles, Kanban and plugins. Removing RepoKit must not stop
-either from working.
-
-## Quick start — planned
-
-The intended handoff moves from the installer to your repository's native
-Hermes launcher:
+**In development; v1 is not complete.** `plan`, read-only `verify`, and delegation
+of `setup` to an existing generated launcher work. Compose rendering, atomic
+publication and the standalone launcher have offline tests and a credential-free
+Docker acceptance test. **`install` currently refuses before writing:** no full
+preset has passed upstream admission and the removal-first release gate.
 
 ```sh
 cd my-project
-
 hermes-repokit plan
-hermes-repokit install
-hermes-repokit setup
-hermes-my-project
+hermes-repokit install          # currently reports qualification blockers
+hermes-repokit setup            # requires a generated, running deployment
+hermes-my-project              # requires an explicitly authorized PATH link
 ```
 
-These are not working installation instructions yet. The generated service
-must be running, and the short command requires an approved PATH shortcut;
-otherwise use `.hermes/bin/hermes-my-project` directly.
-
-The launcher will open native Hermes chat without arguments and pass explicit
-arguments unchanged:
+Engineering preset (not yet admitted):
 
 ```sh
-hermes-my-project                 # native chat
-hermes-my-project setup           # native setup
-hermes-my-project kanban list     # native Kanban command
+hermes-repokit install --engineering
 ```
 
-Native command support must be checked against the selected Hermes version.
-RepoKit does not implement those commands.
+Without a PATH link, the standalone command is
+`.hermes/bin/hermes-my-project`. It opens native Hermes chat with no arguments
+and forwards explicit arguments unchanged:
 
-## What gets created — planned
+```sh
+.hermes/bin/hermes-my-project setup
+.hermes/bin/hermes-my-project kanban list
+.hermes/bin/hermes-my-project plugins list
+```
+
+## What RepoKit leaves behind
 
 ```text
 my-project/
-├── source…
-└── .hermes/                       private persistent Hermes state
+└── .hermes/
     ├── compose.yaml
+    ├── bin/hermes-my-project
     ├── config.yaml
-    ├── bin/hermes-my-project      standalone shell launcher
     ├── profiles/
     ├── plugins/
-    └── …                         native Kanban, sessions and credentials
-
-              │ RepoKit configures
-              ▼
-       Docker / Hermes
-       ├── /workspace  ← my-project/
-       └── /opt/data   ← my-project/.hermes/
-
-Host command: hermes-my-project
+    ├── kanban.db
+    ├── openviking/
+    ├── nerve/
+    ├── laya/                    # engineering/Nerve-Laya preset
+    └── repokit-install.json     # optional, informational
 ```
 
-The baseline will provide one Hermes container per repository, the native
-default profile, persistent Kanban and the native `obra/superpowers` plugin.
-Kanban starts conservatively: automatic dispatch and decomposition are off.
-Sensitive `.hermes` state is intended to stay private and excluded from Git.
+Exactly one Hermes container mounts the repository at `/workspace` and native
+state at `/opt/data`. OpenViking and optional Laya are separate services.
+Standard Compose owns the runtime. Native files remain authoritative; missing
+or corrupt receipts never authorize overwriting configuration.
 
-## RepoKit commands
+Fresh deployments start with dispatch and automatic decomposition disabled.
+Engineering adds researcher, planner, builder and reviewer profiles when
+qualified; it does not enable autonomous work or clone credentials.
 
-All four are currently skeletons. Their planned responsibilities are:
+## Integration status
 
-| Command | Purpose |
+| Component | Direction and evidence |
 | --- | --- |
-| `hermes-repokit plan` | Show proposed configuration without changes. |
-| `hermes-repokit install` | Bootstrap the environment; preserve owner edits on safe reruns. |
-| `hermes-repokit setup` | Delegate directly to native Hermes setup. |
-| `hermes-repokit verify` | Report read-only observations; leave unsupported checks unknown. |
+| Hermes | Official immutable image tested for Compose startup, native exec, profiles, Kanban initialization and restart persistence. Authenticated chat/setup remain pending. |
+| Superpowers | Upstream `obra/superpowers`; exact candidate SHA received 229 CAUTION findings. Installation is blocked pending explicit approval of the [scanner report](docs/qualification/superpowers-8ca22dba-scan.txt). |
+| Nerve/Laya | Upstream plugin and its supported sidecar only. Transport, checkpoint, scanner/loading and actual inference qualification remain pending. No custom implementation. |
+| OpenViking | Official image and native Hermes provider. Native setup handoff observed; embedding/VLM configuration, write/recall and isolation evidence remain pending. |
+| Same-card review | Native Hermes plus Nerve first. Distinct builder/reviewer actors must be proved before release; no speculative policy plugin. |
 
-## Defaults and safety
-
-RepoKit favors Docker isolation per repository, native Hermes behavior,
-persistent local state and immutable dependency pins. Safe installation is a
-design requirement, not yet an implemented guarantee:
-
-- Preserve dirty Git working trees, existing Hermes state and owner edits.
-- Refuse ambiguous container ownership and conflicting names or paths.
-- Keep credentials out of installer logs and receipts.
-- Use atomic publication and conservative, safely repeatable installation.
-- Leave readable Compose files and a standalone launcher behind, with no Pi
-  dependency or requirement to keep RepoKit installed.
-
-## Planned extensions
-
-Fresh installs will begin with the native default profile. Optional
-researcher, planner, builder and reviewer profiles will support multi-profile
-Kanban workflows within the same deployment. Native workflow recipes are
-planned; RepoKit will not become a resident team manager.
-
-| Extension | Direction | Status |
-| --- | --- | --- |
-| OpenViking | Shared long-term project memory | Planned; native automatic extraction accepted. |
-| Nerve | Upstream Hermes community plugin | Qualification pending. |
-| Laya | Nerve-supported Laya sidecar | Upstream compatibility qualification pending. |
-
-None of these integrations, including the baseline Superpowers plugin, is
-installed by the current CLI.
-
-## Requirements — planned release
-
-- Linux amd64 or arm64.
-- Git, Docker, Docker Compose and a POSIX shell.
-
-Released binaries are intended to require no Go, Python, Node or Pi on the
-host. Hermes and Python-native plugins or sidecars retain their own runtimes
-inside containers.
+OpenViking's native integration can synchronize turns/tool results and extract
+memory automatically. Embedding/VLM configuration determines where model data
+is processed. RepoKit delegates credentials to native setup and does not impose
+invented durable-only memory semantics.
 
 ## Development
 
-The current Go module requires Go 1.26.0 or newer. With a suitable toolchain
-already installed, run the offline tests:
+Go module: `github.com/TrebuchetDynamics/hermes-repokit`; Go 1.26 or newer.
+No third-party Go modules are currently needed. Supported build targets are
+Linux amd64 and arm64. End-user binaries will require Docker Compose, Git and
+a POSIX shell, without host Go, Python, Node, Pi or Hermes.
 
 ```sh
-GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off go test ./...
+go test ./...
+go test -race ./...
+go vet ./...
+gofmt -l cmd internal tests
 ```
 
-`cmd/hermes-repokit/` contains the entry point; `internal/` contains the CLI
-and qualification model with package-local tests. Detailed design and future
-integration work live in `docs/`:
+Ordinary tests are offline. The following explicitly opts into creating and
+removing a disposable Docker project using the pinned official Hermes image:
 
-- [Bootstrap design](docs/superpowers/specs/2026-09-27-repokit-bootstrap-design.md)
-- [Implementation plan](docs/superpowers/plans/2026-09-27-repokit-bootstrap.md)
-- [Qualification evidence and development limits](docs/qualification/native-contract.md)
-- [Progress and next tasks](TODO.md)
+```sh
+REPOKIT_DOCKER_TESTS=1 go test -tags=docker ./tests/acceptance -run TestDockerFoundation -v
+```
 
-## Self-hosting goal
+That fixture proves only credential-free foundation behavior. It does not
+prove real inference, memory, independent review or the full removal-first gate.
 
-RepoKit should eventually bootstrap the Hermes environment used to develop
-RepoKit itself. The release gate goes further: remove RepoKit, then prove real
-Hermes work, restart and persistent state still function. Neither has been
-demonstrated yet.
+See the [quickstart and native handoff](docs/bootstrap-quickstart.md),
+[design](docs/superpowers/specs/2026-09-27-repokit-bootstrap-design.md),
+[implementation plan](docs/superpowers/plans/2026-09-27-repokit-bootstrap.md),
+[runtime evidence](docs/qualification/runtime-observations.md), and
+[implementation progress](docs/implementation-progress.md).
