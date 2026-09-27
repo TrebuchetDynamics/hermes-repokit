@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"hermes-repokit/internal/cli"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/cli"
 )
 
 func main() {
