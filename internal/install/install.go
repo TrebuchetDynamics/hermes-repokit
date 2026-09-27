@@ -3,14 +3,16 @@ package install
 
 import (
 	"bytes"
+	"crypto/rand"
 	"fmt"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/locking"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
+
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
 type Artifact struct {
@@ -33,19 +35,31 @@ func Publish(id target.Identity, files map[string]Artifact, prepare func() error
 			return false, fmt.Errorf("missing required generated artifact")
 		}
 	}
+	initialRoot, e := os.Lstat(id.Root)
+	if e != nil || !initialRoot.IsDir() {
+		return false, fmt.Errorf("target is not an accessible directory")
+	}
 	if issues := target.Inspect(id, ""); len(issues) > 0 {
 		return false, fmt.Errorf("target preflight: %s", strings.Join(issues, "; "))
 	}
-	lock, e := locking.Acquire(filepath.Join(id.Root, ".hermes-repokit.lock"))
-	if e != nil {
-		return false, e
-	}
-	defer lock.Close()
 	root, e := os.OpenRoot(id.Root)
 	if e != nil {
 		return false, e
 	}
 	defer root.Close()
+	rootInfo, e := root.Stat(".")
+	if e != nil || !os.SameFile(initialRoot, rootInfo) || !sameRootPath(id.Root, rootInfo) {
+		return false, fmt.Errorf("target changed before installation")
+	}
+	lock, e := acquireRootLock(root)
+	if e != nil {
+		return false, e
+	}
+	defer lock.Close()
+	lockInfo, e := lock.Stat()
+	if e != nil || !sameLock(root, lockInfo) {
+		return false, fmt.Errorf("installer lock changed")
+	}
 	if _, e = root.Lstat(".hermes"); e == nil {
 		for _, name := range []string{"compose.yaml", "config.yaml", "bin/" + id.Container} {
 			info, err := root.Lstat(".hermes/" + name)
@@ -69,14 +83,36 @@ func Publish(id target.Identity, files map[string]Artifact, prepare func() error
 			return false, e
 		}
 	}
-	stage, e := os.MkdirTemp(id.Root, ".hermes-stage-")
+	if !sameRootPath(id.Root, rootInfo) || !sameLock(root, lockInfo) {
+		return false, fmt.Errorf("target changed during preparation")
+	}
+	stage := ".hermes-stage-" + rand.Text()
+	e = root.Mkdir(stage, 0700)
 	if e != nil {
 		return false, e
 	}
-	defer os.RemoveAll(stage)
-	if e = os.Chmod(stage, 0700); e != nil {
+	createdStage, e := root.Lstat(stage)
+	if e != nil || !createdStage.IsDir() {
+		return false, fmt.Errorf("installer stage changed")
+	}
+	stageRoot, e := root.OpenRoot(stage)
+	if e != nil {
+		if sameStage(root, stage, createdStage) {
+			root.RemoveAll(stage)
+		}
 		return false, e
 	}
+	stageInfo, e := stageRoot.Stat(".")
+	if e != nil || !os.SameFile(createdStage, stageInfo) || !sameStage(root, stage, stageInfo) {
+		stageRoot.Close()
+		return false, fmt.Errorf("installer stage changed")
+	}
+	defer func() {
+		stageRoot.Close()
+		if sameStage(root, stage, stageInfo) {
+			root.RemoveAll(stage)
+		}
+	}()
 	names := make([]string, 0, len(files))
 	for name := range files {
 		names = append(names, name)
@@ -84,11 +120,11 @@ func Publish(id target.Identity, files map[string]Artifact, prepare func() error
 	sort.Strings(names)
 	for _, name := range names {
 		a := files[name]
-		p := filepath.Join(stage, filepath.FromSlash(name))
-		if e = os.MkdirAll(filepath.Dir(p), 0700); e != nil {
+		p := name
+		if e = stageRoot.MkdirAll(filepath.Dir(p), 0700); e != nil {
 			return false, e
 		}
-		f, e := os.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, a.Mode)
+		f, e := stageRoot.OpenFile(p, os.O_CREATE|os.O_EXCL|os.O_WRONLY, a.Mode)
 		if e != nil {
 			return false, e
 		}
@@ -106,16 +142,25 @@ func Publish(id target.Identity, files map[string]Artifact, prepare func() error
 	}
 	// Internal ignore rules also cover credentials created later by native setup.
 	if _, ok := files[".gitignore"]; !ok {
-		if e = os.WriteFile(filepath.Join(stage, ".gitignore"), []byte("*\n"), 0600); e != nil {
+		ignore, err := stageRoot.OpenFile(".gitignore", os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err != nil {
+			return false, err
+		}
+		_, e = ignore.Write([]byte("*\n"))
+		closeErr := ignore.Close()
+		if e != nil {
 			return false, e
+		}
+		if closeErr != nil {
+			return false, closeErr
 		}
 	}
 	// Flush generated files and directories before the atomic publication point.
-	e = filepath.WalkDir(stage, func(p string, d fs.DirEntry, err error) error {
+	e = fs.WalkDir(stageRoot.FS(), ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		f, err := os.Open(p)
+		f, err := stageRoot.Open(p)
 		if err != nil {
 			return err
 		}
@@ -125,16 +170,22 @@ func Publish(id target.Identity, files map[string]Artifact, prepare func() error
 	if e != nil {
 		return false, e
 	}
+	if !sameRootPath(id.Root, rootInfo) || !sameLock(root, lockInfo) || !sameStage(root, stage, stageInfo) {
+		return false, fmt.Errorf("target changed during preparation")
+	}
 	if issues := target.Inspect(id, ""); len(issues) > 0 {
+		return false, fmt.Errorf("target changed during preparation")
+	}
+	if !sameRootPath(id.Root, rootInfo) || !sameLock(root, lockInfo) || !sameStage(root, stage, stageInfo) {
 		return false, fmt.Errorf("target changed during preparation")
 	}
 	if _, e = root.Lstat(".hermes"); !os.IsNotExist(e) {
 		return false, fmt.Errorf("native state appeared during preparation")
 	}
-	if e = publishDirectory(root, filepath.Base(stage)); e != nil {
+	if e = publishDirectory(root, stage); e != nil {
 		return false, e
 	}
-	dir, e := os.Open(id.Root)
+	dir, e := root.Open(".")
 	if e != nil {
 		return true, e
 	}
@@ -143,4 +194,44 @@ func Publish(id target.Identity, files map[string]Artifact, prepare func() error
 		return true, e
 	}
 	return true, nil
+}
+
+func sameRootPath(path string, opened fs.FileInfo) bool {
+	current, err := os.Lstat(path)
+	return err == nil && current.IsDir() && os.SameFile(current, opened)
+}
+
+func sameLock(root *os.Root, held fs.FileInfo) bool {
+	current, err := root.Lstat(".hermes-repokit.lock")
+	return err == nil && os.SameFile(current, held)
+}
+
+func sameStage(root *os.Root, name string, opened fs.FileInfo) bool {
+	current, err := root.Lstat(name)
+	return err == nil && current.IsDir() && os.SameFile(current, opened)
+}
+
+// The installer lock must be opened through the same directory descriptor as
+// staging and publication. Opening its absolute path can create it in a
+// replacement directory before a later identity check catches the swap.
+func acquireRootLock(root *os.Root) (*os.File, error) {
+	lock, err := root.OpenFile(".hermes-repokit.lock", os.O_RDWR|os.O_CREATE|syscall.O_NOFOLLOW, 0600)
+	if err != nil {
+		return nil, err
+	}
+	info, err := lock.Stat()
+	if err != nil {
+		lock.Close()
+		return nil, err
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || st.Uid != uint32(os.Geteuid()) || !info.Mode().IsRegular() || info.Mode().Perm()&0077 != 0 || st.Nlink != 1 {
+		lock.Close()
+		return nil, fmt.Errorf("unsafe installer lock")
+	}
+	if err := syscall.Flock(int(lock.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		lock.Close()
+		return nil, fmt.Errorf("installer is already running: %w", err)
+	}
+	return lock, nil
 }
