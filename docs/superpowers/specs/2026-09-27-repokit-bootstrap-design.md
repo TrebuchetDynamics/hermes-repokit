@@ -1,8 +1,8 @@
 # Hermes RepoKit repository bootstrap
 
-Date: 2026-09-27. **Corrected draft; documentation only, awaiting review.**
+Date: 2026-09-27. **Go boundary approved; independent amendment review precedes Task 1.**
 
-Replaces the [team-runtime design](2026-09-27-repokit-team-runtime-design.md)/A–G plans. The [bootstrap plan](../plans/2026-09-27-repokit-bootstrap.md) retains **subagent-driven** execution after review; no code/runtime evidence exists. [Integration findings](../../research/2026-09-27-repokit-integration-findings.md) remain source evidence, not approved deployment pins. The [precursor review](../../research/2026-09-27-repokit-precursor-review.md) records adopted patterns and rejected manager/chat-supervisor behavior.
+Replaces the [team-runtime design](2026-09-27-repokit-team-runtime-design.md)/A–G plans. The [bootstrap plan](../plans/2026-09-27-repokit-bootstrap.md) retains the twelve-task architecture. The current authorization covers only the Go skeleton, qualification contracts and unit tests after independent review; no runtime qualification is claimed. [Integration findings](../../research/2026-09-27-repokit-integration-findings.md) remain source evidence, not approved deployment pins. The [precursor review](../../research/2026-09-27-repokit-precursor-review.md) records adopted patterns and rejected manager/chat-supervisor behavior.
 
 ## 1. Product and ownership
 
@@ -10,7 +10,22 @@ RepoKit is an opinionated Hermes-on-Docker **repository bootstrapper**, not a ru
 
 RepoKit is not resident: no daemon, scheduler, supervisor, reconciler, installer command proxy, runtime database or mandatory periodic invocation. Removing its checkout, binary and optional installer receipt must not affect restart or execution. Artifacts cannot bind/import/symlink/call RepoKit or Pi. Independently packaged Nerve/review-policy plugins and selected Laya sidecar artifacts may remain only as self-contained native artifacts, configured by Hermes/Compose without installer APIs or receipt reads. Nerve-derived observations are plugin state, not RepoKit runtime state.
 
-**Implementation:** Go builds one `hermes-repokit` executable; Go/compiler needed only for development/build, not installation/runtime. First release targets Linux amd64/arm64 with local Docker; cross-compilation does not qualify other OSes. Bootstrap host prerequisites include Git and qualified Docker/Compose; the generated launcher needs only POSIX shell and Docker/Compose. No host Python/venv/pip/Node requirement. Templates embed in the CGO-disabled reproducible binary; default tests are offline Go. Native plugin/Laya Python stays inside independent runtime artifacts, not ported to Go. Compose/native config stays YAML, optional receipt JSON, launcher shell+Docker. Qualify toolchain/module pins before building; prefer checksummed standalone binary, not required curl-to-shell. Runtime tests require explicit tags and scoped authority.
+**Implementation:** Go builds one `hermes-repokit` executable; Go/compiler needed only for development/build, not installation/runtime. First release targets Linux amd64/arm64 with local Docker; cross-compilation does not qualify other OSes. Bootstrap host prerequisites include Git and qualified Docker/Compose; the generated launcher needs only POSIX shell and Docker/Compose. No host Python/venv/pip/Node requirement. Templates embed in the CGO-disabled reproducible binary; default tests are offline Go. Native plugin/Laya Python stays inside independent runtime artifacts, not ported to Go. Compose/native config stays YAML, optional receipt JSON, launcher shell+Docker. Record the local development toolchain and qualify patched toolchain/module pins before release builds; prefer checksummed standalone binary, not required curl-to-shell. Runtime tests require explicit tags and scoped authority.
+
+### Language and host safety boundary
+
+| Component | Implementation |
+| --- | --- |
+| Host CLI, Compose/config generation and installer tests | Go |
+| Generated `hermes-<repo>` | Standalone POSIX shell |
+| Compose/native configuration | Readable deterministic YAML |
+| Hermes-native Nerve/review-policy plugins | Python where required by Hermes |
+| Laya | Native Python/container implementation |
+| OpenViking | Upstream service/container |
+
+Use an ordinary Go module, `cmd/hermes-repokit`, and focused `internal/` packages with package-local tests; separate integration/acceptance fixtures under `tests/`. Add each package when its task needs it. No host Python 3.11+, pytest, PyYAML, pyproject.toml or `src/repokit/*.py` dependency. Native plugin packaging may legitimately contain Python metadata.
+
+External host commands use `os/exec` argv arrays and bounded `context.Context`, never shell-string construction; preserve exit codes and signals where appropriate. Publication is atomic and non-destructive, with ownership/symlink checks and safe reruns. Generated configuration and installer observations use explicit typed structs; serializable receipts/logs carry no credentials. These mechanisms belong to their existing tasks, not the Task 1 skeleton.
 
 ## 2. Physical contract
 

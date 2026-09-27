@@ -2,7 +2,7 @@
 
 ## Current stage
 
-**Corrected design and replacement implementation plan are DRAFT, awaiting review.** The user requested both corrections, not execution. The previous 29-task A–G runtime-manager plan is obsolete and must not execute. No product code, tests, installs or runtime evidence exists.
+**Go amendment authorized; independent review precedes Task 1 only.** Existing Go draft commits are retained and clarified. The previous 29-task A–G runtime-manager plan remains obsolete. Task 1 may create the Go module, four-command skeleton, qualification evidence model and offline unit tests. No runtime work is authorized by this task.
 
 - [x] Read existing design and immutable source findings.
 - [x] Replace runtime-manager boundary with [bootstrap design](docs/superpowers/specs/2026-09-27-repokit-bootstrap-design.md).
@@ -11,8 +11,9 @@
 - [x] Preserve already-selected **subagent-driven** execution method.
 - [x] Amend twelve tasks to Go before code: one `hermes-repokit` binary, offline Go default tests; independently packaged native plugin/Laya Python remains container-only.
 - [x] Parent-review corrected design/plan, including installed plugin discovery, explicit CLI bootstrap wiring, launcher transparency and separate build/runtime prerequisites.
-- [ ] Review the Go draft before the first code task.
-- [ ] Only after review/implementation authority, execute the replacement plan. Runtime, provider, download and inference permissions remain separately scoped.
+- [x] Independently review the Go amendment before the first code task; scope contradiction corrected, no blocking findings remain.
+- [ ] Commit the reviewed design/plan separately, then implement and review Task 1 immediately.
+- [ ] Tasks 2–12 remain unimplemented; preserve removal-first Task 12. Runtime, provider, download and inference permissions remain separately scoped.
 
 ## Boundary to preserve
 

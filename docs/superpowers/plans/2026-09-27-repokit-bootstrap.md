@@ -10,7 +10,7 @@
 
 **Spec:** [bootstrap design](../specs/2026-09-27-repokit-bootstrap-design.md).
 
-**Status:** DRAFT amendment reflecting the user's Go decision before code. Twelve tasks retained; obsolete 29-task A–G plans must not execute. No downloads/builds/tests/install/Docker/inference/commits authorized now. Future commit steps apply only after implementation authority and review; selected method remains subagent-driven.
+**Status:** Go amendment authorized by the user and independently reviewed with no blocking findings. Execute **only Task 1** in this session, then stop. Local offline builds/tests and separate documentation/implementation commits are authorized. No Docker installation, downloads, credentials, sidecar/plugin implementation or Hermes runtime work is in Task 1. Tasks 2–12 remain planned; obsolete 29-task A–G plans must not execute.
 
 ## Global Constraints
 
@@ -32,16 +32,12 @@
 
 ## Files, types and evidence rules
 
-All product files are future targets. Module path **`hermes-repokit`**; packages under `internal/` use directory names. `cmd/hermes-repokit/main.go` only wires CLI and dependencies. Use stdlib embedded YAML templates with JSON-quoted scalar values (readable YAML), no framework. `go.mod` records the implementation-qualified Go version; `go.sum` is added only if a reviewed, pinned compile-time dependency becomes necessary, not fabricated for a stdlib-only module. No Go version/module release hash is selected by this draft.
+All product files are future targets. Module path **`hermes-repokit`**; packages under `internal/` use directory names. `cmd/hermes-repokit/main.go` only wires CLI and dependencies. Use stdlib embedded YAML templates with JSON-quoted scalar values (readable YAML), no framework. `go.mod` records the implementation-qualified Go version; `go.sum` is added only if a reviewed, pinned compile-time dependency becomes necessary, not fabricated for a stdlib-only module. Task 1 records the installed development toolchain; Task 12 separately qualifies the patched release toolchain.
 
-`internal/contract/types.go` supplies shared installer/test values, not a runtime manifest:
+`internal/qualification` owns version-bound operation evidence (Task 1). The following shared installer/test values are introduced in `internal/contract/types.go` when their owning tasks first need them; they are not Task 1 scaffolding or a runtime manifest:
 ```go
 package contract
 
-type Qualification struct {
-	Operation, Source string
-	Supported         bool
-}
 type Observation struct {
 	Component, Verdict, Detail string
 	ObservedUnix               int64
@@ -66,33 +62,45 @@ type BootstrapResult struct {
 ```
 Tasks 2/3/5 define their own typed inputs. Runner dependencies live in Task 6, not a global runtime service. For every future test/build step set `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off`; acquire any separately approved build dependencies outside default tests. All default tests are Go and offline: `go test ./...` must never launch Docker/network/models or host Python. Use fake runners, local filesystem and shell/fake-Docker fixtures. Native plugin tests run only in authorized containers. Runtime tests use `//go:build runtime` AND explicit fixture scope/authority validation; missing authority fails an invoked runtime suite, never skip-to-green release evidence.
 
-Each Go fence is a test/core file fragment with its package/imports; merge same-package fragments into listed files. Core snippets are not complete upstream integrations. Red means missing symbol/behavior; green requires the named negative cases too. Exact native commands/image shim behavior/pins are Task 1 qualification, never guessed.
+Each Go fence is a test/core file fragment with its package/imports; merge same-package fragments into listed files. Core snippets are not complete upstream integrations. Red means missing symbol/behavior; green requires the named negative cases too. Task 1 defines qualification contracts and records pending evidence; subsequent operation-owning tasks must qualify exact native commands/image shim behavior/pins before enabling them, never guess them.
 
-### Task 1: Go CLI and native operation qualification
+### Task 1: Go CLI and native operation qualification contracts
 
-**Files:** Create `go.mod`, `cmd/hermes-repokit/main.go`, `internal/cli/cli.go`, `internal/cli/cli_test.go`, `internal/contract/types.go`, `docs/qualification/native-contract.md`.
-**Consumes:** spec/research. **Produces:** `cli.Commands() []string`; contract types above; source-qualified native setup/profile/plugin/Kanban/probe and official exec-shim contracts.
+**Files:** Create `go.mod`, `cmd/hermes-repokit/main.go`, `internal/cli/cli.go`, `internal/cli/cli_test.go`, `internal/qualification/evidence.go`, `internal/qualification/evidence_test.go`, `docs/qualification/native-contract.md`.
+**Consumes:** approved spec and existing research, not a running Hermes instance. **Produces:** `cli.Commands() []string`, `cli.Run(args []string, stdout, stderr io.Writer) int`; `qualification.Operation`, `Verdict`, `Evidence` and `Evaluate(selectedRevision string, operation Operation, evidence Evidence) Verdict`.
 
-- [ ] Red: add test, run `go test ./internal/cli` (FAIL).
+- [ ] Select the already-installed Go toolchain for offline development; record the actual version and patch limitations. Set the module's language floor from verified local compilation, not a fabricated release pin. No toolchain download; current patched release-toolchain qualification remains Task 12.
+- [ ] Red: package-local table tests must reject extra host commands, flags and positional arguments; help succeeds and names exactly plan/install/setup/verify. Each recognized command without help returns exit 1 with an explicit not-implemented diagnostic, never a fake successful plan/install/setup/verify. Usage errors return 2; help returns 0. No arguments is usage error (native noarg chat belongs to the later generated launcher). Run `go test ./internal/cli ./internal/qualification` and observe missing behavior.
 ```go
 package cli
+
+import (
+    "bytes"
+    "testing"
+)
+
+func TestSkeletonDoesNotClaimInstallation(t *testing.T) {
+    var out, diagnostics bytes.Buffer
+    if code := Run([]string{"install"}, &out, &diagnostics); code != 1 || out.Len() != 0 || diagnostics.Len() == 0 {
+        t.Fatalf("code=%d stdout=%q stderr=%q", code, out.String(), diagnostics.String())
+    }
+}
+```
+- [ ] Green: use standard-library `flag.FlagSet` with `ContinueOnError` per command; `main` passes argv and streams and exits with `Run`'s code. No subprocesses, filesystem writes, config loading, runtime probes or hidden native command hierarchy. Reject input without echoing arbitrary argument values. Task 6 implements setup delegation; Task 11 wires actual handlers.
+- [ ] Red/green qualification: define typed operation identifiers for native chat, setup, profiles, plugins, Kanban, official exec shim and read-only probes; these are evidence labels, **not native command spellings**. `Evidence` contains only operation, immutable selected Hermes revision, verdict and sanitized source/runtime evidence references. No credentials, environment, argv, raw logs or free-form native output fields. Verdict zero value is unknown; unsupported requires matching operation/revision plus source evidence; supported additionally requires runtime evidence. Missing, blank, unknown-enum, mismatched or source-only positive evidence evaluates unknown. Match a full 40-character lowercase commit SHA; arbitrary version labels cannot qualify. Tests use clearly synthetic references and never prove native behavior.
+```go
+package qualification
 
 import "testing"
 
-func TestCommands(t *testing.T) {
-	if got := Commands(); len(got) != 4 || got[0] != "plan" || got[3] != "verify" {
-		t.Fatal(got)
-	}
+func TestMissingEvidenceIsUnknown(t *testing.T) {
+    if got := Evaluate("", Setup, Evidence{}); got != Unknown {
+        t.Fatalf("missing evidence = %v", got)
+    }
 }
 ```
-- [ ] Green core:
-```go
-package cli
-
-func Commands() []string { return []string{"plan", "install", "setup", "verify"} }
-```
-Use `flag.FlagSet` per installer command; no runtime subcommand hierarchy. Verify Go toolchain version/security/support before selecting `go` directive; use `GOTOOLCHAIN=local` to prohibit implicit toolchain downloads. Record exact native spellings, bare-Hermes/noarg chat behavior, UID/GID/HOME shim, safe startup and plugin scanner evidence. Missing/unsupported operations refuse affected enabling; no guessed profile aliases, 1000 UID or forced Unix HOME.
-- [ ] Same command PASS. `git add go.mod cmd/hermes-repokit internal/cli internal/contract docs/qualification/native-contract.md && git commit -m "feat: define Go bootstrap boundary"`.
+- [ ] Record research references separately from deployment qualification. No selected release artifact or native runtime is qualified by this task; all operational support remains unknown until the selected version is actually qualified. Document pending exact command spellings, noarg chat mapping, UID/GID/HOME shim, safe startup and plugin scanner evidence. Do not invent aliases or run Hermes to populate fixtures. Evidence evaluation checks contract completeness, not reference authenticity or permission to execute.
+- [ ] Full offline `go test ./...`, `go vet ./...`, and CGO-disabled local binary build pass with `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off`. Independent implementation review; commit implementation separately from reviewed Go design/plan. Stop before Task 2.
 
 ### Task 2: Canonical target and collision refusal
 
@@ -643,11 +651,11 @@ func Require(g Gate) error {
 ```
 Runtime test file begins `//go:build runtime`; parse explicitly scoped fixture/data/budget/cleanup authority and call Require, fail missing authority, never skip as release pass. The separately authorized command is `go test -tags=runtime ./tests/runtime`; retain distinct non-inference and inference fixture selection and evidence. A no-Docker default test run cannot qualify this tier. Default offline suite uses no Docker/network/models. Build instructions after qualifying toolchain/module inputs: `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=readonly -trimpath -buildvcs=false -ldflags='-s -w -buildid=' -o dist/hermes-repokit-linux-amd64 ./cmd/hermes-repokit`; repeat arm64 with matching output. Compare clean repeat-build bytes, archive toolchain/input/checksum provenance; test each architecture on actual authorized hosts. Embed all installer templates. No invented release hashes; standalone checksummed binary preferred, remote installer/curl-to-shell requirement absent, release script deferred.
 
-Authorized disposable Linux host lacks Go/Python/Node/Pi for bootstrap; Docker and shell remain. Bootstrap separate fresh target, explicit-context/file Compose up hermes, `hermes-<repo> setup`, then full up. Verify selected plugins/profiles/services. Remove installer binary/checkout/receipt from all import/subprocess/mount access, not just PATH. Invoke launcher from unrelated cwd with noargs/native commands and raw Docker/Compose commands; restart, actual bounded builder→distinct same-card reviewer task, restart again. Prove addressable sessions/logical history/actual selected memory/Nerve/selected cache persistence; credential comparisons private booleans only. Native Python INSIDE images remains legitimate.
+Authorized disposable Linux host lacks Go/Python/Node/Pi for bootstrap; Git, Docker/Compose and shell remain. Bootstrap separate fresh target, explicit-context/file Compose up hermes, `hermes-<repo> setup`, then full up. Verify selected plugins/profiles/services. Remove installer binary/checkout/receipt from all import/subprocess/mount access, not just PATH. Invoke launcher from unrelated cwd with noargs/native commands and raw Docker/Compose commands; restart, actual bounded builder→distinct same-card reviewer task, restart again. Prove addressable sessions/logical history/actual selected memory/Nerve/selected cache persistence; credential comparisons private booleans only. Native Python INSIDE images remains legitimate.
 
 Include interrupted bootstrap/stale child lock/collision/failed pull/scanner, owner edits, `down` without `-v`, optional conservative rerun, downgrade preserving profiles. Optional source dogfood has no self-apply/promotion. Privacy/runner/pin gaps block affected fixtures/full release; scoped inference requires enforced ceilings including extraction, time, tokens/spend/downloads/compute. Offline, credentialless runtime and actual inference evidence stay separate.
 - [ ] Full offline `go test ./...` PASS; runtime/inference NOT RUN unless actually authorized/performed. `git add internal/release tests/runtime tests/acceptance/bootstrap-independence.md docs/{bootstrap-quickstart,build}.md && git commit -m "test: qualify standalone binary and installer-free runtime"`.
 
 ## Inline self-review
 
-Twelve original boundaries retained. Go module/package paths and types match consumes/produces; snippets are default Go tests/core, native Python targets stay runtime-only and cannot depend on Go/installer. Go version/pins remain qualified selections, not fabricated artifacts. Task 4 owns Linux locking, Task 6 process cancellation, Task 5 shell transparency, Task 12 absent-build-tools/removal evidence. All review-focus failures have owning tests. No opaque runtime manifest, new control plane, latest update, host Python requirement or fake test evidence. Parent review also requires actual CLI bootstrap wiring in Task 11 and installed native plugin discovery tests, not just helper predicates. Review this Go draft before the first implementation task; no new product questionnaire or implementation has occurred.
+Twelve original boundaries retained. Go module/package paths and types match consumes/produces; snippets are default Go tests/core, native Python targets stay runtime-only and cannot depend on Go/installer. Go version/pins remain qualified selections, not fabricated artifacts. Task 4 owns Linux locking, Task 6 process cancellation, Task 5 shell transparency, Task 12 absent-build-tools/removal evidence. All review-focus failures have owning tests. No opaque runtime manifest, new control plane, latest update, host Python requirement or fake test evidence. Parent review also requires actual CLI bootstrap wiring in Task 11 and installed native plugin discovery tests, not just helper predicates. Independently review this Go amendment before Task 1; the user has authorized immediate Task 1 execution afterward without another architecture cycle.
