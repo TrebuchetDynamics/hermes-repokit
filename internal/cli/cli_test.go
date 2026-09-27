@@ -2,6 +2,11 @@ package cli
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
+	"os"
 	"strings"
 	"testing"
 )
@@ -38,17 +43,6 @@ func TestCommandsReturnsFourIndependentNames(t *testing.T) {
 	}
 }
 
-func TestRecognizedCommandsAreExplicitlyNotImplemented(t *testing.T) {
-	for _, command := range []string{"plan", "install", "setup", "verify"} {
-		t.Run(command, func(t *testing.T) {
-			var out, diagnostics bytes.Buffer
-			if code := Run([]string{command}, &out, &diagnostics); code != 1 || out.Len() != 0 || !strings.Contains(diagnostics.String(), "not implemented") {
-				t.Fatalf("code=%d stdout=%q stderr=%q", code, out.String(), diagnostics.String())
-			}
-		})
-	}
-}
-
 func TestInvalidInputIsUsageErrorWithoutEchoingInput(t *testing.T) {
 	tests := []struct {
 		name string
@@ -75,5 +69,71 @@ func TestInvalidInputIsUsageErrorWithoutEchoingInput(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+type fakeRunner struct{ calls []string }
+
+func (f *fakeRunner) Run(_ context.Context, p string, args ...string) process.Result {
+	c := p + " " + strings.Join(args, " ")
+	f.calls = append(f.calls, c)
+	switch {
+	case strings.Contains(c, "rev-parse"):
+		return process.Result{Output: fRoot}
+	case strings.Contains(c, "context show"):
+		return process.Result{Output: "default\n"}
+	case strings.Contains(c, "context inspect"):
+		return process.Result{Output: "unix:///var/run/docker.sock\n"}
+	case strings.Contains(c, "container ls"):
+		return process.Result{}
+	case strings.Contains(c, "container inspect"):
+		return process.Result{Err: errors.New("absent")}
+	case strings.Contains(c, "ls-files"):
+		return process.Result{}
+	default:
+		return process.Result{Err: errors.New("unexpected command")}
+	}
+}
+
+var fRoot string
+
+func TestPlanAndVerifyInspectWithoutWritingOrNativeCalls(t *testing.T) {
+	root := t.TempDir()
+	os.Chmod(root, 0700)
+	fRoot = root
+	for _, command := range []string{"plan", "verify"} {
+		r := &fakeRunner{}
+		var out, errout bytes.Buffer
+		app := App{Directory: root, Path: "", Runner: r, Stdin: strings.NewReader("")}
+		code := app.Run([]string{command, "--engineering"}, &out, &errout)
+		if command == "plan" && code != 0 {
+			t.Fatalf("%d %s", code, errout.String())
+		}
+		if !json.Valid(out.Bytes()) {
+			t.Fatalf("not structured output: %s", out.String())
+		}
+		entries, _ := os.ReadDir(root)
+		if len(entries) != 0 {
+			t.Fatal("read-only command wrote files")
+		}
+		for _, call := range r.calls {
+			if strings.Contains(call, " exec ") || strings.Contains(call, " pull ") || strings.Contains(call, " up ") {
+				t.Fatalf("mutating probe: %s", call)
+			}
+		}
+	}
+}
+func TestInstallRefusesUnqualifiedPresetBeforeAnyWrites(t *testing.T) {
+	root := t.TempDir()
+	os.Chmod(root, 0700)
+	fRoot = root
+	var out, errout bytes.Buffer
+	app := App{Directory: root, Runner: &fakeRunner{}}
+	if code := app.Run([]string{"install"}, &out, &errout); code == 0 || !strings.Contains(errout.String(), "qualification") {
+		t.Fatalf("%d %s", code, errout.String())
+	}
+	entries, _ := os.ReadDir(root)
+	if len(entries) != 0 {
+		t.Fatal("unqualified installation wrote files")
 	}
 }
