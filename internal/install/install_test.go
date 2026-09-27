@@ -78,3 +78,22 @@ func TestArtifactTraversalRefuses(t *testing.T) {
 		t.Fatal("escaped state")
 	}
 }
+
+func TestRerunRejectsMissingConfigAndNonExecutableLauncher(t *testing.T) {
+	for _, broken := range []string{"config", "launcher"} {
+		t.Run(broken, func(t *testing.T) {
+			id, f := fixture(t)
+			if _, e := Publish(id, f, nil); e != nil {
+				t.Fatal(e)
+			}
+			if broken == "config" {
+				os.Remove(filepath.Join(id.Root, ".hermes/config.yaml"))
+			} else {
+				os.Chmod(id.Launcher, 0600)
+			}
+			if _, e := Publish(id, f, nil); e == nil {
+				t.Fatal("reported incomplete native state as safe rerun")
+			}
+		})
+	}
+}

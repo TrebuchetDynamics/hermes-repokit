@@ -2,8 +2,11 @@ package process
 
 import (
 	"context"
+	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -31,4 +34,22 @@ func TestProbeSanitizesComposeSelectorsAndPreservesArgv(t *testing.T) {
 			t.Fatal("selector remains")
 		}
 	}
+}
+
+func TestProbeReapsDescendantAfterParentExits(t *testing.T) {
+	r := Runner{Timeout: 2 * time.Second, Limit: 1000}
+	result := r.Run(context.Background(), "sh", "-c", "sleep 30 & echo $!")
+	pid, e := strconv.Atoi(strings.TrimSpace(result.Output))
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer syscall.Kill(pid, syscall.SIGKILL)
+	for i := 0; i < 100; i++ {
+		data, e := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+		if os.IsNotExist(e) || strings.Contains(string(data), ") Z ") {
+			return
+		}
+		time.Sleep(time.Millisecond * 10)
+	}
+	t.Fatal("descendant survived completed probe")
 }

@@ -78,6 +78,9 @@ func (r Runner) Run(parent context.Context, program string, args ...string) Resu
 	cmd.Stdout = out
 	cmd.Stderr = out
 	err := cmd.Run()
+	if cmd.Process != nil {
+		_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
 	if ctx.Err() != nil {
 		err = ctx.Err()
 	}

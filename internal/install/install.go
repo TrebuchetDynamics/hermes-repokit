@@ -19,7 +19,9 @@ type Artifact struct {
 }
 
 // Publish never merges an ambiguous partial tree or repairs from a receipt.
-// prepare may pull admitted immutable images; it runs before publication.
+// prepare is limited to immutable image retrieval and must never write native
+// state or spawn a native initializer. Future native subprocesses must hold
+// an explicitly inherited installer lock across their whole lifetime.
 func Publish(id target.Identity, files map[string]Artifact, prepare func() error) (bool, error) {
 	for name, a := range files {
 		if !fs.ValidPath(name) || name == "." || strings.Contains(name, "\\") || a.Mode.Perm()&0077 != 0 || !a.Mode.IsRegular() {
@@ -45,6 +47,13 @@ func Publish(id target.Identity, files map[string]Artifact, prepare func() error
 	}
 	defer root.Close()
 	if _, e = root.Lstat(".hermes"); e == nil {
+		for _, name := range []string{"compose.yaml", "config.yaml", "bin/" + id.Container} {
+			info, err := root.Lstat(".hermes/" + name)
+			if err != nil || !info.Mode().IsRegular() || (strings.HasPrefix(name, "bin/") && info.Mode().Perm()&0100 == 0) {
+				return false, fmt.Errorf("required native file missing or unusable: %s", name)
+			}
+		}
+
 		for _, name := range []string{"compose.yaml", "bin/" + id.Container} {
 			b, e := root.ReadFile(".hermes/" + name)
 			if e != nil || !bytes.Equal(b, files[name].Data) {
@@ -101,13 +110,28 @@ func Publish(id target.Identity, files map[string]Artifact, prepare func() error
 			return false, e
 		}
 	}
+	// Flush generated files and directories before the atomic publication point.
+	e = filepath.WalkDir(stage, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		f, err := os.Open(p)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		return f.Sync()
+	})
+	if e != nil {
+		return false, e
+	}
 	if issues := target.Inspect(id, ""); len(issues) > 0 {
 		return false, fmt.Errorf("target changed during preparation")
 	}
 	if _, e = root.Lstat(".hermes"); !os.IsNotExist(e) {
 		return false, fmt.Errorf("native state appeared during preparation")
 	}
-	if e = root.Rename(filepath.Base(stage), ".hermes"); e != nil {
+	if e = publishDirectory(root, filepath.Base(stage)); e != nil {
 		return false, e
 	}
 	dir, e := os.Open(id.Root)

@@ -4,6 +4,7 @@ package verify
 import (
 	"context"
 	"encoding/json"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"os"
@@ -45,7 +46,14 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 		artifact = Probe{"compose", Unknown, "Compose metadata unavailable"}
 	}
 	runtime := Probe{"hermes", Unknown, "Docker runtime metadata unavailable"}
-	result := r.Run(ctx, "docker", "container", "inspect", "--format", InspectFormat, id.Container)
+	result := process.Result{}
+	dockerContext, contextErr := launcher.Context(id)
+	if contextErr == nil {
+		result = r.Run(ctx, "docker", "--context", dockerContext, "container", "inspect", "--format", InspectFormat, id.Container)
+	} else {
+		result.Err = contextErr
+		runtime.Detail = "deployment Docker context unknown; launcher absent or owner-edited"
+	}
 	var state Runtime
 	if result.Err == nil && !result.Truncated && json.Unmarshal([]byte(result.Output), &state) == nil {
 		runtime.Status = Degraded

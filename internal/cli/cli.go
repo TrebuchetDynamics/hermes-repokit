@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
@@ -76,7 +77,8 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "unsafe native state:", strings.Join(issues, "; "))
 			return 1
 		}
-		return native.Setup(id.Launcher, id.Compose, a.Stdin, stdout, stderr)
+		dockerContext, _ := launcher.Context(id)
+		return native.Setup(id.Launcher, id.Compose, dockerContext, a.Stdin, stdout, stderr)
 	case "verify":
 		probes := verify.Inspect(context.Background(), id, a.Runner)
 		if err := json.NewEncoder(stdout).Encode(probes); err != nil {

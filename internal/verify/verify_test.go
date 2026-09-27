@@ -3,6 +3,7 @@ package verify
 import (
 	"context"
 	"errors"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"os"
@@ -46,6 +47,12 @@ func TestVerifyRejectsSymlinkWithoutReadingReceipt(t *testing.T) {
 }
 func TestRuntimeStateDoesNotClaimModelOrMemoryOperation(t *testing.T) {
 	id, _ := target.Resolve(t.TempDir())
+	data, e := launcher.Render(id, "default")
+	if e != nil {
+		t.Fatal(e)
+	}
+	os.MkdirAll(filepath.Dir(id.Launcher), 0700)
+	os.WriteFile(id.Launcher, data, 0700)
 	r := &fake{result: process.Result{Output: `{"status":"running","project":"` + id.Project + `","workspace":"` + id.Root + `","home":"` + filepath.Join(id.Root, ".hermes") + `"}`}}
 	out := Inspect(context.Background(), id, r)
 	if out[1].Status != Healthy {
@@ -55,5 +62,20 @@ func TestRuntimeStateDoesNotClaimModelOrMemoryOperation(t *testing.T) {
 		if p.Status == Healthy {
 			t.Fatalf("unproved integration: %+v", p)
 		}
+	}
+}
+
+func TestVerifyUsesDeploymentContextInsteadOfAmbientContext(t *testing.T) {
+	id, _ := target.Resolve(t.TempDir())
+	data, e := launcher.Render(id, "repo-local")
+	if e != nil {
+		t.Fatal(e)
+	}
+	os.MkdirAll(filepath.Dir(id.Launcher), 0700)
+	os.WriteFile(id.Launcher, data, 0700)
+	r := &fake{}
+	Inspect(context.Background(), id, r)
+	if len(r.calls) != 1 || !strings.HasPrefix(strings.Join(r.calls[0], " "), "docker --context repo-local container inspect") {
+		t.Fatalf("ambient Docker used: %v", r.calls)
 	}
 }

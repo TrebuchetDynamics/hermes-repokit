@@ -4,16 +4,16 @@ package native
 import (
 	"errors"
 	"fmt"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"io"
 	"os"
 	"os/exec"
 	"os/signal"
-	"strings"
 	"syscall"
 )
 
-func Setup(launcher, compose string, stdin io.Reader, stdout, stderr io.Writer) int {
-	cmd := exec.Command(launcher, "setup")
+func Setup(launcherPath, compose, dockerContext string, stdin io.Reader, stdout, stderr io.Writer) int {
+	cmd := exec.Command(launcherPath, "setup")
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
@@ -40,7 +40,12 @@ func Setup(launcher, compose string, stdin io.Reader, stdout, stderr io.Writer) 
 	if err == nil {
 		return 0
 	}
-	fmt.Fprintf(stderr, "\nIf Hermes is stopped, start it with: docker compose --env-file /dev/null -f '%s' up -d hermes\n", strings.ReplaceAll(compose, "'", "'\"'\"'"))
+	if dockerContext != "" {
+		fmt.Fprintf(stderr, "\nIf Hermes is stopped, start it with: %s\n", launcher.StartCommand(compose, dockerContext))
+	} else {
+		fmt.Fprintln(stderr, "Native launcher was modified; inspect its Docker context before starting Compose.")
+	}
+
 	var exit *exec.ExitError
 	if errors.As(err, &exit) {
 		if s, ok := exit.Sys().(syscall.WaitStatus); ok && s.Signaled() {

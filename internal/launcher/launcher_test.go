@@ -88,3 +88,17 @@ func TestLauncherExecPreservesSignalExit(t *testing.T) {
 		t.Fatalf("signal changed: %v", s)
 	}
 }
+
+func TestContextInspectionRejectsOwnerEditedOrMissingLauncher(t *testing.T) {
+	file, _, _ := fixture(t, "exit 0\n")
+	id, _ := target.Resolve(filepath.Dir(filepath.Dir(filepath.Dir(file))))
+	ctx, e := Context(id)
+	if e != nil || ctx != "default" {
+		t.Fatalf("%q %v", ctx, e)
+	}
+	data, _ := os.ReadFile(file)
+	os.WriteFile(file, append(data, []byte("# owner edit\n")...), 0700)
+	if _, e = Context(id); e == nil {
+		t.Fatal("claimed edited launcher context was verified")
+	}
+}
