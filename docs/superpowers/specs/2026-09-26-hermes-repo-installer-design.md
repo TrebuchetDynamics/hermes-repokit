@@ -1,5 +1,7 @@
 # Repository-local Hermes lifecycle toolkit
 
+> **Historical / superseded direction (2026-09-27).** Retained unchanged below for provenance; not current execution authority. See the [Hermes RepoKit team-runtime design](2026-09-27-repokit-team-runtime-design.md), which requires written review before replacement planning/code. Its approved direction replaces default-only/Holographic/six-command/one-total-container assumptions. Old Task 1 is paused; no implementation code, tests or implementation commits happened. Statements below about Git/approval status describe the earlier drafting stage, not current state.
+
 Date: 2026-09-26
 Status: approved for implementation planning, incorporating the user's subsequent layout, manifest, plugin-security and ownership amendments. Implementation execution is not yet selected.
 

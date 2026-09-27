@@ -1,5 +1,7 @@
 # Repository-local Hermes Toolkit Implementation Plan
 
+> **Historical / superseded — do not execute (2026-09-27).** Original plan text is preserved below. The [Hermes RepoKit team-runtime design](../specs/2026-09-27-repokit-team-runtime-design.md) replaces its architectural direction and needs written review before a replacement plan/code. Task 1 is paused: no implementation code, tests or implementation commits happened. The old execution instructions and Git-status descriptions below are historical, not present authorization or status.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Deliver a standalone, declarative toolkit that safely installs and reconciles one official Hermes container per repository, with default-profile manual Kanban and an immutable, scanner-approved Superpowers plugin.
