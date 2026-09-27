@@ -1,5 +1,7 @@
 # Native operation qualification contract
 
+This page records the original Task 1 contract and verification snapshot. For current command behavior and later native observations, see [implementation progress](../implementation-progress.md) and [runtime evidence](runtime-observations.md). Task 1 statements below are historical; they do not supersede those later records.
+
 Task 1 establishes the Go command boundary and an evidence model. It does not qualify or run Hermes, Docker, plugins, sidecars or inference. No release image or native runtime version has been selected for deployment.
 
 ## Evidence semantics
@@ -34,7 +36,7 @@ Every row remains **unknown for deployment**. Existing source research may infor
 
 The forwarding examples in the design are not declarations that the selected Hermes version supports those spellings. Task 1 adds no Hermes command aliases, default UID, shell wrapper or runtime adapter.
 
-The [integration findings](../research/2026-09-27-repokit-integration-findings.md) inspect Hermes revision `28e6496a5e3adfea57bebfc9571b981bff378523` as source research, not a deployment pin. They record unresolved review enforcement and native OpenViking background-upload privacy limitations. The [precursor review](../research/2026-09-27-repokit-precursor-review.md) is additional design evidence. Neither record is promoted into a supported operation by Task 1.
+The [integration findings](../research/2026-09-27-repokit-integration-findings.md) inspect Hermes revision `28e6496a5e3adfea57bebfc9571b981bff378523` as source research, not a deployment pin. They record source-level review and memory behavior. The final directive accepts native OpenViking background sync/extraction; the earlier durable-only privacy exclusion is superseded. Review actor enforcement still requires qualification. The [precursor review](../research/2026-09-27-repokit-precursor-review.md) is additional design evidence. Neither record is promoted into a supported operation by Task 1.
 
 ## Task 1 command behavior
 

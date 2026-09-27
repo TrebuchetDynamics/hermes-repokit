@@ -1,27 +1,40 @@
-# Hermes RepoKit implementation progress
+# Hermes RepoKit progress
 
-The [final bootstrap design](docs/superpowers/specs/2026-09-27-repokit-bootstrap-design.md) and [phase plan](docs/superpowers/plans/2026-09-27-repokit-bootstrap.md) are authoritative. Earlier twelve-task and A–G plans are superseded. The final user directive authorizes complete implementation and phase commits.
+## Current stage
 
-Existing evidence: Go CLI skeleton and qualification evaluator, offline tests, product README. No release/runtime/model/memory qualification yet. No custom Nerve/Laya/provider code will be added. Native OpenViking automatic synchronization/extraction is accepted; durable-only privacy is not a product requirement. Native same-card review first; policy code only after demonstrated enforcement gap.
+The Go implementation foundation is complete; **v1 and the end-user installer are not complete**. `plan`, read-only metadata `verify`, and delegation of `setup` to an existing launcher work. `install` refuses before writing because no full preset has passed admission and removal-first acceptance.
 
-- [x] Phase 0: Correct authoritative documents.
-- [ ] Phase 1: Go CLI and qualification model.
-- [ ] Phase 2: Target identity and collision handling.
-- [ ] Phase 3: Compose renderer.
-- [ ] Phase 4: Atomic installer and locking.
-- [ ] Phase 5: Standalone launcher.
-- [ ] Phase 6: Setup delegation.
-- [ ] Phase 7: Native defaults, engineering profiles and Superpowers.
-- [ ] Phase 8: Upstream Nerve and supported Laya.
-- [ ] Phase 9: Official OpenViking and native provider.
-- [ ] Phase 10: Same-card review qualification.
-- [ ] Phase 11: Read-only plan and verify.
-- [ ] Phase 12: README and quickstart.
-- [ ] Phase 13: Removal-first acceptance.
-- [ ] Phase 14: RepoKit dogfood.
-- [ ] Phase 15: Release binaries.
+The [design](docs/superpowers/specs/2026-09-27-repokit-bootstrap-design.md) and [phase plan](docs/superpowers/plans/2026-09-27-repokit-bootstrap.md) follow the final upstream-first directive. The scope correction was committed separately as `a90381b`, before further implementation. Earlier runtime-manager/A–G plans must not execute. See [implementation evidence and remaining work](docs/implementation-progress.md).
 
-## Evidence ledger
+## Phase tracking
 
-- Phase 0: correct spec/plan/TODO before product code. Preserve source research as historical observations, not active requirements.
-- Live gates and released component pins remain pending. Do not claim model/memory operation from mocks or cross-compiled binaries.
+A phase stays unchecked when its required qualification or runtime evidence is incomplete, even if implementation primitives exist.
+
+- [x] 0: separately committed Go/upstream scope correction.
+- [ ] 1: canonical module and typed contracts implemented; full upstream operation qualification pending.
+- [x] 2: canonical identity and conservative filesystem, Git, PATH and container-name inspection.
+- [x] 3: deterministic digest-pinned independent Compose renderer.
+- [ ] 4: no-clobber publication, locks and safe rerun primitives implemented; full install transaction and failure matrix pending.
+- [x] 5: standalone shell launcher, argv/TTY/signal tests; optional PATH-link installation deferred.
+- [x] 6: native setup delegation with inherited streams and context-correct recovery guidance.
+- [ ] 7: default/engineering initialization and upstream Superpowers admission/loading.
+- [ ] 8: upstream Nerve and its supported Laya sidecar.
+- [ ] 9: official OpenViking scaffold/native provider handoff and actual memory qualification.
+- [ ] 10: same-card distinct builder/reviewer actor qualification; tiny policy only for a demonstrated actor-independence gap.
+- [ ] 11: plan/verify/setup implemented; install orchestration and component-specific verification incomplete.
+- [x] 12: product README, native quickstart and development build documentation.
+- [ ] 13: full removal-first acceptance in an unrelated disposable repository.
+- [ ] 14: native-team dogfood after acceptance.
+- [ ] 15: release qualification; amd64/arm64 development cross-builds exist, not a v1 release.
+
+## Boundaries
+
+Go host binary; standalone shell launcher; upstream plugins/services. No host Python/Node/Pi/Hermes requirement. Exactly one Hermes runtime per repository, `/workspace` and `/opt/data`, ordinary Compose and native commands. Native files authoritative; receipt optional/nonsecret. Default/engineering dispatch and auto_decompose off. Preserve existing state, refuse ambiguity, no automatic rc edits or runtime manager.
+
+No custom Nerve plugin, no speculative Laya API/server, no new memory provider. Native OpenViking synchronization/extraction is intended behavior; the durable-only block is removed. Credentials stay in native setup. Selected-version support and same-card actor independence require actual evidence.
+
+## Evidence and remaining gates
+
+Offline tests, race tests, vet and credential-free Docker foundation checks have passed. Native exec/profile/Kanban persistence and OpenViking's configuration handoff have limited recorded evidence; see [runtime observations](docs/qualification/runtime-observations.md). No actual model inference, memory write/recall/isolation, complete removal-first acceptance or dogfood has passed.
+
+Superpowers installation refused the exact candidate at CAUTION; the [229-finding scanner report](docs/qualification/superpowers-8ca22dba-scan.txt) requires explicit approval before plugin admission. Commit/merge approval does not waive that gate. Nerve/Laya transport, model identity and actor-independence gaps remain in [upstream qualification](docs/qualification/upstream-nerve.md). Live model work still needs configuration/data/download/spend/time scope. Source facts, mocks and development binaries do not make a release pass.
