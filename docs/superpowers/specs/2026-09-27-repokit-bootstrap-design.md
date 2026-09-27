@@ -23,6 +23,20 @@ Exactly one Hermes container belongs to a repository. Standard Compose owns serv
 
 Module: `github.com/TrebuchetDynamics/hermes-repokit`. Prefer the Go standard library; a pinned YAML library is acceptable if needed. There is no host Python/Node/Pi/Hermes prerequisite. Do not rewrite plugins or ML runtimes for language uniformity. Existing package names may remain where they express the same responsibilities; no empty scaffolding directories.
 
+## First milestone
+
+The initial default deployment contains only Hermes, native safe-default
+configuration, Compose and the standalone launcher. `install` generates these
+files with conservative locking/publication and prints the ordinary Compose
+start command. Native setup follows after the operator starts Hermes. No plugin,
+sidecar, multi-profile orchestration, model call or native initializer runs in
+this milestone. Foundation verification covers artifacts and runtime identity;
+it does not claim authenticated chat or model readiness.
+
+Prove the four commands and launcher/Compose independence after removal of
+RepoKit before starting upstream integrations. The later full v1 release gate
+still covers the selected plugins, sidecars and distinct same-card review.
+
 ## Deployment and identity
 
 ```text

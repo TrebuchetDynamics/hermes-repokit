@@ -1,6 +1,6 @@
 # RepoKit Bootstrap Implementation Plan
 
-> **For agentic workers:** Use superpowers:subagent-driven-development or superpowers:executing-plans. Follow the phase order, TDD and independent review. Commit each completed phase separately. The user's final directive authorizes implementation; do not reopen an architecture cycle.
+> **For agentic workers:** Use superpowers:subagent-driven-development or superpowers:executing-plans. Follow the foundation-first execution order below, TDD and independent review. Commit each completed phase separately. The user's final directive authorizes implementation; do not reopen an architecture cycle.
 
 **Goal:** One Go executable bootstraps independent native Hermes deployments and becomes unnecessary.
 **Architecture:** Go inspects targets and publishes ordinary Compose/native configuration plus a standalone POSIX launcher. Upstream plugins/sidecars own runtime behavior. Receipts are optional information.
@@ -12,6 +12,49 @@
 At the start of this amendment, the Go skeleton, qualification evaluator and README already existed (43f5a6a / 347d062). Their preservation and canonical module migration were the starting point; current progress is recorded below. This plan replaces the prior twelve-task implementation detail, not the bootstrap boundary. No custom Nerve plugin, custom Laya protocol/server, custom memory provider or speculative review-policy plugin. Remove the prior durable-only OpenViking gate: native sync/extraction is expected and documented. Older runtime-manager/A–G plans remain superseded.
 
 The current implementation and evidence status is tracked in [TODO](../../../TODO.md) and [implementation progress](../../implementation-progress.md); unchecked steps below remain implementation/qualification obligations, not a claim that no foundation code exists.
+
+## Execution order: finish the foundation first
+
+The latest review explicitly requires a usable four-command foundation before
+Nerve, Laya, OpenViking or multi-profile orchestration. Existing Go packages and
+README are retained. The remaining foundation work executes inline:
+
+1. Wire default `plan`/`install` to a Hermes-only artifact set using the recorded
+   immutable Hermes image and existing Compose/launcher/publication primitives.
+   `install` publishes files under the held lock; it does not pull images, start
+   services, install plugins or run native initializers. Print the exact ordinary
+   Compose start command. Recheck Git and container collisions under the lock.
+   Preserve matching installations, native edits and captured Docker context;
+   refuse foreign/stopped same-name containers. `--engineering` still refuses.
+2. Make default `verify` report foundation artifacts and runtime metadata only.
+   An intact generated Compose/launcher/config plus matching running container
+   can pass without optional integrations. Unknown/edited artifacts and stopped
+   containers remain non-success. Never imply authenticated chat or inference.
+3. Exercise the real CLI in a disposable Git repository, preserve user config
+   on rerun, and prove generated launchers operate from another cwd after the
+   copied installer binary, source copy and receipt are removed. Run ordinary
+   Compose restart against the pinned image in the gated Docker test. Keep this
+   foundation removal gate distinct from the full v1 integration release gate.
+4. Only after that gate passes, resume phases 7–10 for upstream integrations.
+   Nerve 0.3.0 is a qualification candidate, pinned to an immutable upstream SHA
+   before installation; its supported Laya sidecar supplies the backend.
+   Same-card native review is tested before considering a tiny policy plugin.
+
+Files: `internal/cli/{cli,install}.go`, `internal/cli/*_test.go`,
+`internal/install/install.go`, `internal/verify/{verify,verify_test}.go`,
+`tests/acceptance/{foundation,docker}_test.go`, README and quickstart.
+Reuse `internal/qualification`; do not rename it or recreate the Go skeleton.
+
+Tests must first fail for default install refusal and verification's unrelated
+integration blockers. Add collision, failed under-lock inspection, rerun/context,
+owner-edit and CLI removal regressions; retain existing publication/lock/TTY
+coverage. Validate with offline `go test ./...`, `go test -race ./...`, `go vet
+./...`, formatting, and separately gated credential-free Docker acceptance.
+
+Full v1 remains subject to phases 13–15. Those release gates and the Superpowers
+scanner decision do not block publication of the Hermes-only foundation.
+The phase numbers below describe component scope, not permission to implement
+integrations before this foundation gate.
 
 ## Global constraints
 

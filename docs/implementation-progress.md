@@ -37,8 +37,8 @@ future native initializer subprocesses need inherited locking before wiring.
 
 ## Outstanding, in order
 
-1. Admit exact Superpowers SHA/findings after explicit user approval; qualify actual native loading. Never promote scanner success from mocks.
-2. Finish the install transaction and native initialization wiring. **The CLI currently refuses every install before writing.** Renderer/publication helpers are exercised by tests but do not constitute an end-user installer.
+1. Wire and prove the Hermes-only four-command foundation, including CLI publication, conservative reruns and removal independence. **The CLI currently refuses every install before writing.** Optional integration qualification must not block this milestone.
+2. After the foundation removal gate, admit exact Superpowers SHA/findings after explicit user approval and qualify actual native loading. Never promote scanner success from mocks.
 3. Persist safe default config and create/preserve the engineering profiles with qualified native commands/toolsets; keep credentials isolated and dispatch/decomposition off.
 4. Qualify Nerve catalog revision/scanner/profile loading and its Laya sidecar transport/checkpoint. Current upstream rejects `http://laya:8765`; choose and qualify a supported transport, do not invent another protocol.
 5. Finish official OpenViking scaffold/native provider configuration and operator handoff; actual model setup needs provider/model/budget selection and private native credential entry.

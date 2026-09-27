@@ -62,6 +62,14 @@ Fresh deployments start with dispatch and automatic decomposition disabled.
 Engineering adds researcher, planner, builder and reviewer profiles when
 qualified; it does not enable autonomous work or clone credentials.
 
+## First milestone
+
+Finish `plan`, `install`, `setup` and `verify` for a Hermes-only deployment,
+including target detection, naming, locking and a standalone launcher. Prove
+that deployment survives RepoKit removal before adding plugins, Nerve/Laya,
+OpenViking or engineering profiles. Full v1 integration qualification is a
+separate gate; the implementation status above describes today's code.
+
 ## Integration status
 
 | Component | Direction and evidence |
