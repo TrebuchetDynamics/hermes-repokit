@@ -6,7 +6,7 @@
 
 **Architecture:** `hermes-repokit` writes `.hermes/compose.yaml`, native configuration and a standalone POSIX launcher. Compose/Hermes own runtime behavior; native plugins and optional Laya are independently packaged artifacts, never installer callbacks.
 
-**Tech Stack:** Go standard library (`flag`, `testing`, `os/exec`, `context`, `encoding/json`, `embed`, `text/template`), YAML output, optional JSON receipt, POSIX shell, Docker Compose. Go is build/development tooling only. No host Python/venv/pip/Node/Hermes prerequisite. Python remains valid INSIDE native plugin/Laya artifacts; Go is not Hermes's plugin API.
+**Tech Stack:** Go standard library (`flag`, `testing`, `os/exec`, `context`, `encoding/json`, `embed`, `text/template`), YAML output, optional JSON receipt, POSIX shell, Docker Compose. Go is build/development tooling only. Bootstrap requires Git inspection and Docker/Compose on the supported host; the generated launcher requires only POSIX shell and Docker/Compose. No host Python/venv/pip/Node/Hermes prerequisite. Python remains valid INSIDE native plugin/Laya artifacts; Go is not Hermes's plugin API.
 
 **Spec:** [bootstrap design](../specs/2026-09-27-repokit-bootstrap-design.md).
 
@@ -56,9 +56,9 @@ type Artifact struct {
 	Content      []byte
 }
 type BootstrapRequest struct {
-	Root, DockerContext, BinDir string
+	Root, DockerContext, BinDir            string
 	HermesImage, OpenVikingImage, LayaImage string
-	Engineering bool
+	Engineering                           bool
 }
 type BootstrapResult struct {
 	Created, Preserved, Blocked []string
@@ -650,4 +650,4 @@ Include interrupted bootstrap/stale child lock/collision/failed pull/scanner, ow
 
 ## Inline self-review
 
-Twelve original boundaries retained. Go module/package paths and types match consumes/produces; snippets are default Go tests/core, native Python targets stay runtime-only and cannot depend on Go/installer. Go version/pins remain qualified selections, not fabricated artifacts. Task 4 owns Linux locking, Task 6 process cancellation, Task 5 shell transparency, Task 12 absent-build-tools/removal evidence. All review-focus failures have owning tests. No opaque runtime manifest, new control plane, latest update, host Python requirement or fake test evidence. This draft needs parent review; no new product questionnaire or implementation has occurred.
+Twelve original boundaries retained. Go module/package paths and types match consumes/produces; snippets are default Go tests/core, native Python targets stay runtime-only and cannot depend on Go/installer. Go version/pins remain qualified selections, not fabricated artifacts. Task 4 owns Linux locking, Task 6 process cancellation, Task 5 shell transparency, Task 12 absent-build-tools/removal evidence. All review-focus failures have owning tests. No opaque runtime manifest, new control plane, latest update, host Python requirement or fake test evidence. Parent review also requires actual CLI bootstrap wiring in Task 11 and installed native plugin discovery tests, not just helper predicates. Review this Go draft before the first implementation task; no new product questionnaire or implementation has occurred.
