@@ -1,6 +1,6 @@
 # Hermes RepoKit repository bootstrap
 
-Date: 2026-09-27. **Go boundary approved; independent amendment review precedes Task 1.**
+Date: 2026-09-27. **Go amendment independently reviewed; Task 1 skeleton and contracts implemented.**
 
 Replaces the [team-runtime design](2026-09-27-repokit-team-runtime-design.md)/A–G plans. The [bootstrap plan](../plans/2026-09-27-repokit-bootstrap.md) retains the twelve-task architecture. The current authorization covers only the Go skeleton, qualification contracts and unit tests after independent review; no runtime qualification is claimed. [Integration findings](../../research/2026-09-27-repokit-integration-findings.md) remain source evidence, not approved deployment pins. The [precursor review](../../research/2026-09-27-repokit-precursor-review.md) records adopted patterns and rejected manager/chat-supervisor behavior.
 

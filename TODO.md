@@ -2,7 +2,7 @@
 
 ## Current stage
 
-**Go amendment authorized; independent review precedes Task 1 only.** Existing Go draft commits are retained and clarified. The previous 29-task A–G runtime-manager plan remains obsolete. Task 1 may create the Go module, four-command skeleton, qualification evidence model and offline unit tests. No runtime work is authorized by this task.
+**Go amendment independently reviewed and committed; Task 1 implemented and independently approved.** The previous 29-task A–G runtime-manager plan remains obsolete. Task 1 covers the Go module, four-command skeleton, qualification evidence model and offline unit tests only. The four actions intentionally report not implemented until their owning tasks. No native runtime qualification is claimed.
 
 - [x] Read existing design and immutable source findings.
 - [x] Replace runtime-manager boundary with [bootstrap design](docs/superpowers/specs/2026-09-27-repokit-bootstrap-design.md).
@@ -12,12 +12,13 @@
 - [x] Amend twelve tasks to Go before code: one `hermes-repokit` binary, offline Go default tests; independently packaged native plugin/Laya Python remains container-only.
 - [x] Parent-review corrected design/plan, including installed plugin discovery, explicit CLI bootstrap wiring, launcher transparency and separate build/runtime prerequisites.
 - [x] Independently review the Go amendment before the first code task; scope contradiction corrected, no blocking findings remain.
-- [ ] Commit the reviewed design/plan separately, then implement and review Task 1 immediately.
+- [x] Commit reviewed Go design/plan separately: `01f8f5a`.
+- [x] Implement and independently review Task 1: Go module, four-command skeleton, version-bound qualification model and package-local tests.
 - [ ] Tasks 2–12 remain unimplemented; preserve removal-first Task 12. Runtime, provider, download and inference permissions remain separately scoped.
 
 ## Boundary to preserve
 
-Go builds one standalone `hermes-repokit` executable; compiler needed only for build/development. First supported release is Linux amd64/arm64 with local Docker, not unqualified cross-platform support. Bootstrap uses Git and qualified Docker/Compose; the generated launcher needs only shell and Docker/Compose. No host Python/venv/pip/Node/Hermes dependency. Embed templates, CGO-disabled reproducible builds and checksummed binary distribution; no required remote installer/curl-to-shell. Native plugin/Laya Python remains inside runtime images. Default `go test ./...` is offline, runtime suites require explicit tags AND scoped authority. Go version/module pins require implementation qualification; no builds/downloads occurred.
+Go builds one standalone `hermes-repokit` executable; compiler needed only for build/development. First supported release is Linux amd64/arm64 with local Docker, not unqualified cross-platform support. Bootstrap uses Git and qualified Docker/Compose; the generated launcher needs only shell and Docker/Compose. No host Python/venv/pip/Node/Hermes dependency. Embed templates, CGO-disabled reproducible builds and checksummed binary distribution; no required remote installer/curl-to-shell. Native plugin/Laya Python remains inside runtime images. Default `go test ./...` is offline, runtime suites require explicit tags AND scoped authority. Task 1 records local development toolchain evidence; patched release-toolchain qualification remains Task 12. No dependency/toolchain downloads are part of Task 1.
 
 RepoKit generates readable `.hermes/compose.yaml` and persistent `.hermes/`, then is unnecessary. Standard Compose owns service lifecycle; native Hermes owns profiles, Kanban, plugins and execution. One Hermes runtime/project; OpenViking selected memory; optional Laya inference sidecar; separately installed self-contained native Nerve/review policy and Superpowers plugins. No resident manager, runtime DB, reconciliation or hidden plugin-to-installer dependency.
 

@@ -10,7 +10,7 @@
 
 **Spec:** [bootstrap design](../specs/2026-09-27-repokit-bootstrap-design.md).
 
-**Status:** Go amendment authorized by the user and independently reviewed with no blocking findings. Execute **only Task 1** in this session, then stop. Local offline builds/tests and separate documentation/implementation commits are authorized. No Docker installation, downloads, credentials, sidecar/plugin implementation or Hermes runtime work is in Task 1. Tasks 2–12 remain planned; obsolete 29-task A–G plans must not execute.
+**Status:** Go amendment authorized by the user and independently reviewed with no blocking findings. **Task 1 is implemented and independently approved; Tasks 2–12 have not started.** Local offline builds/tests and separate documentation/implementation commits are authorized. No Docker installation, downloads, credentials, sidecar/plugin implementation or Hermes runtime work is in Task 1. Tasks 2–12 remain planned; obsolete 29-task A–G plans must not execute.
 
 ## Global Constraints
 
@@ -69,8 +69,8 @@ Each Go fence is a test/core file fragment with its package/imports; merge same-
 **Files:** Create `go.mod`, `cmd/hermes-repokit/main.go`, `internal/cli/cli.go`, `internal/cli/cli_test.go`, `internal/qualification/evidence.go`, `internal/qualification/evidence_test.go`, `docs/qualification/native-contract.md`.
 **Consumes:** approved spec and existing research, not a running Hermes instance. **Produces:** `cli.Commands() []string`, `cli.Run(args []string, stdout, stderr io.Writer) int`; `qualification.Operation`, `Verdict`, `Evidence` and `Evaluate(selectedRevision string, operation Operation, evidence Evidence) Verdict`.
 
-- [ ] Select the already-installed Go toolchain for offline development; record the actual version and patch limitations. Set the module's language floor from verified local compilation, not a fabricated release pin. No toolchain download; current patched release-toolchain qualification remains Task 12.
-- [ ] Red: package-local table tests must reject extra host commands, flags and positional arguments; help succeeds and names exactly plan/install/setup/verify. Each recognized command without help returns exit 1 with an explicit not-implemented diagnostic, never a fake successful plan/install/setup/verify. Usage errors return 2; help returns 0. No arguments is usage error (native noarg chat belongs to the later generated launcher). Run `go test ./internal/cli ./internal/qualification` and observe missing behavior.
+- [x] Select the already-installed Go toolchain for offline development; record the actual version and patch limitations. Set the module's language floor from verified local compilation, not a fabricated release pin. No toolchain download; current patched release-toolchain qualification remains Task 12.
+- [x] Red: package-local table tests must reject extra host commands, flags and positional arguments; help succeeds and names exactly plan/install/setup/verify. Each recognized command without help returns exit 1 with an explicit not-implemented diagnostic, never a fake successful plan/install/setup/verify. Usage errors return 2; help returns 0. No arguments is usage error (native noarg chat belongs to the later generated launcher). Run `go test ./internal/cli ./internal/qualification` and observe missing behavior.
 ```go
 package cli
 
@@ -86,8 +86,8 @@ func TestSkeletonDoesNotClaimInstallation(t *testing.T) {
     }
 }
 ```
-- [ ] Green: use standard-library `flag.FlagSet` with `ContinueOnError` per command; `main` passes argv and streams and exits with `Run`'s code. No subprocesses, filesystem writes, config loading, runtime probes or hidden native command hierarchy. Reject input without echoing arbitrary argument values. Task 6 implements setup delegation; Task 11 wires actual handlers.
-- [ ] Red/green qualification: define typed operation identifiers for native chat, setup, profiles, plugins, Kanban, official exec shim and read-only probes; these are evidence labels, **not native command spellings**. `Evidence` contains only operation, immutable selected Hermes revision, verdict and sanitized source/runtime evidence references. No credentials, environment, argv, raw logs or free-form native output fields. Verdict zero value is unknown; unsupported requires matching operation/revision plus source evidence; supported additionally requires runtime evidence. Missing, blank, unknown-enum, mismatched or source-only positive evidence evaluates unknown. Match a full 40-character lowercase commit SHA; arbitrary version labels cannot qualify. Tests use clearly synthetic references and never prove native behavior.
+- [x] Green: use standard-library `flag.FlagSet` with `ContinueOnError` per command; `main` passes argv and streams and exits with `Run`'s code. No subprocesses, filesystem writes, config loading, runtime probes or hidden native command hierarchy. Reject input without echoing arbitrary argument values. Task 6 implements setup delegation; Task 11 wires actual handlers.
+- [x] Red/green qualification: define typed operation identifiers for native chat, setup, profiles, plugins, Kanban, official exec shim and read-only probes; these are evidence labels, **not native command spellings**. `Evidence` contains only operation, immutable selected Hermes revision, verdict and sanitized source/runtime evidence references. No credentials, environment, argv, raw logs or free-form native output fields. Verdict zero value is unknown; unsupported requires matching operation/revision plus source evidence; supported additionally requires runtime evidence. Missing, blank, unknown-enum, mismatched or source-only positive evidence evaluates unknown. Match a full 40-character lowercase commit SHA; arbitrary version labels cannot qualify. Tests use clearly synthetic references and never prove native behavior.
 ```go
 package qualification
 
@@ -99,8 +99,8 @@ func TestMissingEvidenceIsUnknown(t *testing.T) {
     }
 }
 ```
-- [ ] Record research references separately from deployment qualification. No selected release artifact or native runtime is qualified by this task; all operational support remains unknown until the selected version is actually qualified. Document pending exact command spellings, noarg chat mapping, UID/GID/HOME shim, safe startup and plugin scanner evidence. Do not invent aliases or run Hermes to populate fixtures. Evidence evaluation checks contract completeness, not reference authenticity or permission to execute.
-- [ ] Full offline `go test ./...`, `go vet ./...`, and CGO-disabled local binary build pass with `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off`. Independent implementation review; commit implementation separately from reviewed Go design/plan. Stop before Task 2.
+- [x] Record research references separately from deployment qualification. No selected release artifact or native runtime is qualified by this task; all operational support remains unknown until the selected version is actually qualified. Document pending exact command spellings, noarg chat mapping, UID/GID/HOME shim, safe startup and plugin scanner evidence. Do not invent aliases or run Hermes to populate fixtures. Evidence evaluation checks contract completeness, not reference authenticity or permission to execute.
+- [x] Full offline `go test ./...`, `go vet ./...`, and CGO-disabled local binary build pass with `GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off`. Independent implementation review; commit implementation separately from reviewed Go design/plan. Stop before Task 2.
 
 ### Task 2: Canonical target and collision refusal
 
