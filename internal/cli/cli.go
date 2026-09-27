@@ -9,6 +9,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 	"io"
@@ -81,6 +82,12 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		return native.Setup(id.Launcher, id.Compose, dockerContext, a.Stdin, stdout, stderr)
 	case "verify":
 		probes := verify.Inspect(context.Background(), id, a.Runner)
+		if issues := a.gitIssues(context.Background(), id); len(issues) > 0 {
+			probes = append(probes, verify.Probe{Component: "git", Status: verify.Degraded, Detail: strings.Join(issues, "; ")})
+		}
+		if engineering {
+			probes = append(probes, verify.Probe{Component: "engineering", Status: verify.Unsupported, Detail: "upstream integration qualification pending"})
+		}
 		if err := json.NewEncoder(stdout).Encode(probes); err != nil {
 			return 1
 		}
@@ -100,13 +107,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			}
 			return 0
 		}
-		// The release has no admitted full preset yet. Refuse before locks, pulls,
-		// publication or native initialization; source candidates are not approval.
-		fmt.Fprintln(stderr, "installation qualification incomplete:", strings.Join(report.Unsupported, "; "))
-		if len(report.Collisions) > 0 {
-			fmt.Fprintln(stderr, "target collisions:", strings.Join(report.Collisions, "; "))
-		}
-		return 1
+		return a.install(id, report, stdout, stderr)
 	}
 	return 2
 }
@@ -124,36 +125,39 @@ type Plan struct {
 }
 
 func (a App) plan(id target.Identity, engineering bool) Plan {
-	p := Plan{Target: id, Collisions: target.Inspect(id, a.Path), CandidateImages: map[string]string{
-		"hermes":     "nousresearch/hermes-agent@sha256:d4da4a40cd7a28aba983775d9fd31d94cbf153eeb0cb9e844d6d0f612b7c24db",
-		"openviking": "ghcr.io/volcengine/openviking@sha256:569193efd49ad15a818c98ca66bfb566d1726713f1f3ec9c488b97fa66757d05"}, Profiles: []string{"default"}, Plugins: []string{"obra/superpowers@8ca22dba9a94f28898bbce59f2537ff4d87c747d"}, Kanban: map[string]bool{"dispatch_in_gateway": false, "auto_decompose": false}, OpenViking: "pending native setup and release qualification", NerveLaya: "not selected", ProposedChanges: []string{"private .hermes native state", "standalone Compose and launcher", "native default profile and Kanban", "upstream Superpowers", "official OpenViking service and native setup handoff"}, Unsupported: []string{"Superpowers CAUTION requires exact SHA/findings approval (docs/qualification/superpowers-8ca22dba-scan.txt)", "native exec/chat/setup, plugin loading and OpenViking release evidence incomplete", "no release-qualified preset: removal-first acceptance has not passed"}}
+	p := Plan{Target: id, Collisions: target.Inspect(id, a.Path), CandidateImages: map[string]string{"hermes": qualification.FoundationImage}, Profiles: []string{"default"}, Plugins: []string{}, Kanban: map[string]bool{"dispatch_in_gateway": false, "auto_decompose": false}, OpenViking: "not selected", NerveLaya: "not selected", ProposedChanges: []string{"private .hermes native state", "standalone Hermes-only Compose and launcher", "native safe-default config; operator starts Compose and runs setup"}}
+
 	if engineering {
 		p.Profiles = append(p.Profiles, "researcher", "planner", "builder", "reviewer")
 		p.Plugins = append(p.Plugins, "upstream nerve (not yet admitted)")
 		p.NerveLaya = "selected, unsupported pending transport/checkpoint/inference qualification"
-		p.Unsupported = append(p.Unsupported, "Nerve/Laya transport and same-card actor independence not qualified")
+		p.Unsupported = append(p.Unsupported, "engineering qualification pending: upstream plugins, Nerve/Laya and same-card actor independence")
 	}
 	if _, err := os.Lstat(filepath.Join(id.Root, ".hermes")); err == nil {
 		p.ExistingState = true
 		p.ProposedChanges = []string{"inspect and preserve existing native configuration; refuse ambiguous adoption"}
 	}
 	ctx := context.Background()
-	git := a.Runner.Run(ctx, "git", "-C", id.Root, "rev-parse", "--show-toplevel")
-	if git.Err != nil || git.Truncated || strings.TrimSpace(git.Output) != id.Root {
-		p.Collisions = append(p.Collisions, "target must be the canonical Git repository root")
+	p.Collisions = append(p.Collisions, a.gitIssues(ctx, id)...)
+	if p.ExistingState {
+		captured, err := launcher.Context(id)
+		if err != nil {
+			p.Collisions = append(p.Collisions, "existing launcher context cannot be verified")
+			return p
+		}
+		p.DockerContext = captured
+	} else {
+		dc := a.Runner.Run(ctx, "docker", "context", "show")
+		if dc.Err != nil || dc.Truncated {
+			p.Collisions = append(p.Collisions, "Docker context unavailable")
+			return p
+		}
+		p.DockerContext = strings.TrimSpace(dc.Output)
 	}
-	tracked := a.Runner.Run(ctx, "git", "-C", id.Root, "ls-files", "-z", "--", ".hermes")
-	if tracked.Err != nil || tracked.Truncated {
-		p.Collisions = append(p.Collisions, "cannot inspect tracked private state")
-	} else if tracked.Output != "" {
-		p.Collisions = append(p.Collisions, "private .hermes state is tracked by Git")
-	}
-	dc := a.Runner.Run(ctx, "docker", "context", "show")
-	if dc.Err != nil || dc.Truncated {
-		p.Collisions = append(p.Collisions, "Docker context unavailable")
+	if _, err := launcher.Render(id, p.DockerContext); err != nil {
+		p.Collisions = append(p.Collisions, "invalid Docker context")
 		return p
 	}
-	p.DockerContext = strings.TrimSpace(dc.Output)
 	host := a.Runner.Run(ctx, "docker", "context", "inspect", p.DockerContext, "--format", "{{.Endpoints.docker.Host}}")
 	if host.Err != nil || host.Truncated || !strings.HasPrefix(strings.TrimSpace(host.Output), "unix://") {
 		p.Collisions = append(p.Collisions, "only a qualified local Docker socket context is supported")
@@ -164,7 +168,11 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 	} else {
 		for _, name := range strings.Fields(containers.Output) {
 			if name == id.Container {
-				p.Collisions = append(p.Collisions, "container name already exists (running or stopped); native deployment ownership requires verification")
+				observed := a.Runner.Run(ctx, "docker", "--context", p.DockerContext, "container", "inspect", "--format", verify.InspectFormat, id.Container)
+				var state verify.Runtime
+				if !p.ExistingState || observed.Err != nil || observed.Truncated || json.Unmarshal([]byte(observed.Output), &state) != nil || state.Project != id.Project || state.Workspace != id.Root || state.Home != filepath.Join(id.Root, ".hermes") {
+					p.Collisions = append(p.Collisions, "container name already exists (running or stopped); native deployment ownership requires verification")
+				}
 			}
 		}
 	}

@@ -4,9 +4,6 @@ package acceptance
 
 import (
 	"context"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/install"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"os"
 	"os/exec"
@@ -43,18 +40,21 @@ func TestDockerFoundation(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	data, e := compose.Render(id, compose.Options{HermesImage: "nousresearch/hermes-agent@sha256:d4da4a40cd7a28aba983775d9fd31d94cbf153eeb0cb9e844d6d0f612b7c24db", UID: os.Getuid(), GID: os.Getgid()})
-	if e != nil {
-		t.Fatal(e)
+	installer, removeInstaller := disposableCLI(t)
+	if out, err := exec.CommandContext(ctx, "git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("git: %v %s", err, out)
 	}
-	script, e := launcher.Render(id, dc)
-	if e != nil {
-		t.Fatal(e)
+	runCLI := func(command string) {
+		t.Helper()
+		cmd := exec.CommandContext(ctx, installer, command)
+		cmd.Dir = root
+		cmd.Env = append(os.Environ(), "DOCKER_CONTEXT="+dc)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("CLI %s: %v %s", command, err, out)
+		}
 	}
-	_, e = install.Publish(id, map[string]install.Artifact{"compose.yaml": {Data: data, Mode: 0600}, "config.yaml": {Data: []byte("kanban:\n  dispatch_in_gateway: false\n  auto_decompose: false\n"), Mode: 0600}, "bin/" + id.Container: {Data: script, Mode: 0700}}, nil)
-	if e != nil {
-		t.Fatal(e)
-	}
+	runCLI("plan")
+	runCLI("install")
 	base := []string{"--context", dc, "compose", "--env-file", "/dev/null", "-f", id.Compose}
 	docker := func(args ...string) []byte {
 		t.Helper()
@@ -88,6 +88,14 @@ func TestDockerFoundation(t *testing.T) {
 	if !ready {
 		t.Fatal("native exec did not become ready")
 	}
+	runCLI("verify")
+	runCLI("install") // A running owned container must not block a safe no-op.
+	removeInstaller()
+	// There is no receipt in a foundation install. Removing source and binary
+	// before native commands proves those artifacts cannot be runtime dependencies.
+	if _, err := os.Stat(installer); !os.IsNotExist(err) {
+		t.Fatal("installer still accessible")
+	}
 	cmd := exec.CommandContext(ctx, id.Launcher, "kanban", "init")
 	cmd.Dir = t.TempDir()
 	if out, e := cmd.CombinedOutput(); e != nil {
@@ -103,5 +111,10 @@ func TestDockerFoundation(t *testing.T) {
 	if e != nil || !os.SameFile(before, after) {
 		t.Fatal("restart replaced board")
 	}
-	t.Log("PASS: generated Compose parsed; official Hermes created; native exec worked from unrelated cwd; Kanban persisted through raw Compose restart. No inference or full removal gate claimed.")
+	cmd = exec.CommandContext(ctx, id.Launcher, "--version")
+	cmd.Dir = t.TempDir()
+	if out, err := cmd.CombinedOutput(); err != nil || !strings.Contains(string(out), "v0.21.5") {
+		t.Fatalf("native exec after restart/removal: %v %s", err, out)
+	}
+	t.Log("PASS: real CLI plan/install/verify/rerun; disposable installer binary and source removed; native exec and Kanban from unrelated cwd; raw Compose restart and persistent board. No inference or full v1 gate claimed.")
 }

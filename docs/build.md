@@ -15,16 +15,17 @@ executables. The amd64 executable ran `plan --engineering` against the checkout.
 Arm64 was cross-compiled, not executed on an arm64 host.
 
 The development artifacts at `/tmp/repokit-build-20260927/` were built from
-implementation commit `189639c` (subsequent commits only document evidence):
+implementation commit `189639c` (historical artifacts; later implementation commits are not included):
 
 | File | SHA256 |
 | --- | --- |
 | hermes-repokit-linux-amd64 | d29294a291ad49637c1d731544a5e09af7f7560ee43921f6e6ea5aa3111b483b |
 | hermes-repokit-linux-arm64 | 3b04c0d6fbda36022d918ce7d9d99af478e44542d2eb60ea19f25b823bee23f0 |
 
-These are **not v1 release artifacts**: install still refuses an unqualified
-preset, the local compiler is behind current patches, and full live acceptance
-is unfinished. A release needs a patched toolchain, repeat-build comparison,
+These historical binaries predate usable foundation installation and are **not
+v1 release artifacts**. Rebuild current source for Hermes-only installation.
+Patched-toolchain qualification and full live integration acceptance remain
+unfinished. A release needs a patched toolchain, repeat-build comparison,
 execution on both architectures, admission evidence, removal-first acceptance
 and subsequent native-team dogfood. No release was published.
 

@@ -129,7 +129,7 @@ func TestInstallRefusesUnqualifiedPresetBeforeAnyWrites(t *testing.T) {
 	fRoot = root
 	var out, errout bytes.Buffer
 	app := App{Directory: root, Runner: &fakeRunner{}}
-	if code := app.Run([]string{"install"}, &out, &errout); code == 0 || !strings.Contains(errout.String(), "qualification") {
+	if code := app.Run([]string{"install", "--engineering"}, &out, &errout); code == 0 || !strings.Contains(errout.String(), "qualification") {
 		t.Fatalf("%d %s", code, errout.String())
 	}
 	entries, _ := os.ReadDir(root)

@@ -3,57 +3,120 @@ package acceptance
 
 import (
 	"context"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/install"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
+// Build from a disposable source copy so removal covers both source and binary.
+func disposableCLI(t *testing.T) (string, func()) {
+	t.Helper()
+	original, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(t.TempDir(), "source")
+	if err = os.Mkdir(source, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range []string{"cmd", "internal"} {
+		if err = os.CopyFS(filepath.Join(source, dir), os.DirFS(filepath.Join(original, dir))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mod, err := os.ReadFile(filepath.Join(original, "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(source, "go.mod"), mod, 0600); err != nil {
+		t.Fatal(err)
+	}
+	binary := filepath.Join(source, "hermes-repokit")
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "go", "build", "-trimpath", "-o", binary, "./cmd/hermes-repokit")
+	cmd.Dir = source
+	cmd.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOPROXY=off", "GOSUMDB=off")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("build: %v %s", err, out)
+	}
+	return binary, func() {
+		t.Helper()
+		if err := os.RemoveAll(source); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestPublishedLauncherSurvivesInstallerArtifactsRemoval(t *testing.T) {
+	installer, removeInstaller := disposableCLI(t)
 	root := filepath.Join(t.TempDir(), "unrelated-repository")
-	os.Mkdir(root, 0700)
-	id, e := target.Resolve(root)
-	if e != nil {
-		t.Fatal(e)
+	if err := os.Mkdir(root, 0700); err != nil {
+		t.Fatal(err)
 	}
-	composeData, e := compose.Render(id, compose.Options{HermesImage: "example/hermes@sha256:" + strings.Repeat("a", 64), UID: os.Getuid(), GID: os.Getgid()})
-	if e != nil {
-		t.Fatal(e)
+	id, err := target.Resolve(root)
+	if err != nil {
+		t.Fatal(err)
 	}
-	script, e := launcher.Render(id, "default")
-	if e != nil {
-		t.Fatal(e)
+	if out, err := exec.Command("git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("git: %v %s", err, out)
 	}
-	artifacts := map[string]install.Artifact{"compose.yaml": {Data: composeData, Mode: 0600}, "config.yaml": {Data: []byte("kanban:\n  dispatch_in_gateway: false\n  auto_decompose: false\n"), Mode: 0600}, "bin/" + id.Container: {Data: script, Mode: 0700}, "repokit-install.json": {Data: []byte("{}"), Mode: 0600}}
-	if _, e = install.Publish(id, artifacts, nil); e != nil {
-		t.Fatal(e)
-	}
-	// This is offline launcher independence only, not the v1 removal-first gate.
-	installer := filepath.Join(t.TempDir(), "installer-copy")
-	os.WriteFile(installer, []byte("disposable installer artifact"), 0700)
-	os.Remove(installer)
-	os.Remove(filepath.Join(root, ".hermes/repokit-install.json"))
 	bin := t.TempDir()
-	os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\n[ \"$1\" = --context ] || exit 2\nprintf 'native-command'\n"), 0700)
-	cmd := exec.CommandContext(context.Background(), id.Launcher, "kanban", "list")
+	// Fake only Docker; install, Git inspection, lock and publication run for real.
+	docker := `#!/bin/sh
+case "$*" in
+ 'context show') printf 'default\n';;
+ 'context inspect default --format {{.Endpoints.docker.Host}}') printf 'unix:///var/run/docker.sock\n';;
+ '--context default container ls --all --format {{.Names}}') :;;
+ *)
+  [ "$1" = --context ] && [ "$2" = default ] && [ "$3" = compose ] || exit 2
+  shift 7
+  [ "$1" = exec ] && [ "$2" = -T ] && [ "$3" = --workdir ] && [ "$4" = /workspace ] && [ "$5" = hermes ] && [ "$6" = hermes ] || exit 3
+  shift 6
+  printf '%s\n' "$@"
+  ;;
+esac
+`
+	if err := os.WriteFile(filepath.Join(bin, "docker"), []byte(docker), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, command := range []string{"plan", "install", "setup"} {
+		cmd := exec.Command(installer, command)
+		cmd.Dir = root
+		cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"))
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("CLI %s: %v %s", command, err, out)
+		}
+	}
+	receipt := filepath.Join(root, ".hermes/repokit-install.json")
+	if err := os.WriteFile(receipt, []byte("{}"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	removeInstaller()
+	if err := os.Remove(receipt); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(id.Launcher, "unknown-native-command", "space ; $ literal")
 	cmd.Dir = t.TempDir()
 	cmd.Env = []string{"PATH=" + bin}
-	out, e := cmd.Output()
-	if e != nil || string(out) != "native-command" {
-		t.Fatalf("standalone launcher: %v %q", e, out)
+	out, err := cmd.Output()
+	if err != nil || string(out) != "unknown-native-command\nspace ; $ literal\n" {
+		t.Fatalf("standalone: %v %q", err, out)
 	}
-	git := exec.Command("git", "-C", root, "init", "--quiet")
-	if e = git.Run(); e != nil {
-		t.Fatal(e)
+	git := exec.Command("git", "-C", root, "status", "--porcelain", "--untracked-files=all", "--", ".hermes")
+	if out, err := git.Output(); err != nil || len(out) != 0 {
+		t.Fatalf("private state exposed to Git: %q %v", out, err)
 	}
-	git = exec.Command("git", "-C", root, "status", "--porcelain", "--untracked-files=all", "--", ".hermes")
-	out, e = git.Output()
-	if e != nil || len(out) != 0 {
-		t.Fatalf("private native state exposed to Git: %q %v", out, e)
+	if _, err := os.Stat(installer); !os.IsNotExist(err) {
+		t.Fatal("installer survived removal")
+	}
+	data, err := os.ReadFile(id.Compose)
+	if err != nil || strings.Contains(string(data), filepath.Dir(installer)) {
+		t.Fatal("Compose depends on installer copy")
 	}
 }

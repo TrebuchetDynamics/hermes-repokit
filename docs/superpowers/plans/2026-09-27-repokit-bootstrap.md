@@ -53,6 +53,8 @@ coverage. Validate with offline `go test ./...`, `go test -race ./...`, `go vet
 
 Full v1 remains subject to phases 13–15. Those release gates and the Superpowers
 scanner decision do not block publication of the Hermes-only foundation.
+The four-command foundation above is implemented and its credential-free Docker
+removal gate passed; see [runtime evidence](../../qualification/runtime-observations.md).
 The phase numbers below describe component scope, not permission to implement
 integrations before this foundation gate.
 

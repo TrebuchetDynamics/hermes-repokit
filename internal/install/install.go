@@ -25,6 +25,16 @@ type Artifact struct {
 // state or spawn a native initializer. Future native subprocesses must hold
 // an explicitly inherited installer lock across their whole lifetime.
 func Publish(id target.Identity, files map[string]Artifact, prepare func() error) (bool, error) {
+	return publish(id, files, prepare, nil)
+}
+
+// PublishChecked rechecks external read-only inventory while holding the same
+// publication lock, including on no-op reruns. The check must not mutate state.
+func PublishChecked(id target.Identity, files map[string]Artifact, check func() error) (bool, error) {
+	return publish(id, files, nil, check)
+}
+
+func publish(id target.Identity, files map[string]Artifact, prepare, check func() error) (bool, error) {
 	for name, a := range files {
 		if !fs.ValidPath(name) || name == "." || strings.Contains(name, "\\") || a.Mode.Perm()&0077 != 0 || !a.Mode.IsRegular() {
 			return false, fmt.Errorf("unsafe generated artifact")
@@ -59,6 +69,11 @@ func Publish(id target.Identity, files map[string]Artifact, prepare func() error
 	lockInfo, e := lock.Stat()
 	if e != nil || !sameLock(root, lockInfo) {
 		return false, fmt.Errorf("installer lock changed")
+	}
+	if check != nil {
+		if err := check(); err != nil {
+			return false, err
+		}
 	}
 	if _, e = root.Lstat(".hermes"); e == nil {
 		for _, name := range []string{"compose.yaml", "config.yaml", "bin/" + id.Container} {

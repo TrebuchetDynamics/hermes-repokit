@@ -2,29 +2,26 @@
 
 Bootstrap a repository-specific Docker Hermes environment.
 
-RepoKit configures Docker Compose, private `.hermes` state, native Kanban,
-plugins, optional engineering profiles, OpenViking memory and Nerve/Laya
-supervision. After bootstrap, RepoKit is not required.
+RepoKit generates ordinary Docker Compose, private `.hermes` state and a
+standalone `hermes-<repo>` launcher. After bootstrap, RepoKit is not required.
 
-**In development; v1 is not complete.** `plan`, read-only `verify`, and delegation
-of `setup` to an existing generated launcher work. Compose rendering, atomic
-publication and the standalone launcher have offline tests and a credential-free
-Docker acceptance test. **`install` currently refuses before writing:** no full
-preset has passed upstream admission and the removal-first release gate.
+**The Hermes-only foundation works; v1 is not complete.** `plan`, `install`,
+`setup` delegation and read-only `verify` are implemented. Installation generates
+files; ordinary Compose starts Hermes. Plugins, sidecars and engineering profiles
+are deferred until their upstream qualification is complete.
 
 ```sh
 cd my-project
 hermes-repokit plan
-hermes-repokit install          # currently reports qualification blockers
-hermes-repokit setup            # requires a generated, running deployment
-hermes-my-project              # requires an explicitly authorized PATH link
+hermes-repokit install
+# Run the exact Docker Compose start command printed by install.
+hermes-repokit setup
+hermes-repokit verify
+.hermes/bin/hermes-my-project
 ```
 
-Engineering preset (not yet admitted):
-
-```sh
-hermes-repokit install --engineering
-```
+`install --engineering` currently refuses without publishing artifacts.
+No PATH link or shell configuration change is automatic.
 
 Without a PATH link, the standalone command is
 `.hermes/bin/hermes-my-project`. It opens native Hermes chat with no arguments
@@ -44,33 +41,30 @@ my-project/
     ├── compose.yaml
     ├── bin/hermes-my-project
     ├── config.yaml
-    ├── profiles/
-    ├── plugins/
-    ├── kanban.db
-    ├── openviking/
-    ├── nerve/
-    ├── laya/                    # engineering/Nerve-Laya preset
-    └── repokit-install.json     # optional, informational
+    └── .gitignore              # ignores all native state, including credentials
 ```
 
+Native setup creates authentication, sessions and other standard Hermes state.
 Exactly one Hermes container mounts the repository at `/workspace` and native
-state at `/opt/data`. OpenViking and optional Laya are separate services.
-Standard Compose owns the runtime. Native files remain authoritative; missing
-or corrupt receipts never authorize overwriting configuration.
-
-Fresh deployments start with dispatch and automatic decomposition disabled.
-Engineering adds researcher, planner, builder and reviewer profiles when
-qualified; it does not enable autonomous work or clone credentials.
+state at `/opt/data`. Standard Compose owns the runtime. Native files remain
+authoritative; receipts are not needed. Reruns preserve matching artifacts and
+native configuration, and refuse ambiguous ownership or generated-file changes.
+Dispatch and automatic decomposition start disabled.
 
 ## First milestone
 
-Finish `plan`, `install`, `setup` and `verify` for a Hermes-only deployment,
-including target detection, naming, locking and a standalone launcher. Prove
-that deployment survives RepoKit removal before adding plugins, Nerve/Laya,
-OpenViking or engineering profiles. Full v1 integration qualification is a
-separate gate; the implementation status above describes today's code.
+The four commands have offline tests. A real Docker test installed through the
+CLI, verified the container, safely reran installation, removed the copied
+RepoKit source and binary, then used native commands and raw Compose restart
+with persistent Kanban state. This establishes credential-free foundation
+independence, not authenticated chat or full v1 integration qualification.
 
-## Integration status
+See [runtime evidence](docs/qualification/runtime-observations.md) and the
+[implementation](internal/cli/install.go). `verify` checks core artifact and
+runtime metadata; it does not validate credentials or native configuration
+semantics. An edited Compose/launcher is preserved but reported unknown.
+
+## Later integration qualification
 
 | Component | Direction and evidence |
 | --- | --- |
@@ -80,8 +74,8 @@ separate gate; the implementation status above describes today's code.
 | OpenViking | Official image and native Hermes provider. Native setup handoff observed; embedding/VLM configuration, write/recall and isolation evidence remain pending. |
 | Same-card review | Native Hermes plus Nerve first. Distinct builder/reviewer actors must be proved before release; no speculative policy plugin. |
 
-OpenViking's native integration can synchronize turns/tool results and extract
-memory automatically. Embedding/VLM configuration determines where model data
+OpenViking is not installed by the foundation. Its planned native integration
+can synchronize turns/tool results and extract memory automatically. Embedding/VLM configuration determines where model data
 is processed. RepoKit delegates credentials to native setup and does not impose
 invented durable-only memory semantics.
 

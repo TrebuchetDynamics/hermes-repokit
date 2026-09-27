@@ -1,18 +1,22 @@
 # Bootstrap quickstart and native handoff
 
-This is the intended v1 workflow. Installation is currently blocked on upstream
-admission and release qualification. `plan` reports blockers without writing.
+The Hermes-only foundation is available. `plan` inspects without writing;
+`install` publishes Compose, native defaults and a standalone launcher. It prints
+the exact Compose start command, including the selected Docker context.
 
 ```sh
 cd my-project
 hermes-repokit plan
 hermes-repokit install
+# Run the Compose start command printed above.
 hermes-repokit setup
+hermes-repokit verify
 .hermes/bin/hermes-my-project
 ```
 
-`--engineering` selects additional native profiles and Nerve/Laya. It keeps
-Kanban dispatch and auto-decomposition disabled. No PATH link or shell rc edit
+`install --engineering` refuses until upstream qualification is complete. The
+foundation creates no plugins or sidecars and keeps Kanban dispatch and automatic
+decomposition disabled. No PATH link or shell rc edit
 is automatic. The repository basename determines the full launcher/container
 name; collisions refuse rather than silently adding suffixes.
 
@@ -42,9 +46,9 @@ is an operator action and still needs full release qualification.
 Image pulls retain the stored immutable digest; updating a digest requires
 new qualification, not a moving `latest` deployment.
 
-## OpenViking configuration
+## Later OpenViking configuration (not installed by the foundation)
 
-The official service mounts `.hermes/openviking` at `/app/.openviking` and
+Once upstream integration qualification is complete, the planned official service mounts `.hermes/openviking` at `/app/.openviking` and
 publishes no host port. When provisioned, run native setup in that service:
 
 ```sh
@@ -76,5 +80,8 @@ The release must still remove a disposable RepoKit binary AND checkout, remove
 the receipt, change directory, use native chat/commands, restart with raw
 Compose, perform actual bounded builder→distinct-reviewer work, restart again,
 and prove sessions/board/memory/Nerve/Laya persistence. The current offline
-independence test and Docker foundation test cover only parts of this sequence.
+independence test uses the actual CLI, then deletes its copied source/binary and
+receipt. The Docker foundation test passes real CLI install/verify/rerun and
+native exec/restart persistence after removing that source/binary. Neither test
+claims authenticated chat, memory, inference or independent review.
 Dogfood on RepoKit itself follows that full gate. No self-apply is required.

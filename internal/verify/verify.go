@@ -2,11 +2,15 @@
 package verify
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -67,5 +71,46 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 			}
 		}
 	}
-	return []Probe{artifact, runtime, {"kanban", Unknown, "database not opened: native queries may initialize or migrate it"}, {"superpowers", Unknown, "fresh native session loading not probed"}, {"openviking", PendingSetup, "native init/doctor and actual recall evidence required; no extraction triggered"}, {"nerve-laya", Unsupported, "sidecar transport, scanner admission and inference qualification pending"}}
+	config := Probe{"config", PendingSetup, "native configuration is absent"}
+	if info, err := os.Lstat(filepath.Join(id.Root, ".hermes/config.yaml")); err == nil {
+		config = Probe{"config", Degraded, "native configuration is not a nonempty regular file"}
+		if info.Mode().IsRegular() && info.Size() > 0 {
+			config = Probe{"config", Healthy, "native configuration exists; credentials and semantic contents not inspected"}
+		}
+	}
+	launch := Probe{"launcher", Unknown, "standalone launcher absent, edited or unusable"}
+	if info, err := os.Lstat(id.Launcher); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0100 != 0 && contextErr == nil {
+		launch = Probe{"launcher", Healthy, "recognized standalone launcher; native authentication not probed"}
+	}
+	// Compare only bounded public generated Compose, never credentials or receipt.
+	if artifact.Status == Unknown {
+		expected, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()})
+		if err == nil && matchesCompose(id, expected) {
+			artifact = Probe{"compose", Healthy, "generated Hermes-only Compose matches this repository"}
+		}
+	}
+	probes := []Probe{artifact, runtime, config, launch}
+	if issues := target.Inspect(id, ""); len(issues) > 0 {
+		probes = append(probes, Probe{"filesystem", Degraded, "unsafe or ambiguous repository/native state"})
+	}
+	return probes
+}
+
+func matchesCompose(id target.Identity, expected []byte) bool {
+	root, err := os.OpenRoot(id.Root)
+	if err != nil {
+		return false
+	}
+	defer root.Close()
+	f, err := root.Open(".hermes/compose.yaml")
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	data, err := io.ReadAll(io.LimitReader(f, 65537))
+	return err == nil && len(data) <= 65536 && bytes.Equal(data, expected)
 }

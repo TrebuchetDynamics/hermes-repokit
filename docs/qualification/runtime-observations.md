@@ -52,3 +52,25 @@ it does not behave as a read-only help probe. It reported durable workspace
 configuration/embedding/VLM through its doctor output. No credentials were
 provided and no model operation was executed. This command must never be used
 by `verify`.
+
+## Four-command foundation and removal evidence
+
+The updated `TestDockerFoundation` passed on Linux amd64 in 9.84 seconds after the final review fix. It
+built the CLI from a disposable source copy and ran real `plan`, `install`,
+`verify`, and a no-op `install` against a newly initialized disposable Git repo.
+Ordinary Compose started the already cached immutable Hermes image above.
+After removing the copied source tree and binary, the standalone launcher ran
+native Kanban initialization from another cwd, raw Compose restarted Hermes,
+and the same board file and native `--version` remained available. Cleanup
+removed only this fixture's Compose project and temporary repository.
+
+The offline removal test also invokes real CLI `setup` against fake Docker,
+removes a synthetic optional receipt and source/binary, and checks literal
+argument passthrough from an unrelated cwd with only fake Docker on PATH.
+That test proves delegation and independence, not native authenticated setup.
+
+`install` itself runs no native initializer, plugin installation, pull, start,
+model call or sidecar. Default `verify` reports foundation artifacts and runtime
+metadata only; optional integration gaps no longer fail an unselected component.
+The full v1 removal gate, authenticated chat/setup, sidecars, inference and
+independent same-card review remain unproved.
