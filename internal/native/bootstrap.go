@@ -1,0 +1,55 @@
+package native
+
+import (
+	"context"
+	_ "embed"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
+
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
+)
+
+//go:embed bootstrap.sh
+var bootstrapScript string
+
+// InputRunner sends one-shot installer input; it must not print captured output.
+type InputRunner interface {
+	RunInput(context.Context, io.Reader, string, ...string) process.Result
+}
+
+// Initialize uses the single existing, source-qualified Hermes runtime. Caller
+// must first verify its image, project, mounts and running state. The lock is
+// held INSIDE that container, so killing the Docker client cannot release it
+// while a daemon-owned native subprocess is still writing state.
+func Initialize(ctx context.Context, id target.Identity, dockerContext string, afterSetup bool, r InputRunner) error {
+	paths := []string{id.Root, filepath.Join(id.Root, ".hermes"), filepath.Join(id.Root, ".hermes-repokit.lock")}
+	identities := make([]string, 0, len(paths))
+	if issues := target.Inspect(id, ""); len(issues) > 0 {
+		return fmt.Errorf("unsafe native initialization target")
+	}
+	for _, path := range paths {
+		info, err := os.Lstat(path)
+		if err != nil {
+			return fmt.Errorf("native initialization identity unavailable")
+		}
+		st, ok := info.Sys().(*syscall.Stat_t)
+		if !ok || info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("unsafe native initialization identity")
+		}
+		identities = append(identities, fmt.Sprintf("%d:%d", st.Dev, st.Ino))
+	}
+	args := []string{"--context", dockerContext, "compose", "--env-file", "/dev/null", "-f", id.Compose, "exec", "-T", "--user", "hermes", "--env", "HOME=/opt/data", "--workdir", "/workspace", "hermes", "/usr/bin/flock", "-n", "/workspace/.hermes-repokit.lock", "/bin/sh", "-s", "--", "/workspace", "/opt/data"}
+	args = append(args, identities...)
+	args = append(args, strconv.FormatBool(afterSetup))
+	result := r.RunInput(ctx, strings.NewReader(initializationScript(afterSetup)), "docker", args...)
+	if result.Err != nil || result.Truncated {
+		return fmt.Errorf("native initialization failed or was interrupted; preserve state, inspect with native commands, then rerun install")
+	}
+	return teamResult(result.Output)
+}

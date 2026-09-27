@@ -9,14 +9,18 @@ cd my-project
 hermes-repokit plan
 hermes-repokit install
 # Run the Compose start command printed above.
+hermes-repokit install          # native Kanban initialization
 hermes-repokit setup
 hermes-repokit verify
 .hermes/bin/hermes-my-project
 ```
 
-`install --engineering` refuses until upstream qualification is complete. The
-foundation creates no plugins or sidecars and keeps Kanban dispatch and automatic
-decomposition disabled. No PATH link or shell rc edit
+The default roster is default/researcher/planner/executor/reviewer/steward.
+`--engineering` is a legacy alias. `setup` explicitly selects default and requires
+a real interactive terminal before cloning missing specialists. Existing
+profile edits are preserved and reported as drift. `default` is the normal user
+entry point; it delegates team changes to steward. See the [team model](team-model.md).
+Plugins and sidecars remain separate qualification work. No PATH link or shell rc edit
 is automatic. The repository basename determines the full launcher/container
 name; collisions refuse rather than silently adding suffixes.
 
@@ -78,7 +82,7 @@ can be proved. The receipt is not consulted.
 
 The release must still remove a disposable RepoKit binary AND checkout, remove
 the receipt, change directory, use native chat/commands, restart with raw
-Compose, perform actual bounded builder→distinct-reviewer work, restart again,
+Compose, perform actual bounded executor→distinct-reviewer work, restart again,
 and prove sessions/board/memory/Nerve/Laya persistence. The current offline
 independence test uses the actual CLI, then deletes its copied source/binary and
 receipt. The Docker foundation test passes real CLI install/verify/rerun and

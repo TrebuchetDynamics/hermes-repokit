@@ -10,6 +10,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 	"io"
 	"os"
 	"path/filepath"
@@ -89,7 +90,16 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 			artifact = Probe{"compose", Healthy, "generated Hermes-only Compose matches this repository"}
 		}
 	}
-	probes := []Probe{artifact, runtime, config, launch}
+	board := Probe{"kanban", PendingSetup, "native board absent; after Compose start rerun install"}
+	if info, err := os.Lstat(filepath.Join(id.Root, ".hermes/kanban.db")); err == nil {
+		board = Probe{"kanban", Degraded, "native board is not a nonempty regular file"}
+		if info.Mode().IsRegular() && info.Size() > 0 {
+			board = Probe{"kanban", Healthy, "native board file exists; database not opened or validated"}
+		}
+	} else if !os.IsNotExist(err) {
+		board = Probe{"kanban", Unknown, "native board metadata unavailable"}
+	}
+	probes := []Probe{artifact, runtime, config, launch, board}
 	if issues := target.Inspect(id, ""); len(issues) > 0 {
 		probes = append(probes, Probe{"filesystem", Degraded, "unsafe or ambiguous repository/native state"})
 	}
@@ -113,4 +123,46 @@ func matchesCompose(id target.Identity, expected []byte) bool {
 	}
 	data, err := io.ReadAll(io.LimitReader(f, 65537))
 	return err == nil && len(data) <= 65536 && bytes.Equal(data, expected)
+}
+
+// Profiles checks generated public identities without invoking native commands.
+// Healthy here describes scaffold files, never provider or integration acceptance.
+func Profiles(id target.Identity) []Probe {
+	var probes []Probe
+	root, err := os.OpenRoot(filepath.Join(id.Root, ".hermes"))
+	if err != nil {
+		return []Probe{{"team", PendingSetup, "native home unavailable"}}
+	}
+	defer root.Close()
+	for _, role := range team.Roster() {
+		dir := "."
+		if role.Name != "default" {
+			dir = filepath.Join("profiles", role.Name)
+		}
+		probe := Probe{"profile:" + role.Name, Healthy, "generated role SOUL matches; description/configuration and runtime acceptance require native checks"}
+		for _, file := range []string{"config.yaml", "profile.yaml", "SOUL.md"} {
+			path := filepath.Join(dir, file)
+			info, e := root.Lstat(path)
+			if e != nil || !info.Mode().IsRegular() || info.Size() == 0 {
+				probe.Status = PendingSetup
+				probe.Detail = "profile files absent; run native default setup through RepoKit"
+				break
+			}
+		}
+		if probe.Status == Healthy {
+			f, e := root.Open(filepath.Join(dir, "SOUL.md"))
+			if e != nil {
+				probe.Status = Unknown
+			} else {
+				soul, e := io.ReadAll(io.LimitReader(f, 65537))
+				f.Close()
+				if e != nil || string(soul) != role.Soul {
+					probe.Status = Degraded
+					probe.Detail = "role SOUL drift; owner identity preserved"
+				}
+			}
+		}
+		probes = append(probes, probe)
+	}
+	return probes
 }

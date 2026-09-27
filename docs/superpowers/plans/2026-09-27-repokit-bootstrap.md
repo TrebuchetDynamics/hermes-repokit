@@ -25,7 +25,7 @@ README are retained. The remaining foundation work executes inline:
    services, install plugins or run native initializers. Print the exact ordinary
    Compose start command. Recheck Git and container collisions under the lock.
    Preserve matching installations, native edits and captured Docker context;
-   refuse foreign/stopped same-name containers. `--engineering` still refuses.
+   refuse foreign/stopped same-name containers. `--engineering` remained refused during the foundation-only milestone; Phase 7 now provisions native profiles without selecting sidecars.
 2. Make default `verify` report foundation artifacts and runtime metadata only.
    An intact generated Compose/launcher/config plus matching running container
    can pass without optional integrations. Unknown/edited artifacts and stopped
@@ -152,6 +152,16 @@ Files: `internal/cli/setup.go`, runner wiring and tests.
 ## Phase 7: native defaults, engineering profiles and Superpowers
 
 Files: `internal/native`, `internal/plugins`, immutable source contract records and tests.
+
+Current execution follows the [generic-team plan](2026-09-27-repokit-generic-team.md),
+which supersedes the engineering roster and staged profile publication below.
+Native Kanban runs after ordinary Compose startup; container-held locking covers
+daemon-owned writers. Successful default setup permits native configuration
+cloning into final profile names. Existing and interrupted profiles are preserved.
+The six-role roster is the default, with `--engineering` a compatibility alias.
+See [current qualification](../../qualification/generic-team.md) and
+[historical Phase 7 evidence](../../qualification/phase7-native.md).
+Superpowers approval/loading remains pending.
 
 - [ ] RED: default-only root home, Kanban persisted and dispatch/decomposition false, explicit engineering profiles/descriptions/role tools, existing profiles untouched, no implicit credential cloning. Scanner safe/caution/dangerous/failure/stale approval cases.
 - [ ] Use only selected Hermes native init/config/profile/plugin APIs. Pin upstream Superpowers full SHA, honor exact scanner findings approvals, never force. Fresh native session verifies loaded plugin rather than stale schema.

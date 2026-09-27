@@ -13,7 +13,7 @@ import (
 )
 
 func Setup(launcherPath, compose, dockerContext string, stdin io.Reader, stdout, stderr io.Writer) int {
-	cmd := exec.Command(launcherPath, "setup")
+	cmd := exec.Command(launcherPath, "-p", "default", "setup")
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr

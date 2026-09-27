@@ -9,8 +9,11 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/supervision"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 	"io"
 	"os"
@@ -26,6 +29,7 @@ type App struct {
 	Directory, Path string
 	Runner          verify.Runner
 	Stdin           io.Reader
+	Initializer     native.InputRunner
 }
 
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -34,7 +38,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "cannot resolve working directory")
 		return 1
 	}
-	return (App{dir, os.Getenv("PATH"), process.Runner{}, os.Stdin}).Run(args, stdout, stderr)
+	return (App{Directory: dir, Path: os.Getenv("PATH"), Runner: process.Runner{}, Stdin: os.Stdin}).Run(args, stdout, stderr)
 }
 func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 1 && (args[0] == "-h" || args[0] == "--help") {
@@ -49,7 +53,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	flags.Usage = func() {}
 	engineering := false
 	if args[0] != "setup" {
-		flags.BoolVar(&engineering, "engineering", false, "select engineering preset")
+		flags.BoolVar(&engineering, "engineering", false, "legacy alias; generic team is the default")
 	}
 	err := flags.Parse(args[1:])
 	if errors.Is(err, flag.ErrHelp) && len(args) == 2 && (args[1] == "-h" || args[1] == "--help") {
@@ -79,15 +83,24 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		dockerContext, _ := launcher.Context(id)
-		return native.Setup(id.Launcher, id.Compose, dockerContext, a.Stdin, stdout, stderr)
+		if code := native.Setup(id.Launcher, id.Compose, dockerContext, a.Stdin, stdout, stderr); code != 0 {
+			return code
+		}
+		if !native.InteractiveInput(a.Stdin) {
+			fmt.Fprintln(stderr, "Default setup was noninteractive; team provisioning remains pending. Run setup in your terminal.")
+			return 1
+		}
+		return a.initialize(id, dockerContext, true, stdout, stderr)
 	case "verify":
 		probes := verify.Inspect(context.Background(), id, a.Runner)
 		if issues := a.gitIssues(context.Background(), id); len(issues) > 0 {
 			probes = append(probes, verify.Probe{Component: "git", Status: verify.Degraded, Detail: strings.Join(issues, "; ")})
 		}
-		if engineering {
-			probes = append(probes, verify.Probe{Component: "engineering", Status: verify.Unsupported, Detail: "upstream integration qualification pending"})
-		}
+		probes = append(probes, verify.Profiles(id)...)
+		probes = append(probes,
+			verify.Probe{Component: "openviking", Status: verify.Unknown, Detail: "shared memory write/recall, isolation and persistence acceptance not established"},
+			verify.Probe{Component: "nerve-laya", Status: verify.Unknown, Detail: "local inference fixture qualified; this deployment's all-profile supervision and sidecar lifecycle not established"},
+		)
 		if err := json.NewEncoder(stdout).Encode(probes); err != nil {
 			return 1
 		}
@@ -107,7 +120,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			}
 			return 0
 		}
-		return a.install(id, report, stdout, stderr)
+		return a.install(id, report, engineering, stdout, stderr)
 	}
 	return 2
 }
@@ -119,23 +132,30 @@ type Plan struct {
 	Collisions                   []string          `json:"collisions"`
 	CandidateImages              map[string]string `json:"candidate_images_not_release_qualified"`
 	Profiles, Plugins            []string
-	Kanban                       map[string]bool `json:"kanban"`
+	ProposedMemoryConfig         map[string]any `json:"proposed_memory_config_not_activated"`
+	Kanban                       map[string]any `json:"kanban"`
+	ProposedNerveSettings        map[string]any `json:"proposed_nerve_settings_not_activated"`
+	NerveRevision                string         `json:"candidate_nerve_revision"`
 	OpenViking, NerveLaya        string
 	ProposedChanges, Unsupported []string
 }
 
 func (a App) plan(id target.Identity, engineering bool) Plan {
-	p := Plan{Target: id, Collisions: target.Inspect(id, a.Path), CandidateImages: map[string]string{"hermes": qualification.FoundationImage}, Profiles: []string{"default"}, Plugins: []string{}, Kanban: map[string]bool{"dispatch_in_gateway": false, "auto_decompose": false}, OpenViking: "not selected", NerveLaya: "not selected", ProposedChanges: []string{"private .hermes native state", "standalone Hermes-only Compose and launcher", "native safe-default config; operator starts Compose and runs setup"}}
+	p := Plan{Target: id, Collisions: target.Inspect(id, a.Path), CandidateImages: map[string]string{"hermes": qualification.FoundationImage}, Profiles: []string{"default"}, Plugins: []string{}, Kanban: map[string]any{"dispatch_in_gateway": false, "auto_decompose": false, "orchestrator_profile": "default", "max_in_progress": 1}, OpenViking: "pending private native embedding/VLM setup and live memory qualification", NerveLaya: "pending qualified local sidecar deployment", ProposedChanges: []string{"private .hermes native state", "standalone Hermes-only Compose and launcher", "native safe-default config; operator starts Compose and runs setup"}}
 
-	if engineering {
-		p.Profiles = append(p.Profiles, "researcher", "planner", "builder", "reviewer")
-		p.Plugins = append(p.Plugins, "upstream nerve (not yet admitted)")
-		p.NerveLaya = "selected, unsupported pending transport/checkpoint/inference qualification"
-		p.Unsupported = append(p.Unsupported, "engineering qualification pending: upstream plugins, Nerve/Laya and same-card actor independence")
+	p.ProposedMemoryConfig, _ = projectmemory.NativeConfig(id.Project)
+	p.ProposedNerveSettings = supervision.LocalLayaSettings()
+	p.NerveRevision = supervision.NerveRevision
+	p.Profiles = nil
+	for _, role := range team.Roster() {
+		p.Profiles = append(p.Profiles, role.Name)
 	}
+	p.ProposedChanges = append(p.ProposedChanges, "generic team provisioned after successful native default setup; integration acceptance pending")
+
 	if _, err := os.Lstat(filepath.Join(id.Root, ".hermes")); err == nil {
 		p.ExistingState = true
-		p.ProposedChanges = []string{"inspect and preserve existing native configuration; refuse ambiguous adoption"}
+		p.ProposedChanges = []string{"inspect and preserve existing native configuration; refuse ambiguous adoption", "initialize missing native Kanban in the running qualified container"}
+		p.ProposedChanges = append(p.ProposedChanges, "reconcile the six native team profiles after default setup; preserve user drift and unknown profiles; integrations remain pending")
 	}
 	ctx := context.Background()
 	p.Collisions = append(p.Collisions, a.gitIssues(ctx, id)...)

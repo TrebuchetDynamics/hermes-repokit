@@ -63,7 +63,7 @@ exit 37
 		t.Fatalf("argv\ngot %#v\nwant %#v", got, want)
 	}
 }
-func TestBareLauncherDoesNotInventNativeCommand(t *testing.T) {
+func TestBareLauncherSelectsPrimaryDefaultProfile(t *testing.T) {
 	file, bin, record := fixture(t, `printf '%s\000' "$@" > "$RECORD"`)
 	cmd := exec.Command(file)
 	cmd.Env = append(os.Environ(), "PATH="+bin, "RECORD="+record)
@@ -71,7 +71,7 @@ func TestBareLauncherDoesNotInventNativeCommand(t *testing.T) {
 		t.Fatal(e)
 	}
 	raw, _ := os.ReadFile(record)
-	if !bytes.HasSuffix(raw, []byte("hermes\x00hermes\x00")) {
+	if !bytes.HasSuffix(raw, []byte("hermes\x00hermes\x00-p\x00default\x00")) {
 		t.Fatalf("native argv: %q", raw)
 	}
 }

@@ -4,6 +4,7 @@ package process
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -50,6 +51,12 @@ func CleanEnvironment(env []string) []string {
 	return out
 }
 func (r Runner) Run(parent context.Context, program string, args ...string) Result {
+	return r.RunInput(parent, nil, program, args...)
+}
+
+// RunInput supplies one-shot input without invoking a host shell. Captured
+// native output is bounded and must never be copied into installer diagnostics.
+func (r Runner) RunInput(parent context.Context, input io.Reader, program string, args ...string) Result {
 	timeout := r.Timeout
 	if timeout <= 0 {
 		timeout = 5 * time.Second
@@ -62,6 +69,7 @@ func (r Runner) Run(parent context.Context, program string, args ...string) Resu
 	defer cancel()
 	cmd := exec.CommandContext(ctx, program, args...)
 	cmd.Env = CleanEnvironment(os.Environ())
+	cmd.Stdin = input
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.WaitDelay = 200 * time.Millisecond
 	cmd.Cancel = func() error {

@@ -1,6 +1,6 @@
 # Native operation qualification contract
 
-This page records the original Task 1 contract and verification snapshot. For current command behavior and later native observations, see [implementation progress](../implementation-progress.md) and [runtime evidence](runtime-observations.md). Task 1 statements below are historical; they do not supersede those later records.
+This page records the original Task 1 contract and verification snapshot. For current command behavior and later native observations, see [implementation progress](../implementation-progress.md), [Phase 7 native qualification](phase7-native.md) and [runtime evidence](runtime-observations.md). Task 1 statements below are historical; they do not supersede those later records.
 
 Task 1 establishes the Go command boundary and an evidence model. It does not qualify or run Hermes, Docker, plugins, sidecars or inference. No release image or native runtime version has been selected for deployment.
 

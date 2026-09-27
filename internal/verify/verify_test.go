@@ -79,3 +79,32 @@ func TestVerifyUsesDeploymentContextInsteadOfAmbientContext(t *testing.T) {
 		t.Fatalf("ambient Docker used: %v", r.calls)
 	}
 }
+
+func TestKanbanMetadataReportsPendingWithoutInitializing(t *testing.T) {
+	id, _ := target.Resolve(t.TempDir())
+	os.Mkdir(filepath.Join(id.Root, ".hermes"), 0700)
+	probe := func() Probe {
+		for _, p := range Inspect(context.Background(), id, &fake{}) {
+			if p.Component == "kanban" {
+				return p
+			}
+		}
+		t.Fatal("missing Kanban observation")
+		return Probe{}
+	}
+	if p := probe(); p.Status != PendingSetup {
+		t.Fatalf("missing board: %+v", p)
+	}
+	board := filepath.Join(id.Root, ".hermes/kanban.db")
+	if _, err := os.Stat(board); !os.IsNotExist(err) {
+		t.Fatal("verify created board")
+	}
+	os.WriteFile(board, nil, 0600)
+	if p := probe(); p.Status != Degraded {
+		t.Fatalf("empty board: %+v", p)
+	}
+	os.WriteFile(board, []byte("metadata-only fixture; not a qualified DB"), 0600)
+	if p := probe(); p.Status != Healthy || !strings.Contains(p.Detail, "not opened") {
+		t.Fatalf("metadata scope: %+v", p)
+	}
+}

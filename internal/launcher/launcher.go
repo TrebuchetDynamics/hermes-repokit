@@ -25,6 +25,7 @@ func Render(id target.Identity, context string) ([]byte, error) {
 		"# Standalone native launcher; no RepoKit runtime dependency.\n" +
 		"# Docker context: " + string(encoded) + "\n" +
 		clearSelectors + "\n" +
+		"if [ \"$#\" -eq 0 ]; then set -- -p default; fi\n" +
 		"if [ -t 0 ] && [ -t 1 ]; then\n  exec " + prefix + " exec --workdir /workspace hermes hermes \"$@\"\nfi\n" +
 		"exec " + prefix + " exec -T --workdir /workspace hermes hermes \"$@\"\n"), nil
 }

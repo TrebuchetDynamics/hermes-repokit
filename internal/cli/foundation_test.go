@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,7 +61,7 @@ func foundationApp(t *testing.T) (App, *foundationRunner) {
 		t.Fatal(err)
 	}
 	r := &foundationRunner{id: id, context: "local-test"}
-	return App{Directory: root, Runner: r}, r
+	return App{Directory: root, Runner: r, Initializer: r}, r
 }
 func invoke(t *testing.T, a App, args ...string) (int, string, string) {
 	t.Helper()
@@ -96,18 +98,24 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	if strings.Contains(string(data), "openviking") || strings.Contains(string(data), "laya") {
 		t.Fatal("unexpected sidecar")
 	}
-	r.runtime = fmt.Sprintf(`{"status":"running","project":%q,"workspace":%q,"home":%q}`, r.id.Project, r.id.Root, filepath.Join(r.id.Root, ".hermes"))
+	r.runtime = fmt.Sprintf(`{"status":"running","image":%q,"project":%q,"workspace":%q,"home":%q}`, qualification.FoundationImage, r.id.Project, r.id.Root, filepath.Join(r.id.Root, ".hermes"))
+	if code, _, _ = invoke(t, a, "verify"); code == 0 {
+		t.Fatal("uninitialized native Kanban passed verify")
+	}
+	if code, _, diag = invoke(t, a, "install"); code != 0 {
+		t.Fatalf("initialize native board: %s", diag)
+	}
 	code, out, diag = invoke(t, a, "verify")
-	if code != 0 {
-		t.Fatalf("foundation verify: %d %s %s", code, out, diag)
+	if code != 1 || !strings.Contains(out, "pending-setup") {
+		t.Fatalf("unconfigured team verify: %d %s %s", code, out, diag)
 	}
 	var probes []verify.Probe
 	if err := json.Unmarshal([]byte(out), &probes); err != nil {
 		t.Fatal(err)
 	}
 	for _, p := range probes {
-		if p.Component == "openviking" || p.Component == "nerve-laya" || p.Component == "superpowers" {
-			t.Fatalf("unselected probe: %+v", p)
+		if (p.Component == "openviking" || p.Component == "nerve-laya") && p.Status == verify.Healthy {
+			t.Fatalf("unqualified integration: %+v", p)
 		}
 	}
 	config := filepath.Join(a.Directory, ".hermes/config.yaml")
@@ -170,7 +178,7 @@ func TestFoundationRefusesStateExposedToGit(t *testing.T) {
 			if code, _, diag := invoke(t, a, "install"); code != 0 {
 				t.Fatal(diag)
 			}
-			r.runtime = fmt.Sprintf(`{"status":"running","project":%q,"workspace":%q,"home":%q}`, r.id.Project, r.id.Root, filepath.Join(r.id.Root, ".hermes"))
+			r.runtime = fmt.Sprintf(`{"status":"running","image":%q,"project":%q,"workspace":%q,"home":%q}`, qualification.FoundationImage, r.id.Project, r.id.Root, filepath.Join(r.id.Root, ".hermes"))
 			ignore := filepath.Join(r.id.Root, ".hermes/.gitignore")
 			switch exposure {
 			case "removed-ignore":
@@ -197,5 +205,95 @@ func TestFoundationRefusesStateExposedToGit(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestEngineeringProfilesCanBeSelectedBeforeSidecars(t *testing.T) {
+	a, r := foundationApp(t)
+	code, out, diag := invoke(t, a, "plan", "--engineering")
+	var plan Plan
+	if code != 0 || json.Unmarshal([]byte(out), &plan) != nil || len(plan.Unsupported) > 0 || len(plan.Profiles) != 6 || !strings.Contains(plan.NerveLaya, "pending") {
+		t.Fatalf("engineering plan: %d %s %s", code, out, diag)
+	}
+	if code, out, diag = invoke(t, a, "install", "--engineering"); code != 0 {
+		t.Fatalf("engineering artifact install: %d %s %s", code, out, diag)
+	}
+	if _, err := os.Stat(filepath.Join(r.id.Root, ".hermes/profiles")); !os.IsNotExist(err) {
+		t.Fatal("profiles created without native runtime")
+	}
+	if !strings.Contains(out, "pending") {
+		t.Fatal("missing native initialization status")
+	}
+}
+
+func (r *foundationRunner) RunInput(_ context.Context, _ io.Reader, _ string, _ ...string) process.Result {
+	return process.Result{Err: os.WriteFile(filepath.Join(r.id.Root, ".hermes/kanban.db"), []byte("native board fixture"), 0600)}
+}
+
+func TestExistingPlanDisclosesNativeInitialization(t *testing.T) {
+	a, _ := foundationApp(t)
+	if code, _, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatal(diag)
+	}
+	code, out, diag := invoke(t, a, "plan", "--engineering")
+	var p Plan
+	if code != 0 || json.Unmarshal([]byte(out), &p) != nil {
+		t.Fatalf("plan: %s %s", out, diag)
+	}
+	proposed := strings.Join(p.ProposedChanges, " ")
+	if !strings.Contains(proposed, "Kanban") || !strings.Contains(proposed, "profiles") {
+		t.Fatalf("hidden native effects: %s", proposed)
+	}
+}
+
+func TestGenericTeamIsDefaultPlan(t *testing.T) {
+	a, _ := foundationApp(t)
+	code, out, diag := invoke(t, a, "plan")
+	var p Plan
+	if code != 0 || json.Unmarshal([]byte(out), &p) != nil {
+		t.Fatalf("%s %s", out, diag)
+	}
+	if strings.Join(p.Profiles, ",") != "default,researcher,planner,executor,reviewer,steward" {
+		t.Fatalf("roster %v", p.Profiles)
+	}
+	if p.Kanban["orchestrator_profile"] != "default" || p.Kanban["max_in_progress"] != float64(1) {
+		t.Fatalf("defaults %v", p.Kanban)
+	}
+	if p.ProposedMemoryConfig["provider"] != "openviking" {
+		t.Fatal("shared memory proposal absent")
+	}
+}
+
+func TestVerifyDoesNotCertifyUnqualifiedIntegrations(t *testing.T) {
+	a, _ := foundationApp(t)
+	_, out, _ := invoke(t, a, "verify")
+	var probes []verify.Probe
+	if json.Unmarshal([]byte(out), &probes) != nil {
+		t.Fatal(out)
+	}
+	pending := map[string]bool{}
+	for _, p := range probes {
+		if p.Component == "openviking" || p.Component == "nerve-laya" {
+			pending[p.Component] = p.Status != verify.Healthy
+		}
+	}
+	if !pending["openviking"] || !pending["nerve-laya"] {
+		t.Fatal("missing explicit integration gates")
+	}
+}
+
+func TestLegacyEngineeringIsOnlyAnAlias(t *testing.T) {
+	a, _ := foundationApp(t)
+	for _, installed := range []bool{false, true} {
+		if installed {
+			if code, _, diag := invoke(t, a, "install"); code != 0 {
+				t.Fatal(diag)
+			}
+		}
+		_, plain, _ := invoke(t, a, "plan")
+		_, legacy, _ := invoke(t, a, "plan", "--engineering")
+		if plain != legacy {
+			t.Fatal("legacy flag changes universal team plan")
+		}
 	}
 }

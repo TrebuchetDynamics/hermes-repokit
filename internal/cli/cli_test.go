@@ -123,13 +123,13 @@ func TestPlanAndVerifyInspectWithoutWritingOrNativeCalls(t *testing.T) {
 		}
 	}
 }
-func TestInstallRefusesUnqualifiedPresetBeforeAnyWrites(t *testing.T) {
+func TestInstallRefusesUnknownSelectionBeforeAnyWrites(t *testing.T) {
 	root := t.TempDir()
 	os.Chmod(root, 0700)
 	fRoot = root
 	var out, errout bytes.Buffer
 	app := App{Directory: root, Runner: &fakeRunner{}}
-	if code := app.Run([]string{"install", "--engineering"}, &out, &errout); code == 0 || !strings.Contains(errout.String(), "qualification") {
+	if code := app.Run([]string{"install", "--unknown-preset"}, &out, &errout); code == 0 || !strings.Contains(errout.String(), "usage") {
 		t.Fatalf("%d %s", code, errout.String())
 	}
 	entries, _ := os.ReadDir(root)

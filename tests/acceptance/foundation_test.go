@@ -89,7 +89,12 @@ esac
 		cmd := exec.Command(installer, command)
 		cmd.Dir = root
 		cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"))
-		if out, err := cmd.CombinedOutput(); err != nil {
+		out, err := cmd.CombinedOutput()
+		if command == "setup" {
+			if err == nil || !strings.Contains(string(out), "-p\ndefault\nsetup") || !strings.Contains(string(out), "noninteractive") {
+				t.Fatalf("skipped setup provisioned: %v %s", err, out)
+			}
+		} else if err != nil {
 			t.Fatalf("CLI %s: %v %s", command, err, out)
 		}
 	}

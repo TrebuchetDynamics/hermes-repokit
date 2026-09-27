@@ -5,26 +5,43 @@ Bootstrap a repository-specific Docker Hermes environment.
 RepoKit generates ordinary Docker Compose, private `.hermes` state and a
 standalone `hermes-<repo>` launcher. After bootstrap, RepoKit is not required.
 
-**The Hermes-only foundation works; v1 is not complete.** `plan`, `install`,
-`setup` delegation and read-only `verify` are implemented. Installation generates
-files; ordinary Compose starts Hermes. Plugins, sidecars and engineering profiles
-are deferred until their upstream qualification is complete.
+**The native six-role scaffold is implemented; full integration acceptance is
+not complete.** RepoKit scaffolds a small repository organization, not a
+collection of technology-specific bots.
+
+| Profile | Purpose |
+| --- | --- |
+| default | Primary user-facing assistant and orchestrator |
+| researcher | Evidence and unknowns |
+| planner | Bounded execution contracts |
+| executor | Artifact production |
+| reviewer | Independent verification |
+| steward | Team/profile lifecycle |
+
+Talk to `default` normally. It answers lightweight questions directly and routes
+substantive work. Steward prefers task skills before creating persistent
+specialists; retirement preserves history, and deletion needs explicit approval.
+See the [team model and boundaries](docs/team-model.md).
 
 ```sh
 cd my-project
 hermes-repokit plan
 hermes-repokit install
 # Run the exact Docker Compose start command printed by install.
-hermes-repokit setup
+hermes-repokit setup            # private default setup, then native team cloning
 hermes-repokit verify
-.hermes/bin/hermes-my-project
+.hermes/bin/hermes-my-project   # primary default profile
 ```
 
-`install --engineering` currently refuses without publishing artifacts.
+Rerun `install` to initialize the shared board and inspect/reconcile an already
+provisioned team. `--engineering` remains a compatibility alias; the universal
+roster is now the default. Newly cloned profiles receive distinct SOULs and fresh
+curated memory. Existing user changes and unknown profiles are preserved.
+OpenViking and Nerve/Laya deployment remain pending integration qualification.
 No PATH link or shell configuration change is automatic.
 
 Without a PATH link, the standalone command is
-`.hermes/bin/hermes-my-project`. It opens native Hermes chat with no arguments
+`.hermes/bin/hermes-my-project`. It opens native Hermes chat as `default` with no arguments
 and forwards explicit arguments unchanged:
 
 ```sh
@@ -49,7 +66,10 @@ Exactly one Hermes container mounts the repository at `/workspace` and native
 state at `/opt/data`. Standard Compose owns the runtime. Native files remain
 authoritative; receipts are not needed. Reruns preserve matching artifacts and
 native configuration, and refuse ambiguous ownership or generated-file changes.
-Dispatch and automatic decomposition start disabled.
+Dispatch and automatic decomposition start disabled, with one in-progress task.
+New specialists are cloned only after default setup. Native lifecycle owns profile
+publication; interrupted profiles are preserved for inspection. See the
+[generic-team qualification](docs/qualification/generic-team.md).
 
 ## First milestone
 
@@ -61,8 +81,9 @@ independence, not authenticated chat or full v1 integration qualification.
 
 See [runtime evidence](docs/qualification/runtime-observations.md) and the
 [implementation](internal/cli/install.go). `verify` checks core artifact and
-runtime metadata; it does not validate credentials or native configuration
-semantics. An edited Compose/launcher is preserved but reported unknown.
+runtime metadata and role SOULs. It explicitly reports memory/supervision
+acceptance as unknown, so its exit status remains nonzero until those deployment
+gates are implemented; it does not validate credentials. An edited Compose/launcher is preserved but reported unknown.
 
 ## Later integration qualification
 
@@ -70,9 +91,9 @@ semantics. An edited Compose/launcher is preserved but reported unknown.
 | --- | --- |
 | Hermes | Official immutable image tested for Compose startup, native exec, profiles, Kanban initialization and restart persistence. Authenticated chat/setup remain pending. |
 | Superpowers | Upstream `obra/superpowers`; exact candidate SHA received 229 CAUTION findings. Installation is blocked pending explicit approval of the [scanner report](docs/qualification/superpowers-8ca22dba-scan.txt). |
-| Nerve/Laya | Upstream plugin and its supported sidecar only. Transport, checkpoint, scanner/loading and actual inference qualification remain pending. No custom implementation. |
+| Nerve/Laya | Upstream plugin and its supported sidecar only. Pinned local CPU inference, native plugin consumption and offline recreation passed in a disposable fixture; installer sidecar deployment and all-role supervision remain pending. See [evidence](docs/qualification/generic-team-laya.md). |
 | OpenViking | Official image and native Hermes provider. Native setup handoff observed; embedding/VLM configuration, write/recall and isolation evidence remain pending. |
-| Same-card review | Native Hermes plus Nerve first. Distinct builder/reviewer actors must be proved before release; no speculative policy plugin. |
+| Same-card review | Native Hermes plus Nerve first. Distinct executor/reviewer actors must be proved before release; no speculative policy plugin. |
 
 OpenViking is not installed by the foundation. Its planned native integration
 can synchronize turns/tool results and extract memory automatically. Embedding/VLM configuration determines where model data
