@@ -7,13 +7,20 @@ import "strings"
 type Operation string
 
 const (
-	NativeChat       Operation = "native-chat"
-	Setup            Operation = "setup"
-	Profiles         Operation = "profiles"
-	Plugins          Operation = "plugins"
-	Kanban           Operation = "kanban"
-	OfficialExecShim Operation = "official-exec-shim"
-	ReadOnlyProbes   Operation = "read-only-probes"
+	Image               Operation = "image"
+	ProfileDescriptions Operation = "profile-descriptions"
+	Toolsets            Operation = "toolsets"
+	OpenViking          Operation = "openviking"
+	Nerve               Operation = "nerve"
+	Laya                Operation = "laya"
+	SameCardReview      Operation = "same-card-review"
+	NativeChat          Operation = "native-chat"
+	Setup               Operation = "setup"
+	Profiles            Operation = "profiles"
+	Plugins             Operation = "plugins"
+	Kanban              Operation = "kanban"
+	OfficialExecShim    Operation = "official-exec-shim"
+	ReadOnlyProbes      Operation = "read-only-probes"
 )
 
 type Verdict uint8
@@ -61,7 +68,7 @@ func Evaluate(selectedRevision string, operation Operation, evidence Evidence) V
 
 func validOperation(operation Operation) bool {
 	switch operation {
-	case NativeChat, Setup, Profiles, Plugins, Kanban, OfficialExecShim, ReadOnlyProbes:
+	case Image, ProfileDescriptions, Toolsets, OpenViking, Nerve, Laya, SameCardReview, NativeChat, Setup, Profiles, Plugins, Kanban, OfficialExecShim, ReadOnlyProbes:
 		return true
 	default:
 		return false

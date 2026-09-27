@@ -1,6 +1,9 @@
 package qualification
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 const syntheticRevision = "0123456789abcdef0123456789abcdef01234567"
 
@@ -70,6 +73,22 @@ func TestIncompleteOrContradictoryEvidenceIsUnknown(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := Evaluate(tt.selectedRevision, tt.operation, tt.evidence); got != Unknown {
 				t.Fatalf("Evaluate returned %v, want unknown", got)
+			}
+		})
+	}
+}
+
+func TestAllRequiredUpstreamSurfacesRequireVersionBoundRuntimeEvidence(t *testing.T) {
+	for _, operation := range []Operation{"image", "profile-descriptions", "toolsets", "openviking", "nerve", "laya", "same-card-review"} {
+		t.Run(string(operation), func(t *testing.T) {
+			revision := strings.Repeat("a", 40)
+			e := Evidence{Operation: operation, SelectedRevision: revision, Verdict: Supported, SourceReference: "docs/qualification/source.md", RuntimeReference: "docs/qualification/runtime.md"}
+			if got := Evaluate(revision, operation, e); got != Supported {
+				t.Fatalf("surface cannot be qualified: %v", got)
+			}
+			e.RuntimeReference = ""
+			if Evaluate(revision, operation, e) != Unknown {
+				t.Fatal("source-only evidence promoted")
 			}
 		})
 	}
