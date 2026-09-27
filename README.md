@@ -32,7 +32,7 @@ cd my-project
 
 hermes-repokit plan
 hermes-repokit install
-hermes-my-project setup
+hermes-repokit setup
 hermes-my-project
 ```
 
@@ -112,9 +112,9 @@ planned; RepoKit will not become a resident team manager.
 
 | Extension | Direction | Status |
 | --- | --- | --- |
-| OpenViking | Shared long-term project memory | Planned; native privacy compatibility remains unresolved. |
-| Nerve | Native advisory plugin | Planned. |
-| Laya | Optional inference sidecar for Nerve | Planned; bounded operation still needs qualification. |
+| OpenViking | Shared long-term project memory | Planned; native automatic extraction accepted. |
+| Nerve | Upstream Hermes community plugin | Qualification pending. |
+| Laya | Nerve-supported Laya sidecar | Upstream compatibility qualification pending. |
 
 None of these integrations, including the baseline Superpowers plugin, is
 installed by the current CLI.

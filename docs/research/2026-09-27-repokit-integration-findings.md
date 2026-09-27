@@ -1,3 +1,5 @@
+> Historical source research. Policy conclusions about durable-only privacy and custom Nerve/Laya implementation are superseded by the final bootstrap directive. Source observations remain useful; native sync/extraction is now accepted.
+
 # Hermes RepoKit integration findings
 
 Date: 2026-09-27. **Source review, not runtime qualification or deployment approval.**
