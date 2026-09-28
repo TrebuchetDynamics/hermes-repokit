@@ -213,7 +213,10 @@ func TestDockerFoundation(t *testing.T) {
 		}
 
 		if strings.HasPrefix(p.Component, "openviking") || p.Component == "memory" || p.Component == "review" {
-			if p.Status == verify.Healthy {
+			// Embedded-runtime packaging/identity is independent of memory
+			// acceptance; only the live memory and review surfaces must stay
+			// uncertified without private setup.
+			if p.Status == verify.Healthy && p.Component != "openviking-container" {
 				t.Fatal("integration falsely certified")
 			}
 			continue
