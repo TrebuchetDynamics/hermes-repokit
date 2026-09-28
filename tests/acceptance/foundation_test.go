@@ -58,8 +58,28 @@ func disposableCLI(t *testing.T) (string, func()) {
 	}
 }
 
+// Keep installer-created host commands disposable while retaining the selected
+// Docker context/credentials for opt-in Docker tests.
+func installerEnvironment(t *testing.T) []string {
+	t.Helper()
+	home := t.TempDir()
+	if err := os.Chmod(home, 0700); err != nil {
+		t.Fatal(err)
+	}
+	env := os.Environ()
+	if os.Getenv("DOCKER_CONFIG") == "" {
+		original, err := os.UserHomeDir()
+		if err != nil {
+			t.Fatal(err)
+		}
+		env = append(env, "DOCKER_CONFIG="+filepath.Join(original, ".docker"))
+	}
+	return append(env, "HOME="+home)
+}
+
 func TestPublishedLauncherSurvivesInstallerArtifactsRemoval(t *testing.T) {
 	installer, removeInstaller := disposableCLI(t)
+	installerEnv := installerEnvironment(t)
 	root := filepath.Join(t.TempDir(), "unrelated-repository")
 	if err := os.Mkdir(root, 0700); err != nil {
 		t.Fatal(err)
@@ -113,7 +133,7 @@ esac
 	for _, command := range []string{"plan", "install", "setup"} {
 		cmd := exec.Command(installer, command)
 		cmd.Dir = root
-		cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"))
+		cmd.Env = append(installerEnv, "PATH="+bin+":"+os.Getenv("PATH"))
 		if command == "setup" {
 			runtime, err := json.Marshal(map[string]any{"status": "running", "service": "hermes", "unexpectedMounts": "", "image": development.ImageName(id.Project, development.Requirements{}), "imageID": "sha256:" + strings.Repeat("d", 64), "project": id.Project, "workspace": id.Root, "home": filepath.Join(id.Root, ".hermes"), "mounts": []map[string]any{{"Type": "bind", "Source": id.Root, "Destination": "/workspace", "RW": true}, {"Type": "bind", "Source": filepath.Join(id.Root, ".hermes"), "Destination": "/opt/data", "RW": true}}})
 			if err != nil {

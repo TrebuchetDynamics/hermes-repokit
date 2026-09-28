@@ -27,20 +27,23 @@ Run from the repository you want a team for:
 ```sh
 cd my-project
 hermes-repokit plan      # inspect; writes nothing
-hermes-repokit install   # publish Compose, launcher and private state
+hermes-repokit install   # publish Compose, launcher, host command and private state
 # run the printed Compose build/start command
 hermes-repokit setup     # private provider, team, memory and activation
 hermes-repokit verify    # read-only health and gate report
-.hermes/bin/hermes-my-project   # native chat as default
+hermes-my-project        # native chat as default, when ~/.local/bin is on PATH
 ```
 
 `setup` runs in your private terminal and never captures credentials; `--team` or
 `--memory` resumes an interrupted stage. The launcher forwards native arguments
 unchanged (`.hermes/bin/hermes-my-project kanban list`). After install, ordinary
 Docker Compose owns the runtime using the context recorded in the launcher — see
-[runtime management](docs/bootstrap-quickstart.md#ordinary-runtime-management). No
-PATH link or shell change is automatic; see the
-[setup and recovery guide](docs/bootstrap-quickstart.md).
+[runtime management](docs/bootstrap-quickstart.md#ordinary-runtime-management).
+Install safely creates `~/.local/bin/hermes-<repo>` as a symlink to the generated
+launcher, reuses matching links, and preserves conflicting entries. It reports
+unusable host directories or missing PATH entries with an absolute command to use.
+It does not create shell aliases or edit shell startup files; see the
+[setup and recovery guide](docs/bootstrap-quickstart.md#host-command).
 
 ## The team
 

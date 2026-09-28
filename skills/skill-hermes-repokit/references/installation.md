@@ -162,20 +162,27 @@ extras and authorization. Use RepoKit reconciliation or native Hermes configurat
 do not hand-toggle platform tool checkboxes to manufacture parity. Refresh sessions
 after reconciliation, and verify an originating-channel task/result separately.
 
-## Optional persistent host command
+## Automatic host command
 
-Create a PATH link only when requested or already authorized. Prefer
-`~/.local/bin/<plan-launcher-name>` if that directory is already on PATH.
-Check `command -v`, `type -a`, filesystem entries including dangling symlinks,
-and relevant shell aliases/functions. Preserve any conflicting command.
-An existing exact link to this verified launcher can be reused.
+An installation request includes safe host-command exposure. Current `install`
+creates `~/.local/bin/<plan-launcher-name>` as a symlink to the absolute generated
+launcher after publishing it. Missing `.local`/`bin` directories are created when
+safe; matching links are reused. Unrelated entries, including dangling symlinks,
+are never replaced. The home and destination directories must be owned and not
+group/other writable; redirected `.local`/`bin` directories are refused.
 
-Verify the target is the recognized executable launcher, the repository path
-is stable, and link/target ancestors have trustworthy ownership and permissions.
-Create a symlink with an exclusive operation (`ln -s`, never `ln -sf`), pointing
-to the launcher's absolute path. Never link to the bootstrap binary.
-If PATH or ownership is unsuitable, report the exact blocker and give the
-absolute native launcher; do not edit shell rc files or PATH automatically.
+Inspect installer output separately from runtime readiness. A directory missing
+from PATH still receives the link, with an explicit warning and absolute command.
+Unusable host directories or destination conflicts leave the local launcher
+available and produce a warning. Existing PATH collisions fail preflight. Preserve
+conflicts and use the reported absolute launcher; retry through `install` after
+the owner resolves the condition. Do not require separate approval for ordinary
+automatic link publication within an authorized installation.
+
+Never create Bash aliases or edit shell rc files or PATH automatically. Check
+`command -v` and `type -a` if an existing alias/function shadows the command;
+preserve those owner definitions. Older revisions may only generate the local
+launcher: report that version gap instead of claiming a host command exists.
 
 Test command resolution in a fresh user shell, then `--help`, `kanban list`,
 and `plugins list` from another directory. Bare chat requires successful private

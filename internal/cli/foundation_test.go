@@ -63,6 +63,11 @@ func (r *foundationRunner) Run(ctx context.Context, program string, args ...stri
 }
 func foundationApp(t *testing.T) (App, *foundationRunner) {
 	t.Helper()
+	home := t.TempDir()
+	if err := os.Chmod(home, 0700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", home)
 	root := filepath.Join(t.TempDir(), "Test Project")
 	if err := os.Mkdir(root, 0700); err != nil {
 		t.Fatal(err)

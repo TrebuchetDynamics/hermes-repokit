@@ -45,11 +45,12 @@ func TestDockerOpenVikingPending(t *testing.T) {
 		t.Fatal(err)
 	}
 	installer, removeInstaller := disposableCLI(t)
+	installerEnv := installerEnvironment(t)
 	install := func() {
 		t.Helper()
 		cmd := exec.CommandContext(ctx, installer, "install")
 		cmd.Dir = root
-		cmd.Env = append(process.CleanEnvironment(os.Environ()), "DOCKER_CONTEXT="+dc)
+		cmd.Env = append(process.CleanEnvironment(installerEnv), "DOCKER_CONTEXT="+dc)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("install: %v %s", err, out)
 		}

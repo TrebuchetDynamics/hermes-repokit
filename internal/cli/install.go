@@ -10,6 +10,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -105,6 +106,17 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		fmt.Fprintln(stdout, "Created Hermes with embedded OpenViking bootstrap artifacts; native setup is pending.")
 	} else {
 		fmt.Fprintln(stdout, "Preserved existing Hermes deployment and native configuration.")
+	}
+	home, homeErr := os.UserHomeDir()
+	if homeErr != nil {
+		fmt.Fprintf(stderr, "Warning: host command unavailable: %v. Use %s directly.\n", homeErr, id.Launcher)
+	} else if command, err := launcher.Expose(id, home); err != nil {
+		fmt.Fprintf(stderr, "Warning: host command unavailable: %v. Use %s directly.\n", err, id.Launcher)
+	} else {
+		fmt.Fprintf(stdout, "Host command: %s -> %s\n", command, id.Launcher)
+		if !launcher.OnPath(command, a.Path) {
+			fmt.Fprintf(stderr, "Warning: %s is not on PATH as an absolute directory; use %s directly or add that directory to your shell environment.\n", filepath.Dir(command), command)
+		}
 	}
 	if code := a.initialize(id, report.DockerContext, false, stdout, stderr); code != 0 {
 		return code

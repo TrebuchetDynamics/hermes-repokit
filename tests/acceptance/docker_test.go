@@ -55,6 +55,7 @@ func TestDockerFoundation(t *testing.T) {
 		t.Fatal(e)
 	}
 	installer, removeInstaller := disposableCLI(t)
+	installerEnv := installerEnvironment(t)
 	if out, err := exec.CommandContext(ctx, "git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
 		t.Fatalf("git: %v %s", err, out)
 	}
@@ -62,7 +63,7 @@ func TestDockerFoundation(t *testing.T) {
 		t.Helper()
 		cmd := exec.CommandContext(ctx, installer, command...)
 		cmd.Dir = root
-		cmd.Env = append(os.Environ(), "DOCKER_CONTEXT="+dc)
+		cmd.Env = append(installerEnv, "DOCKER_CONTEXT="+dc)
 		if out, err := cmd.CombinedOutput(); err != nil {
 			t.Fatalf("CLI %v: %v %s", command, err, out)
 		}
@@ -74,7 +75,7 @@ func TestDockerFoundation(t *testing.T) {
 		t.Helper()
 		cmd := exec.CommandContext(ctx, installer, command...)
 		cmd.Dir = root
-		cmd.Env = append(os.Environ(), "DOCKER_CONTEXT="+dc)
+		cmd.Env = append(installerEnv, "DOCKER_CONTEXT="+dc)
 		out, err := cmd.CombinedOutput()
 		if err == nil || !strings.Contains(string(out), "Operational dispatch pending: shared OpenViking memory is mandatory.") {
 			t.Fatalf("expected explicit incomplete-integration gate for %v: %v %s", command, err, out)

@@ -74,9 +74,45 @@ and tools; native subscriptions and notification/wake return worker outcomes to
 the originating conversation. Actual Telegram delivery and independent same-card
 review still need live acceptance; a successful CLI canary cannot prove them.
 
-Live main-model work and memory recall remain unqualified. No PATH link or shell
-rc edit is automatic. The repository basename determines the full launcher/container
-name; collisions refuse rather than silently adding suffixes.
+Live main-model work and memory recall remain unqualified. The repository basename
+determines the full launcher/container name; collisions refuse rather than silently
+adding suffixes.
+
+## Host command
+
+After publishing the generated launcher, `install` automatically creates:
+
+```text
+~/.local/bin/hermes-<repo> → <repo>/.hermes/bin/hermes-<repo>
+```
+
+It creates missing `.local` and `bin` directories under the current user's home
+when safe, and reuses a symlink to the same launcher on reruns. Existing files,
+directories and links to other targets (including dangling links) are preserved.
+Home and destination directories must be owned by the current user and must not
+be writable by group or others; `.local` and `bin` must not redirect through
+symlinks. RepoKit never changes existing directory permissions.
+
+When `~/.local/bin` is on PATH as an absolute directory, the command works from
+any working directory. For a repository named `hermes-repokit`:
+
+```sh
+hermes-hermes-repokit
+hermes-hermes-repokit kanban list
+hermes-hermes-repokit profile list
+hermes-hermes-repokit setup
+```
+
+The link forwards native Hermes arguments to the generated Docker Compose
+launcher. Native `setup` configures Hermes; `hermes-repokit setup` also performs
+RepoKit team/integration reconciliation. The runtime must be started before use.
+
+If PATH lacks the directory, install still creates the link and prints its
+absolute path. If host exposure is unavailable, install warns and gives the
+repository-local launcher instead; published artifacts remain usable. Existing
+PATH command collisions still refuse installation during preflight. Fix the
+reported host condition and rerun `install` to retry link creation. RepoKit
+never creates shell aliases or edits `.bashrc`, `.zshrc`, or PATH automatically.
 
 ## Ordinary runtime management
 

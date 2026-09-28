@@ -65,7 +65,10 @@ observations, with live behavior separately qualified.
 The standalone POSIX launcher uses an absolute Compose path and captured context,
 opens `default` with no arguments, forwards explicit native arguments unchanged,
 and preserves streams, signals and exit status. It never starts services or calls
-RepoKit. PATH links require a separate authorized selection and collision checks.
+RepoKit. Installation includes safe automatic publication of a symlink at
+`~/.local/bin/hermes-<repo>`, reusing matching links and preserving conflicts.
+Missing PATH entries and unusable host directories are reported; shell aliases,
+startup-file edits and automatic PATH changes are excluded.
 
 Verification reads bounded artifact/runtime observations and authenticated memory
 health. It does not open/migrate Kanban, load plugins, run models, dispatch work or

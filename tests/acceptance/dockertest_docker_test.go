@@ -66,7 +66,7 @@ func TestDockerIsolatedAcceptanceDaemon(t *testing.T) {
 	installer, removeInstaller := disposableCLI(t)
 	install := exec.CommandContext(ctx, installer, "install", "--docker-tests")
 	install.Dir = root
-	install.Env = append(os.Environ(), "DOCKER_CONTEXT="+dc)
+	install.Env = append(installerEnvironment(t), "DOCKER_CONTEXT="+dc)
 	if out, err := install.CombinedOutput(); err != nil {
 		t.Fatalf("generated opt-in install: %v\n%s", err, out)
 	}

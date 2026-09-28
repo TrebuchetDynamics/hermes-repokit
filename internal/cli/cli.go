@@ -221,6 +221,7 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 		p.ProposedChanges = []string{"inspect and preserve existing native configuration; refuse ambiguous adoption", "initialize missing native Kanban in the running qualified container", "upgrade only recognized Hermes-only Compose to include OpenViking; preserve native state and back up old Compose"}
 		p.ProposedChanges = append(p.ProposedChanges, "reconcile the six native team profiles after default setup; preserve user drift and unknown profiles; integrations remain pending")
 	}
+	p.ProposedChanges = append(p.ProposedChanges, "create or reuse ~/.local/bin/"+id.Container+" as a symlink to the generated launcher when safe; preserve conflicts and report missing PATH")
 	ctx := context.Background()
 	p.Collisions = append(p.Collisions, a.gitIssues(ctx, id)...)
 	if p.ExistingState {
