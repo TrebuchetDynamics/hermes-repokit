@@ -8,6 +8,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
+	layapackage "github.com/TrebuchetDynamics/hermes-repokit/packaging/laya"
 	"io"
 	"os"
 	"path/filepath"
@@ -30,7 +31,7 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		fmt.Fprintln(stderr, "target collisions:", strings.Join(report.Collisions, "; "))
 		return 1
 	}
-	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, LayaImage: a.LayaImage, UID: os.Getuid(), GID: os.Getgid()})
+	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, LayaImage: a.LayaImage, LayaBuild: a.LayaImage == "", UID: os.Getuid(), GID: os.Getgid()})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -46,18 +47,40 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		"bin/" + id.Container:   {Data: script, Mode: 0700},
 		"openviking/.gitignore": {Data: []byte("*\n"), Mode: 0600},
 	}
-	previousOptions := compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()}
-	publish := install.PublishOpenVikingChecked
+	if a.LayaImage == "" {
+		artifacts["laya/.gitignore"] = install.Artifact{Data: []byte("*\n"), Mode: 0600}
+		entries, err := layapackage.Assets.ReadDir(".")
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		for _, entry := range entries {
+			data, err := layapackage.Assets.ReadFile(entry.Name())
+			if err != nil {
+				fmt.Fprintln(stderr, err)
+				return 1
+			}
+			artifacts["laya-image/"+entry.Name()] = install.Artifact{Data: data, Mode: 0600}
+		}
+	}
+	var previous []install.StackUpgrade
+	for _, memory := range []string{"", projectmemory.Image} {
+		old, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: memory, UID: os.Getuid(), GID: os.Getgid()})
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		previous = append(previous, install.StackUpgrade{Compose: old, PrepareMemory: memory == ""})
+	}
 	if a.LayaImage != "" {
-		previousOptions.OpenVikingImage = projectmemory.Image
-		publish = install.PublishLayaChecked
+		old, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, LayaBuild: true, UID: os.Getuid(), GID: os.Getgid()})
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-laya-image.yaml"})
 	}
-	previousCompose, err := compose.Render(id, previousOptions)
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-		return 1
-	}
-	created, err := publish(id, artifacts, previousCompose, func() error {
+	created, err := install.PublishStackChecked(id, artifacts, previous, func() error {
 		current := a.plan(id, false)
 		if len(current.Unsupported) > 0 {
 			return fmt.Errorf("selected integration became unqualified")
@@ -78,7 +101,7 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		return 1
 	}
 	if created {
-		fmt.Fprintln(stdout, "Created Hermes and OpenViking bootstrap artifacts; memory configuration is pending.")
+		fmt.Fprintln(stdout, "Created Hermes, OpenViking and Laya bootstrap artifacts; native setup is pending.")
 	} else {
 		fmt.Fprintln(stdout, "Preserved existing Hermes deployment and native configuration.")
 	}
@@ -89,13 +112,17 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 	fmt.Fprintln(stdout, launcher.StartCommand(id.Compose, report.DockerContext))
 	fmt.Fprintln(stdout, "Start OpenViking with ordinary Compose (unconfigured service remains pending):")
 	fmt.Fprintln(stdout, launcher.StartMemoryCommand(id.Compose, report.DockerContext))
-	if a.LayaImage != "" {
+	if a.LayaImage == "" {
+		fmt.Fprintln(stdout, "Build the pinned Laya image and start all services with ordinary Compose:")
+		fmt.Fprintln(stdout, strings.TrimSuffix(launcher.StartCommand(id.Compose, report.DockerContext), " up -d hermes)")+" up -d --build)")
+		fmt.Fprintln(stdout, "Laya model weights persist in the offline image; writable caches persist in .hermes/laya.")
+	} else {
 		fmt.Fprintln(stdout, "Start/recreate Hermes and Laya together with ordinary Compose:")
 		fmt.Fprintln(stdout, strings.TrimSuffix(launcher.StartCommand(id.Compose, report.DockerContext), " up -d hermes)")+" up -d --force-recreate hermes laya)")
-		fmt.Fprintln(stdout, "Laya packaging is selected; native Nerve installation and activation are not implemented yet.")
+		fmt.Fprintln(stdout, "Laya packaging is selected; run setup for native Nerve activation.")
 	}
-	fmt.Fprintln(stdout, "After private default setup, run hermes-repokit setup --memory in your terminal.")
-	fmt.Fprintln(stdout, "After starting Hermes, run setup to configure default and provision the generic team. Rerun install to reconcile existing generated profiles.")
+	fmt.Fprintln(stdout, "Run hermes-repokit setup in your private terminal for native default, shared memory and local supervision setup.")
+	fmt.Fprintln(stdout, "Resume interrupted integrations with setup --memory or setup --supervision. Rerun install to reconcile existing generated profiles.")
 	return 0
 }
 

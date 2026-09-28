@@ -31,11 +31,19 @@ func TestNativeBootstrapPreservesSharedBoard(t *testing.T) {
 	os.WriteFile(filepath.Join(state, "kanban.db"), []byte("existing board"), 0600)
 	lock := filepath.Join(root, ".hermes-repokit.lock")
 	os.WriteFile(lock, nil, 0600)
+	bin := t.TempDir()
+	log := filepath.Join(bin, "calls")
+	os.WriteFile(filepath.Join(bin, "hermes"), []byte("#!/bin/sh\nprintf '%s\\n' \"$*\" >> \"$NATIVE_CALLS\"\n"), 0700)
 	before, _ := os.Stat(filepath.Join(state, "kanban.db"))
 	cmd := exec.Command("flock", "-n", lock, "sh", "-s", "--", root, state, identityForTest(t, root), identityForTest(t, state), identityForTest(t, lock), "false")
+	cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"), "NATIVE_CALLS="+log)
 	cmd.Stdin = strings.NewReader(bootstrapScript)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("%v %s", err, out)
+	}
+	calls, _ := os.ReadFile(log)
+	if string(calls) != "kanban list --json\nkanban diagnostics --json\n" {
+		t.Fatalf("existing board was not checked natively: %q", calls)
 	}
 	after, _ := os.Stat(filepath.Join(state, "kanban.db"))
 	if !os.SameFile(before, after) {
@@ -91,5 +99,28 @@ func TestInitializeUsesContainerLockAndSanitizesFailure(t *testing.T) {
 	r.result = process.Result{}
 	if err := Initialize(context.Background(), id, "local", false, r); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestNativeBootstrapRejectsUnreadableBoard(t *testing.T) {
+	root := t.TempDir()
+	state := filepath.Join(root, ".hermes")
+	os.Mkdir(state, 0700)
+	os.WriteFile(filepath.Join(state, "config.yaml"), []byte("config"), 0600)
+	board := filepath.Join(state, "kanban.db")
+	os.WriteFile(board, []byte("corrupt board"), 0600)
+	lock := filepath.Join(root, ".hermes-repokit.lock")
+	os.WriteFile(lock, nil, 0600)
+	bin := t.TempDir()
+	os.WriteFile(filepath.Join(bin, "hermes"), []byte("#!/bin/sh\nexit 19\n"), 0700)
+	cmd := exec.Command("sh", "-s", "--", root, state, identityForTest(t, root), identityForTest(t, state), identityForTest(t, lock), "false")
+	cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"))
+	cmd.Stdin = strings.NewReader(bootstrapScript)
+	if out, err := cmd.CombinedOutput(); err == nil {
+		t.Fatalf("unreadable native board accepted: %s", out)
+	}
+	data, _ := os.ReadFile(board)
+	if string(data) != "corrupt board" {
+		t.Fatal("failed native check replaced board")
 	}
 }

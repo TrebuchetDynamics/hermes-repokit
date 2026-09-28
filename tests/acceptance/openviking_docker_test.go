@@ -116,7 +116,7 @@ p.chmod(0o600)
 			}
 			continue
 		}
-		if p.Component == "openviking" && p.Status != verify.Unknown {
+		if p.Component == "openviking" && (p.Status != verify.PendingSetup || !strings.Contains(p.Detail, "acceptance unqualified")) {
 			t.Fatalf("live gate: %+v", p)
 		}
 		if p.Component != "openviking" && p.Status != verify.PendingSetup {

@@ -11,7 +11,7 @@ import (
 
 // addSidecar executes under the publication lock, with an exact public
 // Compose preimage. It never opens or rewrites native configuration/credentials.
-func addSidecar(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInfo, previous, next []byte, prepareMemory bool) (bool, error) {
+func addSidecar(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInfo, previous []byte, files map[string]Artifact, prepareMemory bool, customBackupName string) (bool, error) {
 	state, err := root.OpenRoot(".hermes")
 	if err != nil {
 		return false, err
@@ -28,6 +28,14 @@ func addSidecar(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInf
 	backupName := "compose.before-laya.yaml"
 	if prepareMemory {
 		backupName = "compose.hermes-only.yaml"
+	}
+	if customBackupName != "" {
+		backupName = customBackupName
+	}
+	if err := validateLayaPreparation(state, files, previous, backupName); err != nil {
+		return false, err
+	}
+	if prepareMemory {
 		// A partial preparation is resumable only while the directory contains no
 		// native service data. Unknown existing data must never be adopted.
 		entries, err := fs.ReadDir(state.FS(), "openviking")
@@ -63,13 +71,16 @@ func addSidecar(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInf
 	} else if err := createOrMatch(state, backupName, previous); err != nil {
 		return false, err
 	}
+	if err := prepareLayaArtifacts(state, files, previous, backupName); err != nil {
+		return false, err
+	}
 	temp := ".compose-stage-" + rand.Text()
 	f, err := state.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 	if err != nil {
 		return false, err
 	}
 	defer state.Remove(temp)
-	_, err = f.Write(next)
+	_, err = f.Write(files["compose.yaml"].Data)
 	if err == nil {
 		err = f.Sync()
 	}

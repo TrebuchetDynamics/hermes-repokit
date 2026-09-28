@@ -15,8 +15,9 @@ assert str(k.kanban_db_path()) == '/opt/data/kanban.db'
 if action == 'create':
     assert profile == 'default'
     parent = k.create_task(c, title='Investigate fixture', assignee='researcher', created_by='default')
-    card = k.create_task(c, title='Produce fixture', assignee='executor', created_by='default', parents=[parent])
-    refs.write_text(json.dumps({'parent':parent,'card':card}))
+    plan = k.create_task(c, title='Plan fixture', assignee='planner', created_by='default', parents=[parent])
+    card = k.create_task(c, title='Produce fixture', assignee='executor', created_by='default', parents=[plan])
+    refs.write_text(json.dumps({'parent':parent,'plan':plan,'card':card}))
 else:
     ids = json.loads(refs.read_text())
     parent, card = ids['parent'], ids['card']
@@ -25,10 +26,19 @@ else:
         task=k.claim_task(c,parent,claimer=profile)
         assert task.assignee == profile
         assert k.complete_task(c,parent,summary='Verified parent evidence',metadata={'confirmed':['durable-repokit-fixture']},expected_run_id=task.current_run_id)
+    elif action == 'plan':
+        assert profile == 'planner'
+        plan = ids['plan']
+        assert 'durable-repokit-fixture' in k.build_worker_context(c,plan)
+        task=k.claim_task(c,plan,claimer=profile)
+        assert task.assignee == profile
+        assert k.complete_task(c,plan,summary='Bounded fixture plan',metadata={'acceptance':['durable-repokit-fixture', 'planner-handoff-marker']},expected_run_id=task.current_run_id)
     elif action in ('execute','revise'):
         assert profile == 'executor'
         context=k.build_worker_context(c,card)
-        assert 'durable-repokit-fixture' in context
+        assert 'planner-handoff-marker' in context
+        if action == 'revise':
+            assert 'Include the missing fixture evidence' in context
         task=k.claim_task(c,card,claimer=profile)
         assert task.assignee == profile
         assert k.request_review(c,card,summary='Fixture result ready',metadata={'verification':['native fixture']},reviewer='reviewer',expected_run_id=task.current_run_id)

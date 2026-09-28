@@ -45,8 +45,8 @@ func TestOpenVikingObservationNeverProbesModels(t *testing.T) {
 		for _, p := range probes {
 			status[p.Component] = p.Status
 		}
-		if status["openviking"] != Unknown {
-			t.Fatal("metadata promoted live memory acceptance")
+		if status["openviking"] != Healthy || !strings.Contains(probes[len(probes)-1].Detail, "acceptance unqualified") {
+			t.Fatal("service health was confused with memory acceptance")
 		}
 		want := PendingSetup
 		if configured {

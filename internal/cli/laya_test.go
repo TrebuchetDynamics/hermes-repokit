@@ -42,7 +42,7 @@ func TestSelectedLayaInstallUpgradeAndRerun(t *testing.T) {
 	if compose.SelectedLaya(r.id) != image {
 		t.Fatal("selected image not persisted in native Compose")
 	}
-	backup, _ := os.ReadFile(filepath.Join(a.Directory, ".hermes/compose.before-laya.yaml"))
+	backup, _ := os.ReadFile(filepath.Join(a.Directory, ".hermes/compose.before-laya-image.yaml"))
 	if string(backup) != string(old) {
 		t.Fatal("prior Compose backup missing")
 	}

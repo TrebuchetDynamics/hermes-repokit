@@ -25,27 +25,44 @@ type Artifact struct {
 // state or spawn a native initializer. Future native subprocesses must hold
 // an explicitly inherited installer lock across their whole lifetime.
 func Publish(id target.Identity, files map[string]Artifact, prepare func() error) (bool, error) {
-	return publish(id, files, prepare, nil, nil, true)
+	return publish(id, files, prepare, nil, nil)
 }
 
 // PublishChecked rechecks external read-only inventory while holding the same
 // publication lock, including on no-op reruns. The check must not mutate state.
 func PublishChecked(id target.Identity, files map[string]Artifact, check func() error) (bool, error) {
-	return publish(id, files, nil, check, nil, true)
+	return publish(id, files, nil, check, nil)
 }
 
 // PublishOpenVikingChecked additionally accepts exactly the former generated
 // Hermes-only Compose as an upgrade preimage. Native configuration is preserved.
 func PublishOpenVikingChecked(id target.Identity, files map[string]Artifact, previousCompose []byte, check func() error) (bool, error) {
-	return publish(id, files, nil, check, previousCompose, true)
+	return publish(id, files, nil, check, []StackUpgrade{{Compose: previousCompose, PrepareMemory: true}})
 }
 
 // PublishLayaChecked adds only the selected sidecar to recognized OpenViking Compose.
 func PublishLayaChecked(id target.Identity, files map[string]Artifact, previousCompose []byte, check func() error) (bool, error) {
-	return publish(id, files, nil, check, previousCompose, false)
+	return publish(id, files, nil, check, []StackUpgrade{{Compose: previousCompose}})
 }
 
-func publish(id target.Identity, files map[string]Artifact, prepare, check func() error, previousCompose []byte, prepareMemory bool) (bool, error) {
+// StackUpgrade identifies an exact prior generated Compose document.
+type StackUpgrade struct {
+	Compose       []byte
+	PrepareMemory bool
+	BackupName    string
+}
+
+// PublishStackChecked upgrades any recognized preimage while preserving native state.
+func PublishStackChecked(id target.Identity, files map[string]Artifact, previous []StackUpgrade, check func() error) (bool, error) {
+	return publish(id, files, nil, check, previous)
+}
+
+func publish(id target.Identity, files map[string]Artifact, prepare, check func() error, previous []StackUpgrade) (bool, error) {
+	for _, prior := range previous {
+		if prior.BackupName != "" && (!fs.ValidPath(prior.BackupName) || strings.ContainsAny(prior.BackupName, "/\\") || prior.BackupName == ".") {
+			return false, fmt.Errorf("unsafe Compose backup name")
+		}
+	}
 	for name, a := range files {
 		if !fs.ValidPath(name) || name == "." || strings.Contains(name, "\\") || a.Mode.Perm()&0077 != 0 || !a.Mode.IsRegular() {
 			return false, fmt.Errorf("unsafe generated artifact")
@@ -97,8 +114,12 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 		for _, name := range []string{"bin/" + id.Container, "compose.yaml"} {
 			b, e := root.ReadFile(".hermes/" + name)
 			if e != nil || !bytes.Equal(b, files[name].Data) {
-				if e == nil && name == "compose.yaml" && len(previousCompose) > 0 && bytes.Equal(b, previousCompose) {
-					return addSidecar(root, id, rootInfo, lockInfo, previousCompose, files[name].Data, prepareMemory)
+				if e == nil && name == "compose.yaml" {
+					for _, prior := range previous {
+						if len(prior.Compose) > 0 && bytes.Equal(b, prior.Compose) {
+							return addSidecar(root, id, rootInfo, lockInfo, prior.Compose, files, prior.PrepareMemory, prior.BackupName)
+						}
+					}
 				}
 				return false, fmt.Errorf("existing native deployment differs or is incomplete; refusing automatic adoption")
 			}
@@ -108,6 +129,9 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 			if err != nil || !info.IsDir() {
 				return false, fmt.Errorf("OpenViking data directory absent; preserve native state and inspect before repair")
 			}
+		}
+		if err := checkLayaArtifacts(root, ".hermes/", files); err != nil {
+			return false, err
 		}
 		return false, nil
 	} else if !os.IsNotExist(e) {

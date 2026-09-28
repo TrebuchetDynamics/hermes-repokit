@@ -9,7 +9,8 @@ FROM python@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e
 COPY --from=build /deps /deps
 COPY --from=build /nerve /nerve
 COPY --from=build /model /model
-COPY model-manifest.json /opt/laya/model-manifest.json
+RUN mkdir -p /opt/laya && chmod 0755 /opt/laya
+COPY --chmod=0444 model-manifest.json /opt/laya/model-manifest.json
 LABEL io.repokit.laya.recipe="1" \
       io.repokit.nerve.revision="b9e78dd5e00cf1117c563cada4d563a56f66e609" \
       io.repokit.laya.model-revision="1a793eb568e6718f15941d08f85432581df534e3"

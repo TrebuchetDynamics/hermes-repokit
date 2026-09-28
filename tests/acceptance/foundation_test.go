@@ -24,7 +24,7 @@ func disposableCLI(t *testing.T) (string, func()) {
 	if err = os.Mkdir(source, 0700); err != nil {
 		t.Fatal(err)
 	}
-	for _, dir := range []string{"cmd", "internal"} {
+	for _, dir := range []string{"cmd", "internal", "packaging"} {
 		if err = os.CopyFS(filepath.Join(source, dir), os.DirFS(filepath.Join(original, dir))); err != nil {
 			t.Fatal(err)
 		}

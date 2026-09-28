@@ -1,4 +1,4 @@
-// Package verify performs metadata-only observations. It never invokes Hermes.
+// Package verify performs read-only observations. It never invokes Hermes.
 package verify
 
 import (
@@ -25,6 +25,9 @@ const (
 	PendingSetup Status = "pending-setup"
 	Unsupported  Status = "unsupported"
 	Unknown      Status = "unknown"
+	Active       Status = "active"
+	Inactive     Status = "inactive"
+	Unqualified  Status = "unqualified"
 )
 
 type Probe struct {
@@ -91,6 +94,8 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 			artifact = Probe{"compose", Healthy, "generated Hermes-only Compose matches this repository"}
 		} else if compose.SelectedLaya(id) != "" {
 			artifact = Probe{"compose", Healthy, "generated Compose with selected immutable Laya image matches"}
+		} else if compose.DefaultLayaSelected(id) {
+			artifact = Probe{"compose", Healthy, "generated Hermes/OpenViking/Laya build Compose matches this repository"}
 		} else if expected, err = compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, UID: os.Getuid(), GID: os.Getgid()}); err == nil && matchesCompose(id, expected) {
 			artifact = Probe{"compose", Healthy, "generated Hermes/OpenViking Compose matches this repository"}
 		}

@@ -72,5 +72,8 @@ func OpenViking(ctx context.Context, id target.Identity, r Runner) []Probe {
 			}
 		}
 	}
-	return []Probe{config, container, runtime, {"openviking", Unknown, "cross-profile recall, cross-repository denial and memory persistence acceptance not established"}}
+	service := runtime
+	service.Component = "openviking"
+	service.Detail += "; recall, extraction, cross-repository denial and persistence acceptance unqualified"
+	return []Probe{config, container, runtime, service}
 }

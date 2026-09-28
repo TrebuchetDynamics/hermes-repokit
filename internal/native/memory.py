@@ -32,7 +32,12 @@ def configure(root, roles, check, run):
         prior = memory.get('openviking') or {}
         if not isinstance(prior, dict):
             raise RuntimeError('owner connection differs')
-        if memory.get('provider') == 'openviking' and (prior.get('ovcli_config_path') != str(link) or prior.get('agent')):
+        if (prior.get('agent') or prior.get('api_key') or
+                prior.get('endpoint') not in (None, '', 'http://openviking:1933') or
+                prior.get('ovcli_config_path') not in (None, '', str(link)) or
+                (prior.get('use_ovcli_config') and prior.get('ovcli_config_path') != str(link))):
+            raise RuntimeError('owner connection differs')
+        if memory.get('provider') == 'openviking' and prior.get('ovcli_config_path') != str(link):
             raise RuntimeError('owner connection differs')
         candidate = copy.deepcopy(memory)
         candidate.update(provider='openviking', memory_enabled=True, user_profile_enabled=True)
@@ -50,6 +55,17 @@ def configure(root, roles, check, run):
         check(home, actual)
 
 
+def resolve_connection(ov, provider_config, repo_id):
+    linked = ov._ovcli_values_for(provider_config)
+    settings = ov._resolve_connection_settings(provider_config)
+    if (linked.get('agent') or settings['agent'] or
+            settings['endpoint'] != 'http://openviking:1933' or
+            not settings['api_key'] or settings['api_key'] != linked.get('api_key') or
+            settings['account'] not in ('', 'repokit') or settings['user'] not in ('', repo_id)):
+        raise RuntimeError('effective native connection differs')
+    return settings
+
+
 def main(payload):
     from agent.secret_scope import build_profile_secret_scope, set_secret_scope, reset_secret_scope
     from plugins.memory import openviking as ov
@@ -58,9 +74,7 @@ def main(payload):
     def check(home, memory):
         token = set_secret_scope(build_profile_secret_scope(home), profile_home=str(home))
         try:
-            settings = ov._resolve_connection_settings(memory['openviking'])
-            if settings['endpoint'] != 'http://openviking:1933' or settings['agent'] or not settings['api_key']:
-                raise RuntimeError('effective native connection differs')
+            settings = resolve_connection(ov, memory['openviking'], payload['repo_id'])
             client = ov._VikingClient(settings['endpoint'], settings['api_key'],
                                       account=settings['account'], user=settings['user'], agent=settings['agent'])
             # /health with the native key verifies server-derived identity. Never

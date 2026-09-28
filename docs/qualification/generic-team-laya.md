@@ -6,6 +6,11 @@ This qualifies the narrow tuple below, not an authenticated agent turn, full
 team collaboration, semantic decision accuracy, or the installer's production
 sidecar lifecycle. No existing deployment or host credentials were used.
 
+The newer [runtime integration record](runtime-integrations.md) supersedes this
+experiment's deployment-pending status: pinned standalone packaging and all-six
+native hooks/decisions with offline outage/removal/recreation are now exercised.
+The mounted-environment procedure below remains historical evidence.
+
 ## Exact tuple
 
 | Component | Tested identity |

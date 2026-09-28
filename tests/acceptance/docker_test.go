@@ -176,7 +176,7 @@ func TestDockerFoundation(t *testing.T) {
 		t.Fatalf("full acceptance falsely certified: %v %s", verifyErr, output)
 	}
 	for _, p := range probes {
-		if strings.HasPrefix(p.Component, "openviking") || p.Component == "nerve-laya" {
+		if strings.HasPrefix(p.Component, "openviking") || p.Component == "nerve" || p.Component == "laya" || p.Component == "memory" || p.Component == "review" {
 			if p.Status == verify.Healthy {
 				t.Fatal("integration falsely certified")
 			}
@@ -242,7 +242,7 @@ func TestDockerFoundation(t *testing.T) {
 		}
 		docker("exec", "-T", "--user", "hermes", "--env", "HOME=/opt/data", "--env", "HERMES_HOME="+home, "--env", "HERMES_PROFILE_NAME="+profile, "hermes", "python", "-c", teamLifecycle, action)
 	}
-	for _, step := range [][2]string{{"create", "default"}, {"research", "researcher"}, {"execute", "executor"}, {"changes", "reviewer"}, {"revise", "executor"}, {"approve", "reviewer"}} {
+	for _, step := range [][2]string{{"create", "default"}, {"research", "researcher"}, {"plan", "planner"}, {"execute", "executor"}, {"changes", "reviewer"}, {"revise", "executor"}, {"approve", "reviewer"}} {
 		lifecycle(step[0], step[1])
 	}
 	removeInstaller()
@@ -290,9 +290,14 @@ type fixtureInitializer struct{ t *testing.T }
 
 func (r fixtureInitializer) RunInput(ctx context.Context, input io.Reader, program string, args ...string) process.Result {
 	data, _ := io.ReadAll(input)
-	script := strings.ReplaceAll(string(data), "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL", "stdout=None, stderr=None")
+	script := strings.ReplaceAll(string(data), "stdout=subprocess.DEVNULL", "stdout=None")
+	script = strings.ReplaceAll(script, "stderr=subprocess.DEVNULL", "stderr=None")
 	script = strings.ReplaceAll(script, "except Exception:\n    print(", "except Exception:\n    import traceback; traceback.print_exc()\n    print(")
-	result := (process.Runner{Timeout: 2 * time.Minute}).RunInput(ctx, strings.NewReader(script), program, args...)
+	timeout := 2 * time.Minute
+	if strings.Contains(script, "REPOKIT_SUPERVISION_PY") {
+		timeout = 20 * time.Minute
+	}
+	result := (process.Runner{Timeout: timeout}).RunInput(ctx, strings.NewReader(script), program, args...)
 	if result.Err != nil {
 		r.t.Log(result.Output)
 	}

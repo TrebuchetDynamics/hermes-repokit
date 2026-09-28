@@ -58,16 +58,30 @@ an exact pre-existing backup identifying an interrupted preparation.
 `setup --memory` inherits the operator's terminal for native server init/doctor
 and native Hermes memory setup. The native wizard writes `ov.conf` atomically
 with mode 0600 and places its default workspace alongside that file. Existing
-server config skips initialization. The setup handoff calls doctor even when a
+server config skips initialization. Decline the wizard's optional “Start the
+server now?” prompt: the pinned entrypoint watches for the first config and
+owns the server process. The setup handoff calls doctor even when a
 matching running server's Docker health is starting/unhealthy; image, project,
 mount and running-state mismatches refuse before private setup.
+
+After doctor succeeds, a one-shot container check requires explicit
+`storage.workspace: /app/.openviking/data`, API-key binding on `0.0.0.0:1933`,
+and native session extraction enabled (including its native default). Provider
+schema and credential validation remain the native doctor's responsibility.
+Setup restarts the sidecar so existing config changes take effect, then waits
+up to 120 seconds using the pinned entrypoint's `/health` check. These gates
+must succeed before the Hermes connection wizard or profile activation.
+The checks neither persist a runtime adapter nor print private config values.
 
 Hermes's own wizard creates the private mirrored connection. A one-shot script
 uses native configuration commands under the container-held repository lock to
 link it across all six profiles. Before any specialist write it checks each
 profile's effective native secret scope, no peer, the expected endpoint, and
-server-derived normal-user/account/repository identity. Other providers and
-conflicting connection paths refuse. Built-in local memories remain enabled.
+server-derived normal-user/account/repository identity. Every effective key
+must match the native shared link. Other providers, dormant conflicting
+connection paths/endpoints, and YAML, linked or effective secret-scope peers
+refuse before any profile setter runs. Built-in local memories remain enabled;
+their storage remains profile-local. Native session sync/extraction is unchanged.
 The script is not persisted as a runtime dependency.
 
 ## Verification boundary
@@ -85,6 +99,21 @@ shared-link preservation, profile conflicts, unsafe connection files and
 metadata-only verification. Two independent-review findings were reproduced
 with failing tests and fixed: unhealthy-service diagnosis and unexplained empty
 directory adoption.
+
+The 2026-09-27 runtime-integration follow-up added regressions for the ordered
+doctor/config/restart/health activation gates, persistent workspace and native
+extraction requirements, dormant connection drift, and effective shared-key,
+account/user and peer conflicts. `go test ./internal/native -count=1` and its
+race-enabled equivalent passed. The isolated pinned OpenViking pending fixture
+was rerun successfully in 10.98 seconds with explicit Docker context `default`.
+The extended foundation fixture also passed in 162.95 seconds against the
+pinned Hermes image: all six profiles resolved the same native shared link,
+and conflicting specialist endpoint/key/account/user/peer secrets or a linked
+peer were refused before any configuration write. The fixture used only its
+named nonsecret key and never contacted a memory service. The full offline
+`go test ./...` suite passed after the default-stack verification changes.
+These remain configuration, lifecycle and persistence proofs; the private
+model-dependent gates below are still open.
 
 ## Still required
 

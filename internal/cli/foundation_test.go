@@ -73,7 +73,7 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	a, r := foundationApp(t)
 	code, out, diag := invoke(t, a, "plan")
 	var plan Plan
-	if code != 0 || json.Unmarshal([]byte(out), &plan) != nil || len(plan.Plugins) != 0 || len(plan.Unsupported) != 0 {
+	if code != 0 || json.Unmarshal([]byte(out), &plan) != nil || len(plan.Plugins) != 1 || len(plan.Unsupported) != 0 {
 		t.Fatalf("plan: %d %s %s", code, out, diag)
 	}
 	code, out, diag = invoke(t, a, "install")
@@ -95,7 +95,7 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "openviking") || strings.Contains(string(data), "laya") {
+	if !strings.Contains(string(data), "openviking") || !strings.Contains(string(data), "  laya:") {
 		t.Fatal("unexpected sidecar selection")
 	}
 	r.runtime = fmt.Sprintf(`{"status":"running","image":%q,"project":%q,"workspace":%q,"home":%q}`, qualification.FoundationImage, r.id.Project, r.id.Root, filepath.Join(r.id.Root, ".hermes"))
@@ -273,11 +273,11 @@ func TestVerifyDoesNotCertifyUnqualifiedIntegrations(t *testing.T) {
 	}
 	pending := map[string]bool{}
 	for _, p := range probes {
-		if p.Component == "openviking" || p.Component == "nerve-laya" {
+		if p.Component == "openviking" || p.Component == "nerve" || p.Component == "laya" || p.Component == "memory" || p.Component == "review" {
 			pending[p.Component] = p.Status != verify.Healthy
 		}
 	}
-	if !pending["openviking"] || !pending["nerve-laya"] {
+	if !pending["openviking"] || !pending["nerve"] || !pending["laya"] || !pending["memory"] || !pending["review"] {
 		t.Fatal("missing explicit integration gates")
 	}
 }
@@ -295,5 +295,23 @@ func TestLegacyEngineeringIsOnlyAnAlias(t *testing.T) {
 		if plain != legacy {
 			t.Fatal("legacy flag changes universal team plan")
 		}
+	}
+}
+
+func TestSetupRefusesEditedLauncherBeforeExecution(t *testing.T) {
+	a, r := foundationApp(t)
+	if code, _, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatal(diag)
+	}
+	marker := filepath.Join(a.Directory, "unexpected-execution")
+	if err := os.WriteFile(r.id.Launcher, []byte("#!/bin/sh\ntouch '"+marker+"'\nexit 0\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	code, _, diag := invoke(t, a, "setup")
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatal("executed an unverified launcher")
+	}
+	if code != 1 || !strings.Contains(diag, "routing") {
+		t.Fatalf("%d %s", code, diag)
 	}
 }

@@ -18,4 +18,9 @@ else
     [ -s "$state/kanban.db" ]
 fi
 
+# A nonempty file is not proof of a usable board. These native commands may
+# initialize/migrate schema, so they belong in bootstrap, never read-only verify.
+hermes kanban list --json >/dev/null
+hermes kanban diagnostics --json >/dev/null
+
 printf 'Native shared Kanban initialized; existing state preserved.\n'

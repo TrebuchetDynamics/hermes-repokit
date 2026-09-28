@@ -48,3 +48,27 @@ func SelectedLaya(id target.Identity) string {
 	}
 	return ""
 }
+
+// DefaultLayaSelected recognizes only an exact generated standalone build stack.
+func DefaultLayaSelected(id target.Identity) bool {
+	root, err := os.OpenRoot(id.Root)
+	if err != nil {
+		return false
+	}
+	defer root.Close()
+	f, err := root.Open(".hermes/compose.yaml")
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		return false
+	}
+	data, err := io.ReadAll(io.LimitReader(f, 65537))
+	if err != nil || len(data) > 65536 {
+		return false
+	}
+	expected, err := Render(id, Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, LayaBuild: true, UID: os.Getuid(), GID: os.Getgid()})
+	return err == nil && bytes.Equal(expected, data)
+}

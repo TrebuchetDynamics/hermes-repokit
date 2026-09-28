@@ -19,6 +19,9 @@ import (
 //go:embed memory.py
 var memoryScript string
 
+//go:embed memory_server.py
+var memoryServerScript string
+
 // SetupMemory inherits the operator's terminal for all private native setup.
 // The caller verifies the generated deployment and profile readiness first.
 func SetupMemory(id target.Identity, dockerContext string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -36,16 +39,31 @@ func SetupMemory(id target.Identity, dockerContext string, stdin io.Reader, stdo
 }
 
 func memorySetup(id target.Identity, dockerContext string, configured bool, run func(*exec.Cmd) int, configure func() error, out io.Writer) int {
+	compose := func(args ...string) *exec.Cmd {
+		return exec.Command("docker", append([]string{"--context", dockerContext, "compose", "--env-file", "/dev/null", "-f", id.Compose}, args...)...)
+	}
 	native := func(command string) *exec.Cmd {
-		return exec.Command("docker", "--context", dockerContext, "compose", "--env-file", "/dev/null", "-f", id.Compose, "exec", "openviking", "openviking-server", command)
+		return compose("exec", "openviking", "openviking-server", command)
 	}
 	if !configured {
 		fmt.Fprintln(out, "In native OpenViking init, select remote binding 0.0.0.0:1933 with API-key auth and persistent workspace /app/.openviking/data. Keep the root key in native server state; Hermes needs a separate normal repository user key.")
+		fmt.Fprintln(out, "Enter embedding and extraction-model credentials only in native setup. Decline 'Start the server now?'; the container entrypoint manages the server.")
 		if code := run(native("init")); code != 0 {
 			return code
 		}
 	}
 	if code := run(native("doctor")); code != 0 {
+		return code
+	}
+	if code := run(compose("exec", "-T", "openviking", "python", "-c", memoryServerScript, "validate")); code != 0 {
+		return code
+	}
+	// The entrypoint notices a first config, but an existing server only reads
+	// model/storage changes at startup. Reload before the native health gate.
+	if code := run(compose("restart", "openviking")); code != 0 {
+		return code
+	}
+	if code := run(compose("exec", "-T", "openviking", "python", "-c", memoryServerScript, "health")); code != 0 {
 		return code
 	}
 	fmt.Fprintln(out, "Use Custom URL http://openviking:1933 and a normal user key for account repokit and this repository. Choose Mirror to OpenViking store to share the native connection with all six profiles.")
@@ -69,7 +87,7 @@ func configureMemory(ctx context.Context, id target.Identity, dockerContext stri
 		Roles  []string `json:"roles"`
 		RepoID string   `json:"repo_id"`
 	}{roles, id.Project})
-	script := bootstrapScript + "\npython - <<'REPOKIT_MEMORY_PY'\n" + memoryScript + "\nimport base64\ntry:\n    main(json.loads(base64.b64decode('" + base64.StdEncoding.EncodeToString(payload) + "')))\nexcept Exception:\n    print('Shared memory activation incomplete; inspect native connection, user-key identity and profile drift. Existing state preserved.',file=sys.stderr)\n    sys.exit(1)\nREPOKIT_MEMORY_PY\n"
+	script := bootstrapScript + "\npython - <<'REPOKIT_MEMORY_PY'\n" + memoryScript + "\nimport base64\ntry:\n    main(json.loads(base64.b64decode('" + base64.StdEncoding.EncodeToString(payload) + "')))\nexcept Exception:\n    print('Shared memory activation incomplete; inspect native connection, user-key identity and profile drift. Profile linking may be partial.',file=sys.stderr)\n    sys.exit(1)\nREPOKIT_MEMORY_PY\n"
 	_, err := runBootstrap(ctx, id, dockerContext, false, script, r)
 	if err != nil {
 		return fmt.Errorf("shared memory activation incomplete; inspect native setup, repository user identity and preserved profile configuration")

@@ -12,6 +12,8 @@ import (
 type Options struct {
 	HermesImage, OpenVikingImage, LayaImage string
 	UID, GID                                int
+	// LayaBuild selects the embedded local recipe instead of a content image ID.
+	LayaBuild bool
 }
 
 var identity = regexp.MustCompile(`^[a-z0-9][a-z0-9-]+$`)
@@ -22,6 +24,9 @@ func Render(id target.Identity, o Options) ([]byte, error) {
 	}
 	if o.OpenVikingImage != "" && !qualification.ImmutableImage(o.OpenVikingImage) {
 		return nil, fmt.Errorf("OpenViking requires immutable image digest")
+	}
+	if o.LayaBuild && o.LayaImage != "" {
+		return nil, fmt.Errorf("choose the local Laya build or a content image ID")
 	}
 	if o.LayaImage != "" && !LocalImageID(o.LayaImage) {
 		return nil, fmt.Errorf("Laya requires a qualified local content image ID")
@@ -77,11 +82,14 @@ services:
           create_host_path: false
 `, o.OpenVikingImage, fmt.Sprintf("%d:%d", o.UID, o.GID))
 	}
-	if o.LayaImage != "" {
-		fmt.Fprintf(&s, `  laya:
-    image: %q
-    pull_policy: never
-    network_mode: service:hermes
+	if o.LayaImage != "" || o.LayaBuild {
+		s.WriteString("  laya:\n")
+		if o.LayaImage != "" {
+			fmt.Fprintf(&s, "    image: %q\n    pull_policy: never\n", o.LayaImage)
+		} else {
+			s.WriteString("    build:\n      context: ./laya-image\n    platform: linux/amd64\n")
+		}
+		fmt.Fprintf(&s, `    network_mode: service:hermes
     depends_on:
       hermes:
         condition: service_started
@@ -93,7 +101,19 @@ services:
       - /tmp:rw,nosuid,nodev,size=256m
     cpus: 4
     mem_limit: 6g
-`, o.LayaImage, fmt.Sprintf("%d:%d", o.UID, o.GID))
+`, fmt.Sprintf("%d:%d", o.UID, o.GID))
+		if o.LayaBuild {
+			s.WriteString(`    environment:
+      HF_HOME: /cache/huggingface
+      TORCHINDUCTOR_CACHE_DIR: /cache/torchinductor
+    volumes:
+      - type: bind
+        source: "./laya"
+        target: /cache
+        bind:
+          create_host_path: false
+`)
+		}
 	}
 	return []byte(s.String()), nil
 }

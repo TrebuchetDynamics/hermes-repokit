@@ -3,7 +3,9 @@
 The current directive is six permanent profiles: default, researcher, planner,
 executor, reviewer and steward. Earlier five-role and engineering-profile
 records are historical. **The complete team acceptance gate is not passed.**
-This qualification did not deploy RepoKit to itself or perform self-dogfood.
+The current deployment/setup evidence is in the
+[runtime integration record](runtime-integrations.md). The older scaffold runs
+below are historical. This qualification did not deploy RepoKit to itself or perform self-dogfood.
 Git delivery is a separate, subsequently authorized operation.
 
 ## Executed native scaffold fixture
@@ -43,7 +45,7 @@ the board. The test harness is an observer, not a generated runtime dependency.
 | 2 | Expected descriptions | Passed through native describe |
 | 3 | Distinct role SOULs | Passed byte comparisons |
 | 4 | No inherited default curated memory | Passed sentinel absence; rerun preserves role memory |
-| 5 | Every profile connects to shared OpenViking namespace | Resolver configuration tested; deployed connection pending |
+| 5 | Every profile connects to shared OpenViking namespace | Native six-role linking/resolution fixture passed; live authenticated memory acceptance pending |
 | 6 | One role writes memory another recalls; B cannot see A | Pending real embedding/extraction model configuration and live services |
 | 7 | One initialized shared board | Passed native default/profile path checks and persistence |
 | 8 | Default creates assigned work | Passed native API fixture; conversational tool use/dispatch pending |
@@ -51,29 +53,29 @@ the board. The test harness is an observer, not a generated runtime dependency.
 | 10 | Same-card review/change/resubmit/done | Passed native state transitions; actual model-driven artifact work pending |
 | 11 | Approving reviewer differs from executor | Passed recorded role/run identities; adversarial identity enforcement not claimed |
 | 12 | Real local typed Laya decision | Passed [local fixture](generic-team-laya.md) |
-| 13 | Nerve consumes Laya without hosted fallback | Passed native plugin invocation in offline fixture; all-six installation pending |
+| 13 | Nerve consumes Laya without hosted fallback | Passed all-six native installs/hooks and LOCAL_ONLY decisions, offline outage and recreation; see [current evidence](runtime-integrations.md) |
 | 14 | Compose restart/recreation preserves board and memory | Board passed; OpenViking recall pending |
-| 15 | Removing RepoKit preserves the whole deployment | Native roster/board fixture passed; full memory/supervision team gate pending |
+| 15 | Removing RepoKit preserves the whole deployment | Native roster/board and six-role local supervision removal/recreation passed separately; full integrated memory/work gate pending |
 
 ## Outstanding configuration and implementation
 
-The installer does not currently provision the OpenViking service or the
-production Laya sidecar, nor install Nerve into every role. Public memory and
-local-supervision contracts are emitted by `plan` as **not activated** proposals.
-The separate inference fixture is a qualified experiment, not production wiring.
+Ordinary installation now generates Hermes, official OpenViking and the pinned
+local Laya build recipe. Plain `setup` provisions the team, runs private native
+memory setup/linking, then installs and configures pinned Nerve across all six
+roles before enabling it and checking real local decisions. The default build,
+offline image contents, persistent cache and six-role supervision lifecycle have
+separate executed evidence in the [current record](runtime-integrations.md).
 
-OpenViking needs actual embedding/extraction model endpoints, model identities,
-matching vector dimensions and private native credentials where required.
-No host credentials were borrowed. See [precise requirements](generic-team-memory.md).
-The candidate image is v0.4.21 pinned by digest; it is not claimed fully qualified
-from schema checks. Keep the selected provider inactive until live validation.
+OpenViking still needs actual embedding/extraction model endpoints, model
+identities, matching vector dimensions and private native credentials where
+required. No host credentials were borrowed. See
+[precise requirements](generic-team-memory.md). Configuration and authenticated
+health do not establish real recall or cross-repository isolation.
 
-Nerve/Laya still need a self-contained reproducible sidecar image, production
-Compose lifecycle integration, pinned installation/configuration for all six
-profiles and dynamic specialists, and the full removal-first integration test.
-The local-only enablement order and upstream outage behavior are documented in
-[actual Laya evidence](generic-team-laya.md). No automatic hosted fallback exists
-in the scaffold because it does not enable Nerve at all.
+Future specialist supervision, genuine main-model task/review behavior and the
+complete combined removal-first gate remain unqualified. Local Laya outages fail
+closed; setup configures no hosted fallback. `verify` reports native integration
+configuration and health independently while keeping review unqualified.
 
 Capability boundaries for file/terminal-equipped profiles are advisory; see
 [the capability matrix](../team-model.md). There is no separate profile registry,
@@ -86,7 +88,7 @@ SOULs, profile reconciliation, sidecar image/dependencies/model snapshot, memory
 provider schema, or installer wiring changes. Keep credential-free/API fixture
 claims separate from real agent work and complete-team acceptance.
 
-## Final validation
+## Historical scaffold validation
 
 The final six-profile Docker run passed in **120.56 seconds** after the explicit
 default launcher selection and unknown integration-status reporting changes.
