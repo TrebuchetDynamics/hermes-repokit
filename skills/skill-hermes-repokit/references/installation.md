@@ -1,4 +1,4 @@
-# Install or resume RepoKit
+# Install, resume or migrate RepoKit
 
 ## Establish the target and preserve it
 
@@ -20,6 +20,26 @@ Check Docker/Compose availability and the selected local context. Inspect
 existing `.hermes` ownership, tracked private-state paths, generated routing,
 and matching container mounts without dumping credential files or Docker env.
 An existing valid deployment is a resume, not a second installation.
+
+## Legacy topology migration
+
+Inventory the generated topology, version, captured Docker context and persistent
+mounts before mutating an older OpenViking/Laya sidecar deployment. Preserve owner
+profiles, credentials, sessions, board and memory. Use the selected RepoKit
+revision's documented reconciliation path to generate replacement configuration;
+there is no assumed `migrate` command.
+
+Do not manually delete legacy containers before replacement configuration exists.
+If the supported path requires quiescing a legacy memory writer before publication,
+use its original Compose/native lifecycle within the authorized migration scope;
+stopping a writer is not permission to delete its data or containers. Never run two
+memory processes against the same database. Backups, replacement routing and
+rollback/recovery must be concrete before any separately authorized destructive step.
+
+An installer refusal is evidence that this topology is not safely reconciled by
+that version. Preserve it and report the exact unsupported preimage or owner drift.
+Request the bounded missing source migration or owner decision, rather than
+hand-editing Compose, renaming state or deleting the old deployment to force adoption.
 
 ## Obtain the bootstrap executable
 
@@ -65,6 +85,10 @@ If safe, run `install`. It publishes `.hermes/compose.yaml`, native defaults,
 the pinned development-image recipe. It preserves recognized prior state and refuses
 ambiguous changes. It does not start services.
 
+Fresh config trusts `/workspace` for native repository skills, and managed profile
+reconciliation carries that trust across the team. Preserve explicit discovery
+opt-outs, disabled skills and other trusted roots; native scanning remains active.
+
 Run the **exact all-service Compose build/start command printed by install**,
 including context, absolute file, `--env-file /dev/null`, and selector cleanup.
 This may download/build the pinned development image. Inspect the same project's
@@ -80,11 +104,14 @@ The owner runs it in their private terminal; request only a completion signal,
 not transcripts, screenshots, tokens, or keys. Keep the binary available until
 bootstrap is complete. Do not use a captured PTY to conduct private setup.
 
-Plain setup sequences native `default` setup, specialist cloning, native
-OpenViking setup/linking and gated operational activation. Resume team reconciliation
+Plain `setup` is the private full-configuration entry point. Resume team reconciliation
 with `setup --team`, or memory setup with `setup --memory`;
 those flags are mutually exclusive. Preserve existing profiles, memories,
 credentials, and owner choices on every rerun.
+
+The intended core-only path is team reconciliation from an already configured default.
+Memory configuration is a separate stage; confirm the selected version implements
+the separation described below before promising that core setup will succeed.
 
 For OpenViking, follow the selected revision's `docs/bootstrap-quickstart.md`:
 native server init/doctor; real owner-selected embedding and extraction/VLM
@@ -97,16 +124,43 @@ inspected rather than recreated. Local Hermes memory remains enabled; native
 OpenViking extraction/synchronization is intended behavior. Doctor may call the
 configured providers; `verify` does not.
 
-Successful setup requires native provider/profile/tool readiness and authenticated
-shared memory before enabling the default gateway dispatcher and automatic review.
-A real no-write researcher canary must pass. Active/finalizing workers defer setup;
+Successful core setup requires native provider/profile/tool readiness, the target
+repository's development toolchain, routing and real gateway dispatch evidence.
+Setup must create a no-write researcher card, let the gateway claim it without
+manual dispatch, and observe researcher completion. Use the selected native card
+contract; the current README-title canary uses `NO_MARKDOWN_TITLE` when appropriate.
+Only then report automatic execution/review operational. Active/finalizing workers defer setup;
 queued work is preserved. Optional plugins remain owner-managed through native
 admission. Respect scanner refusal and preserve existing plugin choices.
 
+## Readiness and version gaps
+
+OpenViking is an independent capability. Pending private setup or a memory outage
+does not by itself disqualify observed core engineering readiness. Report the
+failing memory component and its recovery step while keeping working team
+execution available; do not change providers, disable dispatch or demand memory
+credentials merely to clear a warning.
+
+Check the selected revision's actual setup order and activation checks. A version
+that aborts before the canary when memory fails does not implement this contract.
+Report dispatch as blocked by that implementation/version and memory separately.
+It needs a source-level decoupling or a compatible revision, not a manual config
+bypass, one-shot dispatch or a fabricated `CORE_READY`. An operating request alone
+does not authorize that source change. Avoid rerunning a coupled setup against an
+otherwise working gateway solely to repair optional memory; it may suspend dispatch.
+
 After setup, run `verify` and classify each component. A current result of
 `review: unqualified` keeps its exit status nonzero even when other components
-are healthy. Report that limitation without suppressing it or treating it as a
-reason to reinstall everything.
+are healthy. Inspect the component output rather than using the exit code as the
+entire readiness decision. `CORE_READY` requires evidenced core/team, dispatch,
+toolchain and configured-channel readiness; `FULL_READY` additionally requires
+authenticated memory readiness. Neither label proves full live acceptance.
+
+Configured human-facing channels must route to `default` and have the same core
+development, Kanban and memory capabilities as CLI, retaining channel-specific
+extras and authorization. Use RepoKit reconciliation or native Hermes configuration;
+do not hand-toggle platform tool checkboxes to manufacture parity. Refresh sessions
+after reconciliation, and verify an originating-channel task/result separately.
 
 ## Optional persistent host command
 

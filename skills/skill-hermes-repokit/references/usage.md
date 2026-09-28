@@ -36,6 +36,15 @@ health afterward. Embedded OpenViking's configuration/data remain in their persi
 mount. An unconfigured service is pending private setup, not a reason to invent
 embedding models or bypass authentication.
 
+If core execution works and only OpenViking is unhealthy, keep the engineering
+team working and report memory degraded/pending. Use the selected revision's native
+memory-only recovery when authorized; avoid a whole-runtime restart solely to
+clear memory status. If that revision couples memory recovery to dispatcher
+suspension, report the version gap before attempting it. Durable repairs use
+RepoKit source or native Hermes configuration, never hand-edited generated files
+or `.hermes` artifacts to force a passing result. See [version gaps and
+migration](installation.md).
+
 The bootstrap binary is unnecessary for chat, native commands, and Compose
 recovery. If setup or reconciliation is needed after its removal, acquire a
 compatible bootstrapper as described in [installation](installation.md), without
@@ -50,18 +59,28 @@ Role SOUL boundaries are advisory, not operating-system isolation.
 
 Fresh/incomplete installs keep dispatch off. Successful setup enables one default
 gateway dispatcher with automatic review, concurrency one and no automatic
-decomposition after native readiness, shared-memory and researcher-canary gates.
+decomposition after core Hermes/team readiness and a researcher-canary pass.
+The canary is a no-write researcher card claimed by the gateway and observed
+through successful researcher completion; a manually dispatched card cannot pass
+this gate. OpenViking readiness is reported separately and does not gate core work.
 Inspect configured and live dispatch separately before promising progress. If
 activation is incomplete, resume `setup --team`; do not bypass it with one-shot
 dispatch. Keep default responsible for the task graph and preserve queued work.
 Live channel notification and actual worker artifacts still require evidence.
 
-For independent review, inspect same-card run identities and artifacts:
-implementation actor `executor`, approval actor `reviewer`. Done status alone
+For independent review, inspect same-card execution history and artifacts:
+implementation actor `executor`, a different approval actor `reviewer`. Done status alone
 is insufficient. Request changes only for a legitimate issue, never fabricate
 a rejection to satisfy a test. Do not commit or push generated work unless asked.
 
 ## Observation versus acceptance
+
+Container health is not component readiness. Verify Hermes/team, dispatch,
+development toolchain, OpenViking and configured channels independently. Coding
+requires the repository's needed compiler/runtime and workdir inside `/workspace`,
+not merely terminal/file tools. Configured human-facing adapters must route to
+`default` with core development, Kanban and memory capabilities; users should not
+need to manually enable Kanban on each channel.
 
 RepoKit `verify` observes files, metadata, native integration configuration, and
 bounded health responses. Do not add inference, dispatch, or memory writes to
@@ -72,11 +91,31 @@ following behavioral results; perform them only within an authorized live test:
 | --- | --- |
 | Host/default chat | Fresh host shell, unrelated cwd, native default profile and `/workspace` identity; real configured chat |
 | Team | Six resolving profiles, distinct descriptions/SOULs, preserved owner memories |
-| Manual/gateway dispatch | Actual model workers and parent handoff; separate automatic dispatch evidence |
+| Automatic dispatch | Gateway claims a no-write researcher card and researcher completes it; no manual dispatch |
+| Development runtime | Target manifest requirements match available toolchain, `/workspace` and mount access |
+| Channels | Configured adapters route to default with CLI core capability parity; actual task/result delivery tested separately |
 | Same-card review | Real artifact review with distinct executor/reviewer run identities |
 | Shared memory | Unique durable project fact written through OpenViking, recalled in another fresh profile/session, then recalled after restart |
 | Repository isolation | Normally configured second disposable repo cannot retrieve that fact; different user headers alone are insufficient |
 | Runtime independence | Remove only the test-owned bootstrap binary; launcher/native commands and raw Compose restart work with profiles, board and memory preserved |
+
+Summarize the observed capabilities, for example after the core canary and channel
+checks passed but before private memory setup:
+
+```text
+core team           healthy
+dispatch            healthy
+development runtime healthy
+channels            healthy
+memory              pending
+readiness           CORE_READY
+```
+
+`FULL_READY` adds authenticated OpenViking readiness. These summary labels do not
+replace raw component evidence or certify memory recall/isolation, independent
+review or removal-first acceptance. If dispatch is actually off, the canary never
+ran, a required compiler is missing or configured channels fail, report the core
+blocker instead of inferring readiness from a healthy container.
 
 For self-dogfood, preserve repository source. For a disposable release fixture,
 removing its copied source can also be part of the explicit acceptance scope.
@@ -86,6 +125,7 @@ Check generated artifacts for dependencies on the removed binary path.
 Report each requested gate as PASS, FAIL, BLOCKED, or NOT TESTED, with evidence.
 Compare final repository state/content with the baseline and run `git diff
 --check`. State exactly what changed, including host links and runtime files.
-If private setup blocks progress, finish independent preparation and provide
-the concrete private command and completion signal. Do not call partial
+If private core-provider setup blocks progress, finish independent preparation
+and provide the concrete private command and completion signal. Pending optional
+memory setup is reported separately. Do not call partial
 bootstrap success a passed full-stack dogfood.
