@@ -16,6 +16,7 @@ type Identity struct{ Root, Name, Container, Project, Compose, Launcher string }
 
 var separators = regexp.MustCompile(`[^a-z0-9]+`)
 var gatewayTickSocket = regexp.MustCompile(`^state/gateway\.loop-tick\.[1-9][0-9]*\.sock$`)
+var codeKernelSocket = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/hermes_rpc_[0-9a-f]{32}\.sock$`)
 
 func Resolve(path string) (Identity, error) {
 	absolute, err := filepath.Abs(path)
@@ -133,6 +134,11 @@ func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
 		return info.Mode().Perm()&0022 == 0
 	}
 	if info.Mode()&os.ModeSocket != 0 {
+		// Native execute_code kernels bind private RPC sockets in profile scratch.
+		// Preserve them during live inspection; never connect, chmod or delete.
+		if codeKernelSocket.MatchString(rel) {
+			return info.Mode().Perm() == 0600
+		}
 		return info.Mode().Perm()&0022 == 0 && (rel == "gateway.sock" || gatewayTickSocket.MatchString(rel))
 	}
 	if !info.Mode().IsRegular() {

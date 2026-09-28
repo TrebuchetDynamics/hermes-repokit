@@ -231,6 +231,54 @@ func TestNativeGatewaySocketsRemainInspectable(t *testing.T) {
 	}
 }
 
+func TestNativeCodeKernelSocketsRemainInspectable(t *testing.T) {
+	for _, tc := range []struct {
+		rel     string
+		allowed bool
+	}{
+		{"cache/scratch/hermes_rpc_9975be3cdc9b4889816ce660e36880a6.sock", true},
+		{"profiles/researcher/cache/scratch/hermes_rpc_9975be3cdc9b4889816ce660e36880a6.sock", true},
+		{"cache/scratch/hermes_rpc_bad.sock", false},
+		{"cache/hermes_rpc_9975be3cdc9b4889816ce660e36880a6.sock", false},
+		{"cache/scratch/other.sock", false},
+	} {
+		t.Run(tc.rel, func(t *testing.T) {
+			// Bind relative to keep AF_UNIX paths below the kernel length limit.
+			root, err := os.MkdirTemp("/tmp", "rk-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(root)
+			path := filepath.Join(root, ".hermes", tc.rel)
+			if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			t.Chdir(root)
+			listener, err := net.Listen("unix", filepath.Join(".hermes", tc.rel))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer listener.Close()
+			if err = os.Chmod(path, 0600); err != nil {
+				t.Fatal(err)
+			}
+			id, err := Resolve(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := len(Inspect(id, "")) == 0; got != tc.allowed {
+				t.Fatalf("socket allowed=%v, want %v", got, tc.allowed)
+			}
+			if err = os.Chmod(path, 0660); err != nil {
+				t.Fatal(err)
+			}
+			if len(Inspect(id, "")) == 0 {
+				t.Fatal("accepted exposed RPC socket")
+			}
+		})
+	}
+}
+
 func TestNativeToolExceptionsKeepModesAndPrefixesStrict(t *testing.T) {
 	for _, rel := range []string{"config.yaml", "compose.yaml", "development-image/Dockerfile", ".cache/uv/module.py", ".local/share/uv/tools/module.py", ".cache/uv-other/.lock", "bin/browser-use"} {
 		t.Run(rel, func(t *testing.T) {
