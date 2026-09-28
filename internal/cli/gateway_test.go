@@ -10,7 +10,6 @@ import (
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 )
 
 type gatewayInput struct {
@@ -41,28 +40,19 @@ func TestGatewayFinalizationNeverRunsAfterFailedStage(t *testing.T) {
 	if got := app.finishSetup(r.id, r.context, 7, &out, &diag); got != 7 || input.calls != 0 {
 		t.Fatal("failed stage finalized")
 	}
-	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got == 0 || input.calls != 1 || !strings.Contains(diag.String(), "mandatory") || strings.Contains(out.String(), "operational") {
+	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got != 0 || input.calls != 2 || !strings.Contains(diag.String(), "Optional memory") || !strings.Contains(out.String(), "operational") {
 		t.Fatalf("finish: %d %s %s", got, &out, &diag)
 	}
 	input.err = fmt.Errorf("restart failed")
+	input.state = "current\nREPOKIT_DISPATCH_FAILURE=RuntimeError|dispatch_main:400>switch_gateway:121"
 	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got == 0 {
 		t.Fatal("failed gateway certified")
 	}
+	if !strings.Contains(diag.String(), "switch_gateway:121") || strings.Contains(diag.String(), "restart failed") {
+		t.Fatalf("safe stage diagnostic not propagated: %s", &diag)
+	}
 }
 
-func TestOperationalIntegrationGate(t *testing.T) {
-	good := []verify.Probe{{Component: "memory", Status: verify.Active}}
-	if !operationalIntegrationsReady(good) {
-		t.Fatal("complete gate rejected")
-	}
-	for i := range good {
-		bad := append([]verify.Probe(nil), good...)
-		bad[i].Status = verify.Degraded
-		if operationalIntegrationsReady(bad) || operationalIntegrationsReady(append(append([]verify.Probe{}, good[:i]...), good[i+1:]...)) {
-			t.Fatal("incomplete gate accepted")
-		}
-	}
-}
 func TestActivationRequiresCanaryAndLiveGatewayReceipts(t *testing.T) {
 	app, r := foundationApp(t)
 	if code, _, diag := invoke(t, app, "install"); code != 0 {

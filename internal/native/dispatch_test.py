@@ -16,13 +16,15 @@ try: spec.loader.exec_module(a)
 except FileNotFoundError: pass
 
 class GateTest(unittest.TestCase):
-    def test_missing_any_required_gate_refuses_activation(self):
-        gates=dict(provider=True,profiles=True,tools=True,board=True,routing=True,memory=True)
-        self.assertTrue(a.activation_ready(gates))
-        for key in gates:
-            self.assertFalse(a.activation_ready(dict(gates,**{key:False})),key)
-            self.assertFalse(a.activation_ready({k:v for k,v in gates.items() if k!=key}),key)
-        self.assertFalse(a.activation_ready(dict(gates,provider='configured')))
+    def test_failure_diagnostic_retains_only_known_frames_not_exception_secrets(self):
+        with patch.object(a,'dispatch_fence',side_effect=RuntimeError('PRIVATE_SENTINEL')):
+            try:
+                a.switch_gateway(None,[],None,True)
+            except RuntimeError as error:
+                diagnostic=a.dispatch_failure_diagnostic(error)
+        self.assertRegex(diagnostic,r'^RuntimeError\|switch_gateway:[1-9][0-9]*$')
+        self.assertNotIn('PRIVATE_SENTINEL',diagnostic)
+
     def test_queued_cards_do_not_block_but_active_or_unknown_gateway_does(self):
         self.assertTrue(a.idle_gateway({'state':'running','healthy':True,'idle_verified':True,'active':0}))
         for change in ({'active':1},{'idle_verified':False},{'state':'unknown'},{'healthy':False}):
@@ -54,25 +56,50 @@ class ActivationMemoryTest(unittest.TestCase):
             sys=sys, integration_scope={'env_for':lambda home,root:{'home':home}, 'memory_state':memory})
         exec(Path(__file__).with_name('dispatch.py').read_text(),scope)
         scope['native_command']=lambda *args,**kwargs:None
+        self.scope=scope
         self.check=scope['check_activation']
         modules={'gateway.config':types.SimpleNamespace(load_gateway_config=lambda:types.SimpleNamespace(profile_routes=[])),
                  'agent.secret_scope':types.SimpleNamespace(build_profile_secret_scope=lambda _:None,
                     set_secret_scope=lambda *args,**kwargs:None,reset_secret_scope=lambda _:None)}
         self.enterContext(patch.dict(sys.modules,modules))
-        self.enterContext(patch.object(a.subprocess,'run'))
-    def test_activation_checks_shared_memory_for_every_profile_without_supervision_plugins(self):
-        self.check(self.root,self.payload)
-        self.assertEqual(self.checked,[self.root if name=='default' else self.root/'profiles'/name for name in self.names])
-    def test_unavailable_memory_still_blocks_activation(self):
-        for status in ('configured','unavailable','drift'):
-            self.memory_status=status
-            with self.assertRaisesRegex(RuntimeError,'shared memory activation gate failed'):
-                self.check(self.root,self.payload)
-    def test_caller_readiness_does_not_replace_live_memory_probe(self):
-        self.payload['integrations_ready']=False
-        with self.assertRaisesRegex(RuntimeError,'required shared memory not ready'):
+        self.provider=self.enterContext(patch.object(a.subprocess,'run'))
+    def test_core_gates_remain_required_without_memory(self):
+        for key, replacement, message in (
+            ('matches',lambda *_:False,'identity/capability'),
+            ('default_native_tool_drift',lambda *_:True,'tool parity'),
+            ('native_platform_tools',lambda *_:set(),'channel tools'),
+        ):
+            with self.subTest(gate=key), patch.dict(self.scope,{key:replacement}):
+                with self.assertRaisesRegex(RuntimeError,message):
+                    self.check(self.root,self.payload)
+        with self.assertRaisesRegex(RuntimeError,'unexpected roster'):
+            self.check(self.root,dict(self.payload,roles=self.payload['roles'][:-1]))
+        self.provider.side_effect=RuntimeError('provider unavailable')
+        with self.assertRaisesRegex(RuntimeError,'provider unavailable'):
             self.check(self.root,self.payload)
-        self.assertEqual(len(self.checked),6)
+        self.provider.side_effect=None
+        def board_failure(*args,**kwargs):
+            if 'kanban' in args: raise RuntimeError('board unavailable')
+        with patch.dict(self.scope,native_command=board_failure):
+            with self.assertRaisesRegex(RuntimeError,'board unavailable'):
+                self.check(self.root,self.payload)
+        route=types.SimpleNamespace(enabled=True,bot_profile='default',profile='researcher')
+        with patch.object(sys.modules['gateway.config'],'load_gateway_config',
+                          return_value=types.SimpleNamespace(profile_routes=[route])):
+            with self.assertRaisesRegex(RuntimeError,'routing differs'):
+                self.check(self.root,self.payload)
+    def test_optional_memory_never_blocks_core_activation(self):
+        for status in ('active','configured','unavailable','drift'):
+            with self.subTest(status=status):
+                self.memory_status=status
+                self.payload['integrations_ready']=False
+                self.check(self.root,self.payload)
+        self.assertEqual(self.checked,[])
+    def test_emergency_pause_still_blocks_without_memory(self):
+        self.memory_status='unavailable'
+        (self.root/'ESTOP').touch()
+        with self.assertRaisesRegex(RuntimeError,'emergency pause'):
+            self.check(self.root,self.payload)
 
 class NativeSwitchTest(unittest.TestCase):
     def setUp(self):
@@ -181,6 +208,24 @@ class NativeSwitchTest(unittest.TestCase):
     def test_canary_skips_empty_atx_heading(self):
         self.assert_canary_result('# \n# RepoKit\n', 'RepoKit')
 
+    def test_canary_ignores_readme_shell_comments_inside_fences(self):
+        self.assert_canary_result('<h1>RepoKit</h1>\n\n```sh\n# run the printed Compose build/start command\nhermes setup\n```\n', 'NO_MARKDOWN_TITLE')
+
+    def test_canary_finds_visible_heading_after_fenced_shell_comment(self):
+        self.assert_canary_result('```bash\n# shell comment\n```\n# Visible title\n', 'Visible title')
+
+    def test_canary_fences_require_matching_character_and_sufficient_close_length(self):
+        cases=(
+            ('  ~~~~sh\n# hidden\n~~~\n# still hidden\n```\n# also hidden\n  ~~~~~  \n# Visible\n','Visible'),
+            ('````sh\n# hidden\n```\n# still hidden\n~~~~\n# also hidden\n`````\n# Visible\n','Visible'),
+            ('~~~sh\n# unclosed hidden\n','NO_MARKDOWN_TITLE'),
+        )
+        readme=self.root/'README.md'
+        for content,expected in cases:
+            with self.subTest(content=content):
+                readme.write_text(content)
+                self.assertEqual(self.scope['canary_title'](readme),expected)
+
     def test_fallback_canary_rejects_wrong_title_or_changed_files(self):
         for metadata in ({'title':'invented','changed_files':[]},
                          {'title':'NO_MARKDOWN_TITLE','changed_files':['README.md']}):
@@ -204,7 +249,23 @@ class NativeSwitchTest(unittest.TestCase):
               'workspace_kind':'dir','workspace_path':'/workspace','created_by':'default',
               'body':'Read the repository README title. Do not modify files. Complete with the title in your summary '
                      'and structured metadata {"title": "the exact first Markdown heading without #", "changed_files": []}.',
-              'max_runtime_seconds':180,'max_retries':1,'priority':100,'skills':[]}
+              'max_runtime_seconds':180,'max_retries':1,'priority':100,'skills':[], 'completion_contract':'local-only'}
+        for status in ('ready','running'):
+            self.assertFalse(self.scope['canary_task_matches'](dict(task,status=status)))
+        for status in ('done','blocked'):
+            self.assertTrue(self.scope['canary_task_matches'](dict(task,status=status)))
+        for contract in (None,'owner/repo','https://github.com/owner/repo/pull/1'):
+            self.assertFalse(self.scope['canary_task_matches'](dict(task,status='done',completion_contract=contract)))
+
+    def test_v2_canary_body_is_terminal_history_only(self):
+        task={'title':'RepoKit dispatcher canary','assignee':'researcher',
+              'workspace_kind':'dir','workspace_path':'/workspace','created_by':'default',
+              'body':('Read /workspace/README.md without modifying files. Use the first nonempty heading on a line '
+                      'starting with "# ", removing that prefix and surrounding whitespace. If README.md is missing '
+                      'or has no such heading, use exactly NO_MARKDOWN_TITLE. Do not create or repair the README. '
+                      'Complete with that title in your summary and structured metadata '
+                      '{"title": "the title or NO_MARKDOWN_TITLE", "changed_files": []}.'),
+              'max_runtime_seconds':180,'max_retries':1,'priority':100,'skills':[], 'completion_contract':'local-only'}
         for status in ('ready','running'):
             self.assertFalse(self.scope['canary_task_matches'](dict(task,status=status)))
         for status in ('done','blocked'):
@@ -220,12 +281,13 @@ class NativeSwitchTest(unittest.TestCase):
         def command(*args,**kwargs):
             records.append(args)
             if args[2:4]==('kanban','create'):
-                self.assertNotEqual(args[args.index('--idempotency-key')+1],'repokit-dispatcher-canary')
+                self.assertEqual(args[args.index('--idempotency-key')+1],'repokit-dispatcher-canary-v3')
+                self.assertEqual(args[args.index('--completion-contract')+1],'local-only')
                 self.assertIn('NO_MARKDOWN_TITLE',args[args.index('--body')+1])
                 return {'id':'t-canary','title':'RepoKit dispatcher canary','assignee':'researcher',
                         'workspace_kind':'dir','workspace_path':'/workspace','created_by':'default','status':'ready',
                         'body':args[args.index('--body')+1],
-                        'max_runtime_seconds':180,'max_retries':1,'priority':100,'skills':[]}
+                        'max_runtime_seconds':180,'max_retries':1,'priority':100,'skills':[], 'completion_contract':'local-only'}
             if args[2:4]==('kanban','show'): return pending.pop(0)
             if args[2:4]==('kanban','archive'): return None
             return native(*args,**kwargs)
@@ -287,7 +349,7 @@ class NativeSwitchTest(unittest.TestCase):
               'body':'Read the repository README title. Do not modify files. Complete with the title in your summary '
                      'and structured metadata {"title": "the exact first Markdown heading without #", "changed_files": []}.',
               'max_runtime_seconds':180,'max_retries':1,'priority':100,
-              'model_override':None,'provider_override':None,'skills':[], 'completion_contract':None,
+              'model_override':None,'provider_override':None,'skills':[], 'completion_contract':'local-only',
               'project_id':None,'branch_name':None,'tenant':None,'session_id':None,
               'workflow_template_id':None,'current_step_key':None}
         records=[]; archived=[]; keys=[]
@@ -333,7 +395,7 @@ class NativeSwitchTest(unittest.TestCase):
               'workspace_kind':'dir','workspace_path':'/workspace','created_by':'default','status':'blocked',
               'body':'Read the repository README title. Do not modify files. Complete with the title in your summary '
                      'and structured metadata {"title": "the exact first Markdown heading without #", "changed_files": []}.',
-              'max_runtime_seconds':180,'max_retries':1,'priority':100,'skills':[]}
+              'max_runtime_seconds':180,'max_retries':1,'priority':100,'skills':[], 'completion_contract':'local-only'}
         for variant in ('body','children','parent','actor','active_run','active_worker','status','provider','result'):
             with self.subTest(variant=variant):
                 record={'task':dict(task),'parents':[],'children':[],
@@ -361,7 +423,7 @@ class NativeSwitchTest(unittest.TestCase):
               'workspace_kind':'dir','workspace_path':'/workspace','created_by':'default','status':'blocked',
               'body':'Read the repository README title. Do not modify files. Complete with the title in your summary '
                      'and structured metadata {"title": "the exact first Markdown heading without #", "changed_files": []}.',
-              'max_runtime_seconds':180,'max_retries':1,'priority':100,'skills':[]}
+              'max_runtime_seconds':180,'max_retries':1,'priority':100,'skills':[], 'completion_contract':'local-only'}
         record={'task':task,'parents':[],'children':[],
                 'runs':[{'profile':'researcher','status':'failed','ended_at':10}]}
         keys=[]

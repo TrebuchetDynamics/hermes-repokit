@@ -1,5 +1,9 @@
 # Implementation status
 
+Latest live repair: native setup completed, the gateway automatically ran and
+archived a no-write researcher canary, and core dispatch remains enabled with
+memory pending. See the [dogfood record](qualification/live-dogfood-2026-09-28.md).
+
 RepoKit's maintained runtime is one Hermes development container with six native
 profiles, shared Kanban and embedded OpenViking. The optional Docker acceptance
 daemon remains an explicit testing feature. Optional plugins are owner-managed.
@@ -38,31 +42,33 @@ Default's configured interactive channels receive native preset tools plus Kanba
 and memory. A fresh native conversation is required to refresh cached tool schemas.
 
 Operational setup separates dispatch-off bootstrap from automatic default gateway
-execution/review. It checks providers, identities, tools, routing and authenticated
-shared OpenViking; fences board claims; preserves active/finalizing workers; and
+execution/review. It checks providers, identities, tools and routing; reports
+OpenViking independently; fences board claims; preserves active/finalizing workers; and
 requires native singleton/startup evidence and a real no-write researcher canary.
 Read-only verification never dispatches or runs inference.
 
-The current full `go test ./...` and `go test -race ./...` attempts ran without
-exclusions. All packages passed except `internal/target`: its six
-`TestNativeGatewaySocketsRemainInspectable` cases failed with
-`setsockopt: operation not permitted`. Required socket tests were neither weakened
-nor counted as passing. Vet, formatting and diff-whitespace checks passed, and the
-core executable built successfully at `/tmp/hermes-repokit-core`.
+In a later Docker-capable session the full `go test ./...` and `go test -race ./...`
+suites passed every package, including the six
+`TestNativeGatewaySocketsRemainInspectable` cases previously blocked by
+`setsockopt`. Vet, formatting and diff-whitespace checks passed.
 
-The full Docker acceptance suite was also attempted with both
-`REPOKIT_DOCKER_TESTS=1` and `REPOKIT_DIND_TESTS=1`. All six fixtures failed at Docker
-socket access or container enumeration; they were attempted, not skipped:
-development runtime, foundation, isolated acceptance daemon, default Kanban channels,
-native maintenance package and pending OpenViking. Local logs are
-`/tmp/repokit-remove-supervision-test.log`,
-`/tmp/repokit-remove-supervision-race.log` and
-`/tmp/repokit-remove-supervision-docker.log`.
+The credential-free Docker fixtures also ran with `REPOKIT_DOCKER_TESTS=1`: the
+embedded pending-OpenViking fixture, development runtime, foundation, default Kanban
+channels and native maintenance package all pass. The privileged nested-daemon
+fixture (`REPOKIT_DIND_TESTS=1`) was not run. The embedded OpenViking persistent
+root is `/opt/data/openviking`, backed by `.hermes/openviking` through the
+`/opt/data` bind.
 
-Live reconciliation, embedded-image builds, Telegram task/result delivery, canary,
-self-restart and private-memory acceptance were not completed. No private setup was
-repeated or runtime state repaired by hand. These are source-only changes, not proof
-that a running deployment or published revision has converged.
+This pass also repaired pre-existing defects in the uncommitted verification work:
+the npm probe's duplicate `/dev/null` config, the standalone Kanban fixture's
+missing `/workspace` mount and too-short timeout, its over-strict worker toolset
+assertion, and the gateway probe passing a ~278 KB one-shot script through
+`python -c` beyond the kernel per-argument limit (now streamed on stdin).
+
+That fixture pass did not exercise live providers. The subsequent dogfood run
+built the image, reconciled the live team and completed automatic researcher work.
+Telegram round-trip delivery, agent self-restart and private-memory acceptance
+remain open; no private setup was repeated.
 
 ## Git delivery validation, 2026-09-28
 
@@ -78,19 +84,18 @@ for those cases while retaining worker ancestry and no-write checks. Regression
 coverage preserves bounded-read failures and terminal legacy canary history;
 versioned keys avoid resuming unfinished tasks with the older contract.
 
-These offline results supersede the earlier socket blocker. Docker image builds,
-live model work and private setup were not run during Git delivery and remain
-separate acceptance gates.
+These offline results supersede the earlier socket blocker. Subsequent Docker
+and live researcher evidence is recorded in the dogfood record above; it does not
+qualify private memory, independent review or human-facing channel delivery.
 
 ## Remaining acceptance
 
-1. Run the full required suite and current image build in an authorized environment.
-2. Prove gateway-spawned researcher work and originating-channel notification.
-3. Prove an actual executor/reviewer correction cycle with distinct same-card actors.
-4. Prove cross-profile memory write/recall, restart persistence and repository denial.
-5. Complete the integrated removal-first fixture, future-specialist qualification
+1. Prove originating-channel task/result delivery after the completed researcher run.
+2. Prove an actual executor/reviewer correction cycle with distinct same-card actors.
+3. Prove cross-profile memory write/recall, restart persistence and repository denial.
+4. Complete the integrated removal-first fixture, future-specialist qualification
    and bounded self-dogfood before release.
-6. Resolve the recorded Superpowers scanner candidate separately if selected.
+5. Resolve the recorded Superpowers scanner candidate separately if selected.
 
 See [operational dispatch evidence](qualification/operational-dispatch.md),
 [gateway evidence](qualification/gateway-convergence.md),

@@ -38,6 +38,98 @@ class ProvisionTest(unittest.TestCase):
             self.assertEqual(team.read_config(target)['terminal']['backend'],'local')
         self.assertEqual(self.apply(),[])
 
+    def test_exact_inherited_stock_channels_upgrade_before_coding_tools(self):
+        self.roles[1]['toolsets']=['file','web','memory']
+        self.roles[3]['toolsets']=['file','terminal','memory']
+        self.historical_team()
+        self.roles[3]['legacy_toolsets']=['file','terminal','memory']
+        self.roles[3]['toolsets']=['file','terminal','memory','code_execution','skills']
+        for role in self.roles[1:]:
+            home=self.root/'profiles'/role['name']
+            config=team.read_config(home)
+            config['terminal'].pop('backend',None)
+            config['platform_toolsets']['telegram']=['file','terminal','web','memory']
+            (home/'config.yaml').write_text(json.dumps(config))
+            (home/'memories/MEMORY.md').write_text('keep '+role['name'])
+        self.calls.clear()
+        self.assertEqual(self.apply(),[])
+        for role in self.roles[1:]:
+            home=self.root/'profiles'/role['name']
+            config=team.read_config(home)
+            self.assertEqual(set(config['platform_toolsets']['telegram']),set(role['toolsets']))
+            self.assertEqual(set(config['platform_toolsets']['cli']),set(role['toolsets']))
+            self.assertEqual((home/'SOUL.md').read_text(),role['soul'])
+            self.assertEqual((home/'memories/MEMORY.md').read_text(),'keep '+role['name'])
+        self.calls.clear()
+        self.assertEqual(self.apply(),[])
+        self.assertFalse(any(c[:1]==('-p',) for c in self.calls))
+
+    def test_coding_upgrade_keeps_exact_channels_when_native_enable_discovers_plugins(self):
+        self.roles[3]['toolsets']=['file','terminal','memory']
+        self.historical_team()
+        home=self.root/'profiles/executor'
+        config=team.read_config(home)
+        config['platform_toolsets']['telegram']=['file','terminal','memory']
+        (home/'config.yaml').write_text(json.dumps(config))
+        self.roles[3]['legacy_toolsets']=['file','terminal','memory']
+        self.roles[3]['toolsets']=['file','terminal','memory','code_execution','skills']
+        # The native tools-enable command resolves and saves ambient plugin
+        # categories, so using it for this exact upgrade widens the profile.
+        original=self.resolved_tools
+        with patch.object(self,'resolved_tools',
+                          side_effect=lambda config,platform:original(config,platform)|{'owner_plugin'}):
+            self.assertEqual(self.apply(),[])
+        result=team.read_config(home)
+        for platform in ('cli','telegram'):
+            self.assertEqual(result['platform_toolsets'][platform],self.roles[3]['toolsets'])
+        self.assertEqual(result['toolsets'],self.roles[3]['toolsets'])
+
+    def test_stock_channel_migration_ignores_ambient_plugins_but_preserves_saved_plugins(self):
+        self.historical_team()
+        for name in ('researcher','planner'):
+            home=self.root/'profiles'/name
+            config=team.read_config(home)
+            config['platform_toolsets']['telegram']=['file','terminal','web','memory']
+            if name=='planner':config['platform_toolsets']['telegram'].append('owner_plugin')
+            (home/'config.yaml').write_text(json.dumps(config))
+        planner=self.root/'profiles/planner'
+        before={str(p):p.read_bytes() for p in planner.rglob('*') if p.is_file()}
+        # Native discovery enables new plugin toolsets even for a synthetic
+        # stock preset. They are not part of the historical built-in contract.
+        with patch.object(team,'native_platform_tools',
+                          side_effect=lambda config,platform:self.resolved_tools(config,platform)|{'owner_plugin'}):
+            self.assertEqual(self.apply(),['planner'])
+        self.assertEqual(team.read_config(self.root/'profiles/researcher')['platform_toolsets']['telegram'],['memory'])
+        self.assertEqual(before,{str(p):p.read_bytes() for p in planner.rglob('*') if p.is_file()})
+
+    def test_stock_channel_migration_preserves_entire_owner_drifted_profile(self):
+        self.historical_team()
+        home=self.root/'profiles/researcher'
+        baseline=team.read_config(home)
+        baseline['platform_toolsets']['telegram']=['file','terminal','web','memory']
+        soul=self.roles[1]['legacy_soul']
+        for drift in ('extra-tool','custom-channel','unknown-channel','disabled','description',
+                      'soul','cwd','global-tools','cli-tools','dispatch'):
+            with self.subTest(drift=drift):
+                config=json.loads(json.dumps(baseline))
+                (home/'SOUL.md').write_text(soul)
+                meta={'description':self.roles[1]['description']}
+                if drift=='extra-tool':config['platform_toolsets']['telegram'].append('owner_tool')
+                if drift=='custom-channel':config['platform_toolsets']['discord']=['owner_tool']
+                if drift=='unknown-channel':config['platform_toolsets']['owner_channel']=['memory']
+                if drift=='disabled':config['agent']={'disabled_toolsets':['web']}
+                if drift=='description':meta['description']='owner'
+                if drift=='soul':(home/'SOUL.md').write_text(soul+' owner')
+                if drift=='cwd':config['terminal']['cwd']='/owner'
+                if drift=='global-tools':config['toolsets'].append('web')
+                if drift=='cli-tools':config['platform_toolsets']['cli'].append('web')
+                if drift=='dispatch':config['kanban']['dispatch_in_gateway']=True
+                (home/'profile.yaml').write_text(json.dumps(meta))
+                (home/'config.yaml').write_text(json.dumps(config))
+                before={str(p):p.read_bytes() for p in home.rglob('*') if p.is_file()}
+                self.assertIn('researcher',self.apply())
+                self.assertEqual(before,{str(p):p.read_bytes() for p in home.rglob('*') if p.is_file()})
+
     def test_owner_backend_is_preserved_as_drift(self):
         self.apply()
         home=self.root/'profiles/executor'
@@ -330,6 +422,20 @@ class ProvisionTest(unittest.TestCase):
         (self.root/'config.yaml').write_text(json.dumps(config))
         with self.assertRaisesRegex(RuntimeError,'native platform tools'):
             team.reconcile_default_kanban(self.root,lambda *args: None)
+
+    def test_new_workers_keep_exact_channels_with_ambient_native_plugins(self):
+        config=team.read_config(self.root)
+        config['platform_toolsets']['telegram']=self.catalog['telegram']['required']
+        (self.root/'config.yaml').write_text(json.dumps(config))
+        original=self.resolved_tools
+        with patch.object(self,'resolved_tools',
+                          side_effect=lambda config,platform:original(config,platform)|{'owner_plugin'}):
+            self.assertEqual(self.apply(),[])
+        for role in self.roles[1:]:
+            config=team.read_config(self.root/'profiles'/role['name'])
+            self.assertEqual(config['toolsets'],role['toolsets'])
+            for platform in ('cli','telegram'):
+                self.assertEqual(config['platform_toolsets'][platform],role['toolsets'])
 
     def test_new_workers_do_not_inherit_default_preset_on_any_saved_human_channel(self):
         config=json.loads((self.root/'config.yaml').read_text())

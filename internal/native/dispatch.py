@@ -2,14 +2,31 @@
 import contextlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import time
 
 
-def activation_ready(gates):
-    return all(gates.get(key) is True for key in
-               ('provider', 'profiles', 'tools', 'board', 'routing', 'memory'))
+def dispatch_failure_diagnostic(error):
+    # Only fixed stage names and line numbers cross the private native boundary.
+    # Never format exception messages, source text, locals or arbitrary frames.
+    stages={'dispatch_main','check_activation','switch_gateway','dispatcher_canary',
+            'dispatch_fence','startup_since','log_cursor','create_dispatch_canary',
+            'retry_dispatch_canary','suspend_failed_activation'}
+    kind='Exception'
+    for cls in (RuntimeError,ValueError,OSError,subprocess.TimeoutExpired,subprocess.CalledProcessError):
+        if isinstance(error,cls):
+            kind=cls.__name__
+            break
+    frames=[]
+    trace=error.__traceback__
+    while trace is not None:
+        name=trace.tb_frame.f_code.co_name
+        if name in stages:
+            frames.append(name+':'+str(trace.tb_lineno))
+        trace=trace.tb_next
+    return kind+'|'+'>'.join(frames[-8:] or ['unknown:0'])
 
 
 def idle_gateway(observed):
@@ -183,22 +200,20 @@ def check_activation(root, payload):
         subprocess.run([sys.executable,'-B','-c',PROVIDER_CHECK],env=env,check=True,timeout=90,
                        stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
     native_command('-p','default','kanban','list','--json',capture=True)
-    health_cache={}
-    for name in names:
-        home=root if name=='default' else root/'profiles'/name
-        current=read_config(home)
-        env=integration_scope['env_for'](home,root)
-        if integration_scope['memory_state'](current,env,root,payload['repo_id'],True,health_cache)!='active':
-            raise RuntimeError('shared memory activation gate failed')
-    gates=dict(provider=True,profiles=True,tools=True,board=True,routing=True,
-               memory=payload.get('integrations_ready') is True)
-    if not activation_ready(gates): raise RuntimeError('required shared memory not ready')
     if (root/'ESTOP').exists(): raise RuntimeError('native emergency pause preserved')
 
 
 LEGACY_CANARY_BODY = ('Read the repository README title. Do not modify files. Complete with the title in your summary '
                       'and structured metadata {"title": "the exact first Markdown heading without #", "changed_files": []}.')
-CANARY_BODY = ('Read /workspace/README.md without modifying files. Use the first nonempty heading on a line '
+V2_CANARY_BODY = ('Read /workspace/README.md without modifying files. Use the first nonempty heading on a line '
+               'starting with "# ", removing that prefix and surrounding whitespace. If README.md is missing '
+               'or has no such heading, use exactly NO_MARKDOWN_TITLE. Do not create or repair the README. '
+               'Complete with that title in your summary and structured metadata '
+               '{"title": "the title or NO_MARKDOWN_TITLE", "changed_files": []}.')
+
+CANARY_BODY = ('Read /workspace/README.md without modifying files. Ignore Markdown fenced code blocks '
+               '(backticks or tildes, at least three; a closing fence must use the same character and '
+               'at least the opening length). Use the first nonempty heading outside those blocks on a line '
                'starting with "# ", removing that prefix and surrounding whitespace. If README.md is missing '
                'or has no such heading, use exactly NO_MARKDOWN_TITLE. Do not create or repair the README. '
                'Complete with that title in your summary and structured metadata '
@@ -212,30 +227,42 @@ def canary_title(path):
         return 'NO_MARKDOWN_TITLE'
     # Other read errors remain failures: missing content never licenses following
     # a symlink, bypassing the bounded reader, or ignoring denied access.
-    return next((line[2:].strip() for line in lines if line.startswith('# ') and line[2:].strip()),
-                'NO_MARKDOWN_TITLE')
+    fence=None
+    for line in lines:
+        if fence is not None:
+            if re.fullmatch(r' {0,3}'+re.escape(fence[0])+'{'+str(len(fence))+r',}[ \t]*',line):
+                fence=None
+            continue
+        opening=re.match(r' {0,3}(`{3,}|~{3,})(.*)$',line)
+        if opening and (opening[1][0]!='`' or '`' not in opening[2]):
+            fence=opening[1]
+            continue
+        if line.startswith('# ') and line[2:].strip():
+            return line[2:].strip()
+    return 'NO_MARKDOWN_TITLE'
 
 
 def canary_task_matches(task):
     if not isinstance(task,dict): return False
     body=CANARY_BODY
-    if task.get('status') in ('done','blocked') and task.get('body')==LEGACY_CANARY_BODY:
-        body=LEGACY_CANARY_BODY  # Exact terminal history only; never resume old work.
+    if task.get('status') in ('done','blocked') and task.get('body') in (LEGACY_CANARY_BODY,V2_CANARY_BODY):
+        body=task['body']  # Exact terminal history only; never resume old work.
     contract = dict(title='RepoKit dispatcher canary', assignee='researcher',
                     workspace_kind='dir', workspace_path='/workspace', created_by='default',
                     body=body, max_runtime_seconds=180, max_retries=1, priority=100,
-                    skills=[])
+                    skills=[], completion_contract='local-only')
     return (isinstance(task, dict) and all(task.get(key) == value for key,value in contract.items())
             and all(task.get(key) is None for key in ('model_override','provider_override',
-                'completion_contract','project_id','branch_name','tenant','session_id',
+                'project_id','branch_name','tenant','session_id',
                 'workflow_template_id','current_step_key','result')))
 
 
-def create_dispatch_canary(key='repokit-dispatcher-canary-v2'):
+def create_dispatch_canary(key='repokit-dispatcher-canary-v3'):
     task=native_command('-p','default','kanban','create','RepoKit dispatcher canary',
         '--assignee','researcher','--workspace','dir:/workspace',
         '--created-by','default','--idempotency-key',key,
-        '--max-runtime','180','--max-retries','1','--priority','100','--body',CANARY_BODY,
+        '--max-runtime','180','--max-retries','1','--priority','100',
+        '--completion-contract','local-only','--body',CANARY_BODY,
         '--json',capture=True)
     task_id=task['id']
     if not isinstance(task_id,str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',task_id):
@@ -270,7 +297,7 @@ def retry_dispatch_canary(root, task):
                 or r.get('status') not in ('failed','blocked','reclaimed') for r in runs)):
             raise RuntimeError('failed canary ownership or quiescence unverified')
         key=hashlib.sha256(task['id'].encode()).hexdigest()
-        return create_dispatch_canary('repokit-dispatcher-canary-v2-retry-'+key)
+        return create_dispatch_canary('repokit-dispatcher-canary-v3-retry-'+key)
 
 
 def dispatcher_canary(root, payload):

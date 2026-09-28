@@ -70,7 +70,7 @@ acceptance needs an owner-supplied native `ov.conf` containing:
 | --- | --- |
 | `embedding.dense` | Actual `provider`, `model`, provider endpoint `api_base`, matching vector `dimension` where required, correct `input` mode, and its credential/auth fields. For a custom endpoint, explicitly verify dimensions against returned vectors. |
 | `vlm` | Actual `provider`, extraction-capable `model`, endpoint `api_base`, and backend-accepted credential/auth fields. At this pin `provider: openai` requires an API key even for the loopback-base schema check. Other providers have different requirements. |
-| `storage.workspace` | `/app/.openviking/data`, backed by this repository's durable OpenViking directory. |
+| `storage.workspace` | `/opt/data/openviking/data`, backed by this repository's durable OpenViking directory. |
 | `memory.extraction_enabled` | `true` (also the pinned default). |
 | `server` | API-key authentication and a private root/bootstrap credential, used only to provision the account and normal repository user key. |
 | Hermes native secret scope | A normal repository user key in the native mirrored connection under `/opt/data/.openviking`, linked by all six profiles without peer isolation. Conflicting `OPENVIKING_*` overrides must be reconciled in native setup. |

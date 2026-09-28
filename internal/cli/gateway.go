@@ -26,13 +26,12 @@ func (a App) finishSetup(id target.Identity, dc string, code int, out, diag io.W
 		fmt.Fprintln(diag, "Native state saved; maintenance plugin admission incomplete. Scanner rejection or owner source drift must be resolved before activation; no gateway restart performed.")
 		return 1
 	}
-	if !operationalIntegrationsReady(verify.RuntimeIntegrations(context.Background(), id, a.Runner)) {
-		fmt.Fprintln(diag, "Operational dispatch pending: shared OpenViking memory is mandatory. Complete setup --memory, then rerun setup --team. Dispatch remains disabled.")
-		return 1
-	}
 	state, err := native.ConvergeGateway(context.Background(), id, dc, runner)
 	if err != nil {
 		fmt.Fprintln(diag, "Native state saved; gateway convergence incomplete. Check active work, native health and owner drift, then rerun the same setup stage.")
+		if stage := native.DispatchDiagnostic(err); stage != "" {
+			fmt.Fprintln(diag, "Native dispatch failure:", stage)
+		}
 		return 1
 	}
 	if state == "not-running" {
@@ -41,22 +40,12 @@ func (a App) finishSetup(id target.Identity, dc string, code int, out, diag io.W
 		fmt.Fprintln(out, "Gateway generation current. Start a fresh Hermes conversation (/new in Telegram) to refresh session identity and tools.")
 	}
 	fmt.Fprintln(out, "Dispatch operational: default gateway owns automatic execution and review; six-profile allowlist, max_in_progress=1, auto_decompose=false. Researcher canary completed through the gateway.")
-	return 0
-}
-
-// Memory is mandatory in the normal RepoKit operational policy. Configuration
-// alone cannot admit a disconnected memory service.
-func operationalIntegrationsReady(probes []verify.Probe) bool {
-	wanted := map[string]verify.Status{"memory": verify.Active}
-	for _, p := range probes {
-		if status, ok := wanted[p.Component]; ok {
-			if p.Status != status {
-				return false
-			}
-			delete(wanted, p.Component)
+	for _, p := range verify.RuntimeIntegrations(context.Background(), id, a.Runner) {
+		if p.Component == "memory" {
+			fmt.Fprintf(diag, "Optional memory: %s. %s. Core dispatch is operational; use setup --memory to configure or repair shared memory.\n", p.Status, p.Detail)
 		}
 	}
-	return len(wanted) == 0
+	return 0
 }
 
 func (a App) prepareDispatch(id target.Identity, dc string, diag io.Writer) int {

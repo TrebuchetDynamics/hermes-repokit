@@ -160,8 +160,12 @@ def observe_gateway(root):
         pid=pids.pop()
         try: identity=process_identity(pid)
         except FileNotFoundError: return {'state':'not-running'}
-        for r in records:
-            if not isinstance(r,dict) or r.get('kind') != 'hermes-gateway' or r.get('start_time') != identity['start'] or r.get('hermes_home') != str(root):
+        for index,r in enumerate(records):
+            if not isinstance(r,dict) or r.get('kind') != 'hermes-gateway' or r.get('start_time') != identity['start']:
+                return {'state':'unknown'}
+            # Native PID/lock records bind the home; runtime status omits it.
+            # Still reject a conflicting home if a status writer supplies one.
+            if (index < 2 or 'hermes_home' in r) and r.get('hermes_home') != str(root):
                 return {'state':'unknown'}
         with os.fdopen(os.open(root/'gateway.lock',os.O_RDONLY|os.O_NOFOLLOW),'rb') as lock:
             try:
@@ -310,7 +314,7 @@ def main(payload):
                 state=mapping(root/'gateway_state.json') if observed.get('state')=='running' else {}
                 # Discard historical adapter rows retained across restarts.
                 identity=observed.get('identity') or {}
-                if state and (state.get('pid')!=identity.get('pid') or state.get('start_time')!=identity.get('start') or state.get('hermes_home')!=str(root)):
+                if state and (state.get('pid')!=identity.get('pid') or state.get('start_time')!=identity.get('start') or ('hermes_home' in state and state['hermes_home']!=str(root))):
                     raise ValueError('gateway changed during channel observation')
                 if isinstance(state.get('platforms'),dict):
                     state['platforms']={k:v for k,v in state['platforms'].items() if isinstance(v,dict) and v.get('writer_pid')==identity.get('pid') and v.get('writer_start_time')==identity.get('start')}

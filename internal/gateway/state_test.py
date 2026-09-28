@@ -10,6 +10,8 @@ import fcntl
 import time
 import datetime
 import sqlite3
+import io
+import contextlib
 
 sys.modules['yaml'] = types.SimpleNamespace(safe_load=json.loads)
 spec = importlib.util.spec_from_file_location('state', Path(__file__).with_name('state.py'))
@@ -172,6 +174,27 @@ class GenerationTest(unittest.TestCase):
             state.converge(lambda:next(fingerprints),lambda:next(states),lambda:True,lambda:None,lambda _:forbidden(),pause=lambda:None)
 
 class NativeStatusTest(unittest.TestCase):
+    def test_read_only_status_accepts_native_status_without_home(self):
+        identity={'pid':42,'start':123}
+        observed={'state':'running','identity':identity,'healthy':True}
+        runtime={'pid':42,'start_time':123,'restart_requested':False,'platforms':{}}
+        def mapping(path):
+            return runtime if path.name=='gateway_state.json' else {}
+        with patch.object(state,'generation',return_value='digest'), patch.object(state,'observe_gateway',return_value=observed), patch.object(state,'load_marker',return_value=None), patch.object(state,'classify',return_value='unknown'), patch.object(state,'mapping',side_effect=mapping), patch.object(state,'read_file',return_value=b''), patch.object(state,'dispatch_observation',create=True,return_value={'state':'inactive'}) as dispatch, patch.object(state,'platform_catalog',create=True,return_value={}), patch.object(state,'project_channels',create=True,return_value={'rows':['native-channel']}) as channels:
+            out=io.StringIO()
+            with contextlib.redirect_stdout(out): state.main({'roles':[],'repo_id':'fixture','apply':False})
+            result=json.loads(out.getvalue())
+            self.assertEqual(result['dispatch'],{'state':'inactive'})
+            self.assertEqual(result['channels'],{'rows':['native-channel']})
+            self.assertEqual(result['restart_pending'],'no')
+            for key,value in [('pid',43),('start_time',124),('hermes_home','/another-home')]:
+                dispatch.reset_mock(); channels.reset_mock()
+                runtime[key]=value
+                with contextlib.redirect_stdout(io.StringIO()): state.main({'roles':[],'repo_id':'fixture','apply':False})
+                dispatch.assert_not_called(); channels.assert_not_called()
+                runtime.pop(key)
+                runtime.update(pid=42,start_time=123)
+
     def test_native_health_ignores_old_rows_but_rejects_current_failure_and_stale_idle(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory); (root/'state').mkdir()
@@ -183,6 +206,8 @@ class NativeStatusTest(unittest.TestCase):
                 platforms={'telegram':{'state':'connected','needs_attention':False,'writer_pid':42,'writer_start_time':123},
                 'old':{'state':'failed','writer_pid':3,'writer_start_time':4},
                 'disabled':{'state':'disabled','writer_pid':42,'writer_start_time':123}})
+            # Native write_runtime_status stamps kind/pid/start_time, not hermes_home.
+            current.pop('hermes_home')
             for name in ('gateway.pid','gateway.lock'):
                 (root/name).write_text(json.dumps(record))
             (root/'gateway_state.json').write_text(json.dumps(current))
@@ -193,6 +218,18 @@ class NativeStatusTest(unittest.TestCase):
                 self.assertTrue(observed['healthy'])
                 self.assertTrue(observed['idle_verified'])
                 self.assertEqual(observed['adapters'],['telegram'])
+                for name in ('gateway.pid','gateway.lock'):
+                    for home in (None, '/another-home'):
+                        changed=dict(record)
+                        if home is None: changed.pop('hermes_home')
+                        else: changed['hermes_home']=home
+                        (root/name).write_text(json.dumps(changed))
+                        self.assertEqual(state.observe_gateway(root)['state'],'unknown')
+                    (root/name).write_text(json.dumps(record))
+                current['hermes_home']='/another-home'
+                (root/'gateway_state.json').write_text(json.dumps(current))
+                self.assertEqual(state.observe_gateway(root)['state'],'unknown')
+                current.pop('hermes_home')
                 current['platforms']['telegram']['state']='retrying'
                 (root/'gateway_state.json').write_text(json.dumps(current))
                 self.assertFalse(state.observe_gateway(root)['healthy'])

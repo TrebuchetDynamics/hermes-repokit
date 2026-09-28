@@ -54,16 +54,20 @@ checked contract requires Go 1.26+). Use a fresh temporary directory for the
 binary so an unrelated `/tmp/hermes-repokit` is not overwritten:
 
 ```sh
-# Run in the verified RepoKit SOURCE checkout; stop on any failed check.
+# Run in the verified RepoKit SOURCE checkout.
 set -e
-go test ./...
-go test -race ./...
-go vet ./...
-repokit_gofmt_output=$(gofmt -l cmd internal tests)
-test -z "$repokit_gofmt_output"
 repokit_build_dir=$(mktemp -d "${TMPDIR:-/tmp}/repokit-bootstrap.XXXXXX")
-go build -o "$repokit_build_dir/hermes-repokit" ./cmd/hermes-repokit
+CGO_ENABLED=0 go build -o "$repokit_build_dir/hermes-repokit" ./cmd/hermes-repokit
+"$repokit_build_dir/hermes-repokit" --help
 ```
+
+The bootstrap is pure Go; ordinary installation does not need a host C compiler.
+Contributor validation (`go test ./...`, `go test -race ./...`, vet and formatting)
+belongs to source changes, not every installation from a verified revision.
+If developing RepoKit, run the applicable checks and report any unavailable race
+toolchain separately; use a suitable development environment for that check.
+Do not demand a host compiler installation or declare installation blocked merely
+because the race detector cannot build.
 
 Carry that absolute binary path into subsequent commands and the private setup
 handoff. Do not assume shell variables survive tool calls or exist in the
@@ -77,8 +81,12 @@ Linux amd64; a different platform needs qualification, not guessed substitutions
 From the **target root**, run the acquired binary's `plan`. Inspect its target,
 container, project, launcher, Docker context, collisions, and unsupported items.
 Refuse foreign/symlinked state, unknown generated-file edits, name collisions,
-or unresolved ownership. Root-level Compose files can also be a current
-installer collision; do not rename or bypass them to force installation.
+or unresolved ownership. Existing root Compose files belong to the project and
+must coexist with RepoKit's `.hermes/compose.yaml` and separate project namespace.
+Do not rename, merge, edit or start them as part of RepoKit installation. Use the
+printed explicit file/context command; never an unqualified `docker compose up`.
+If an older RepoKit revision rejects a root Compose file, use a compatible revision
+within the authorized source-selection scope instead of modifying the owner's stack.
 
 If safe, run `install`. It publishes `.hermes/compose.yaml`, native defaults,
 `.hermes/bin/hermes-<repo>`, embedded OpenViking storage scaffolding and
@@ -115,7 +123,7 @@ the separation described below before promising that core setup will succeed.
 
 For OpenViking, follow the selected revision's `docs/bootstrap-quickstart.md`:
 native server init/doctor; real owner-selected embedding and extraction/VLM
-models; persistent `/app/.openviking/data`; private API-key authentication.
+models; persistent `/opt/data/openviking/data`; private API-key authentication.
 Use the native account `repokit` and normal repository user derived from `plan`.
 OpenViking runs inside the Hermes container under native s6 supervision.
 Hermes connects at `http://127.0.0.1:1933` using that user's key, not a root/admin

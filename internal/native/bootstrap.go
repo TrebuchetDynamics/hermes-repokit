@@ -57,6 +57,11 @@ func runBootstrap(ctx context.Context, id target.Identity, dockerContext string,
 	args = append(args, strconv.FormatBool(afterSetup))
 	result := r.RunInput(ctx, strings.NewReader(script), "docker", args...)
 	if result.Err != nil || result.Truncated {
+		if !result.Truncated {
+			if diagnostic := dispatchFailureFromOutput(result.Output); diagnostic != nil {
+				return process.Result{}, diagnostic
+			}
+		}
 		return process.Result{}, fmt.Errorf("native initialization failed or was interrupted; preserve state, inspect with native commands, then rerun install")
 	}
 	return result, nil

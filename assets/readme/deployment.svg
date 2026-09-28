@@ -72,7 +72,7 @@
     <text x="80" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#5BD1A8">bind mounts</text>
     <text x="190" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">repository &#8594; /workspace</text>
     <text x="392" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">.hermes &#8594; /opt/data</text>
-    <text x="590" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">openviking/ &#8594; /app/.openviking</text>
+    <text x="590" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">openviking/ &#8594; /opt/data/openviking</text>
     <text x="1120" y="460" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#7F909C">no published host ports</text>
   </g>
 </svg>

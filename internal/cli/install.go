@@ -63,6 +63,12 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		artifacts["development-image/"+name] = install.Artifact{Data: data, Mode: 0600}
 	}
 	var previous []install.StackUpgrade
+	legacy, err := compose.LegacyLayaBuild(id, os.Getuid(), os.Getgid())
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	previous = append(previous, install.StackUpgrade{Compose: legacy, BackupName: "compose.before-core.yaml"})
 	for _, memory := range []string{"", projectmemory.Image} {
 		old, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: memory, UID: os.Getuid(), GID: os.Getgid()})
 		if err != nil {

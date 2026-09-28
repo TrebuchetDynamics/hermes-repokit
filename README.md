@@ -69,19 +69,23 @@ preserves history, and deletion needs explicit approval. See the
 RepoKit writes a private `.hermes/` directory (Compose file, `bin/hermes-<repo>`
 launcher, config, pinned development image, private `openviking/` data and a
 `.gitignore`) and one Compose-owned container. It mounts the repository at
-`/workspace`, native state at `/opt/data` and memory at `/app/.openviking`;
+`/workspace` and all native state (including embedded memory) at `/opt/data`;
 OpenViking runs inside under the native s6 supervisor on loopback with no published
 host port and can extract memory automatically. Credentials stay in private setup,
 and optional `install --docker-tests` adds an isolated acceptance daemon without
 mounting the host Docker socket. See
 [development runtime](docs/qualification/development-runtime.md).
 
+Existing repository Compose files and services stay in place. RepoKit uses its
+own `.hermes/compose.yaml` and project namespace, with explicit file/context routing.
+
 ## Running and remaining gates
 
 Fresh installs keep dispatch off. Setup enables one `default` gateway dispatcher
 (automatic review, concurrency one, no auto-decomposition) only after native
-readiness, authenticated shared memory and a real no-write researcher canary; live
-Telegram delivery and same-card review remain pending.
+core readiness and a real no-write researcher canary. OpenViking readiness is
+reported separately and does not block core work. Live Telegram delivery and
+same-card review remain separate acceptance gates.
 
 `verify` is read-only: it observes artifacts, native configuration and bounded health
 responses, and never runs models, dispatches tasks or writes memory. Memory `active`
@@ -95,8 +99,9 @@ means the six bindings authenticate, not that recall or extraction works.
 | Optional plugins | Native scanner admission and owner configuration |
 
 Credential-free fixtures demonstrated native profiles, Kanban persistence and
-launcher/Compose operation after removing a copied installer, but do not qualify the
-current image or model-driven work. See
+launcher/Compose operation after removing a copied installer. Live dogfood also
+completed a gateway-spawned researcher canary and the original queued research
+task; see the [dogfood record](docs/qualification/live-dogfood-2026-09-28.md),
 [runtime observations](docs/qualification/runtime-observations.md) and
 [implementation status](docs/implementation-progress.md). The recorded Superpowers
 candidate was refused with 229 CAUTION findings; its
@@ -114,6 +119,8 @@ for Claude Code. Installing it does not start a deployment.
 
 Go 1.26+; host builds target Linux amd64 and arm64, the development image Linux
 amd64. End-user binaries need Docker Compose, Git and a POSIX shell.
+The bootstrap also builds from source with `CGO_ENABLED=0 go build ./cmd/hermes-repokit`;
+no host C compiler is needed. The contributor race checks below require a C compiler.
 
 ```sh
 go test ./...
@@ -129,8 +136,8 @@ REPOKIT_DOCKER_TESTS=1 go test -tags=docker ./tests/acceptance -run TestDockerFo
 REPOKIT_DOCKER_TESTS=1 go test -tags=docker ./tests/acceptance -run TestDockerOpenVikingPending -v
 ```
 
-The full offline and race suites, including the Unix-socket fixtures, pass; live
-Docker and model acceptance remain unqualified. See the
+The full offline and race suites, including the Unix-socket fixtures, pass.
+Live memory, independent review and channel round-trip acceptance remain open. See the
 [design](docs/superpowers/specs/2026-09-27-repokit-bootstrap-design.md),
 [plan](docs/superpowers/plans/2026-09-27-repokit-bootstrap.md) and
 [remaining work](TODO.md).

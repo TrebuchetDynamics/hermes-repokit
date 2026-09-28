@@ -10,7 +10,7 @@ observations, never runtime control state.
 
 Normal installation creates one Hermes development container. The repository is
 mounted at `/workspace`, private `.hermes` state at `/opt/data`, and the official
-OpenViking runtime's persistent directory at `/app/.openviking`. OpenViking runs
+OpenViking runtime's persistent state at `/opt/data/openviking`. OpenViking runs
 inside Hermes under the native s6 supervisor and binds loopback, with no host port.
 The generated development image carries qualified tools and repository-required
 Go. An optional, explicitly selected Docker acceptance daemon uses dedicated test
@@ -33,7 +33,7 @@ One native Kanban board owns cards, dependencies, runs, claims and review.
 Fresh/incomplete deployments keep dispatch off. Successful setup activates one
 default gateway dispatcher, automatic review, concurrency one, no automatic
 decomposition and a six-profile allowlist. Native provider resolution, role/tool
-contracts, routing and authenticated shared memory are mandatory gates. Setup
+contracts and routing are mandatory gates; shared memory readiness is independent. Setup
 fences claims, preserves active/finalizing workers and validates process identity,
 singleton ownership, startup policy and a real no-write researcher canary.
 

@@ -1,8 +1,12 @@
 # Native gateway convergence
 
-> Delivery follow-up: full offline and race suites now pass, including the
-> Unix-socket cases blocked in the earlier record below. Live gateway acceptance
-> remains unqualified. See [delivery validation](../implementation-progress.md#git-delivery-validation-2026-09-28).
+> Live follow-up: the repaired native setup passed automatic researcher execution
+> on this repository. See the [2026-09-28 dogfood record](live-dogfood-2026-09-28.md)
+> for the canary, remaining memory/channel limits and source compatibility fixes.
+
+> Earlier delivery follow-up: full offline and race suites passed, including the
+> Unix-socket cases blocked in the original record below. Live gateway acceptance
+> was still pending at that stage. See [delivery validation](../implementation-progress.md#git-delivery-validation-2026-09-28).
 
 Qualified source: Hermes image selected in `internal/qualification`, native build
 `749220ef0007f8d87bd1531f1c24b0fe93816385`. Read-only inspection of the installed
@@ -22,8 +26,8 @@ live gateway activity is checked again immediately before native restart. The
 replacement must have healthy adapters, changed identity, unchanged input hash,
 its own singleton dispatcher lock and native startup logs showing concurrency one.
 
-Fresh/incomplete installs keep dispatch off. After provider/profile/tool/routing,
-mandatory shared OpenViking gates pass, the default gateway
+Fresh/incomplete installs keep dispatch off. After provider/profile/tool/routing
+gates pass, with optional OpenViking reported independently, the default gateway
 runs automatic dispatch and review with the six-role allowlist. Confirmed stopped
 gateways can be prepared without restarting an absent process, then started through
 native Hermes. `setup --team` requires no credential wizard. A real researcher

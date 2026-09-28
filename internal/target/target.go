@@ -17,6 +17,8 @@ type Identity struct{ Root, Name, Container, Project, Compose, Launcher string }
 var separators = regexp.MustCompile(`[^a-z0-9]+`)
 var gatewayTickSocket = regexp.MustCompile(`^state/gateway\.loop-tick\.[1-9][0-9]*\.sock$`)
 var codeKernelSocket = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/hermes_rpc_[0-9a-f]{32}\.sock$`)
+var huggingFaceModelLink = regexp.MustCompile(`^\.cache/huggingface/hub/models--[A-Za-z0-9][A-Za-z0-9._-]*/(blobs/[0-9a-f]{40}([0-9a-f]{24})?|snapshots/[0-9a-f]{40}/[^/]+(/[^/]+)*)$`)
+var huggingFaceCacheMetadata = regexp.MustCompile(`^\.cache/huggingface/hub/(\.locks/models--[A-Za-z0-9][A-Za-z0-9._-]*/[0-9a-f]{40}([0-9a-f]{24})?\.lock|blobs/[0-9a-f]{2}/[0-9a-f]{64}\.(lock|refs))$`)
 
 func Resolve(path string) (Identity, error) {
 	absolute, err := filepath.Abs(path)
@@ -59,13 +61,9 @@ func Inspect(id Identity, pathEnv string) []string {
 	if !owned(info) || info.Mode().Perm()&0022 != 0 {
 		issues = append(issues, "target has unsafe ownership or permissions")
 	}
-	for _, name := range []string{"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml", "compose.override.yaml", "compose.override.yml", "docker-compose.override.yaml", "docker-compose.override.yml"} {
-		if _, err := os.Lstat(filepath.Join(id.Root, name)); err == nil {
-			issues = append(issues, "root Compose collision: "+name)
-		} else if !os.IsNotExist(err) {
-			issues = append(issues, "cannot inspect root Compose: "+name)
-		}
-	}
+	// Owner Compose files belong to the repository. RepoKit always selects its
+	// private .hermes/compose.yaml and explicit project; never inspect or adopt
+	// root Compose/override files, including malformed files and symlinks.
 	state := filepath.Join(id.Root, ".hermes")
 	if _, err := os.Lstat(state); err == nil {
 		count := 0
@@ -128,7 +126,9 @@ func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
 	toolLink := uv || under(".local/bin") || under(".cua-driver/packages") ||
 		(filepath.Dir(rel) == "bin" && filepath.Base(rel) != launcher)
 	if info.Mode()&os.ModeSymlink != 0 {
-		return toolLink
+		// Native model snapshots and per-repository blob entries are pointers;
+		// inspect their metadata without following container-only cache targets.
+		return toolLink || huggingFaceModelLink.MatchString(rel)
 	}
 	if info.IsDir() {
 		return info.Mode().Perm()&0022 == 0
@@ -144,7 +144,11 @@ func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
 	if !info.Mode().IsRegular() {
 		return false
 	}
-	return info.Mode().Perm()&0022 == 0 || (uv && strings.HasSuffix(rel, ".lock")) || rel == "lazy-packages/.lock"
+	// Hugging Face creates shared blob locks/manifests with mode 0666 and
+	// repository download locks with mode 0664. Model/code files keep ordinary
+	// mode checks, as do every cache directory and ancestor above these entries.
+	hfMetadata := huggingFaceCacheMetadata.MatchString(rel) && info.Mode().Perm()&0111 == 0
+	return info.Mode().Perm()&0022 == 0 || (uv && strings.HasSuffix(rel, ".lock")) || hfMetadata || rel == "lazy-packages/.lock"
 }
 
 func owned(info fs.FileInfo) bool {

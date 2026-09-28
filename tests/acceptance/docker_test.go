@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/locking"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
@@ -54,6 +55,8 @@ func TestDockerFoundation(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	t.Setenv("COMPOSE_PROJECT_NAME", "unused-"+id.Project)
+	t.Setenv("COMPOSE_FILE", filepath.Join(root, "docker-compose.yml"))
 	installer, removeInstaller := disposableCLI(t)
 	installerEnv := installerEnvironment(t)
 	if out, err := exec.CommandContext(ctx, "git", "-C", root, "init", "--quiet").CombinedOutput(); err != nil {
@@ -68,17 +71,72 @@ func TestDockerFoundation(t *testing.T) {
 			t.Fatalf("CLI %v: %v %s", command, err, out)
 		}
 	}
-	// Team scaffolding is credential-free, but operational dispatch now requires
-	// private memory setup. Prove the exact pending boundary,
-	// rather than treating an arbitrary setup error as fixture success.
+	// Team scaffolding is credential-free. Synthetic provider settings cannot
+	// establish core gateway convergence or a real researcher canary; optional
+	// memory is not an activation gate. Require the core convergence boundary.
 	runPendingCLI := func(command ...string) {
 		t.Helper()
 		cmd := exec.CommandContext(ctx, installer, command...)
 		cmd.Dir = root
 		cmd.Env = append(installerEnv, "DOCKER_CONTEXT="+dc)
 		out, err := cmd.CombinedOutput()
-		if err == nil || !strings.Contains(string(out), "Operational dispatch pending: shared OpenViking memory is mandatory.") {
-			t.Fatalf("expected explicit incomplete-integration gate for %v: %v %s", command, err, out)
+		if err == nil || !strings.Contains(string(out), "Native state saved; gateway convergence incomplete.") || strings.Contains(string(out), "Dispatch operational:") {
+			t.Fatalf("expected unqualified core convergence for %v: %v %s", command, err, out)
+		}
+	}
+	// An independent owner stack must remain untouched throughout installation,
+	// native setup and RepoKit recreation. Reuse the same pinned foundation image.
+	ownerFile := filepath.Join(root, "docker-compose.yml")
+	ownerContent := []byte("name: owner-" + id.Project + "\nservices:\n  owner:\n    image: " + qualification.FoundationImage + "\n    entrypoint: [sleep]\n    command: [infinity]\n")
+	ownerOverride := filepath.Join(root, "compose.override.yaml")
+	overrideContent := []byte("services: {owner: {environment: {OWNER_SENTINEL: keep}}}\n")
+	for path, content := range map[string][]byte{ownerFile: ownerContent, ownerOverride: overrideContent} {
+		if err := os.WriteFile(path, content, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ownerBase := []string{"--context", dc, "compose", "--env-file", "/dev/null", "-f", ownerFile}
+	ownerCompose := func(args ...string) []byte {
+		t.Helper()
+		cmd := exec.CommandContext(ctx, "docker", append(append([]string{}, ownerBase...), args...)...)
+		cmd.Env = process.CleanEnvironment(os.Environ())
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("owner fixture %v: %v %s", args, err, out)
+		}
+		return out
+	}
+	defer func() {
+		cleanup, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(cleanup, "docker", append(ownerBase, "down")...)
+		cmd.Env = process.CleanEnvironment(os.Environ())
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Errorf("owner fixture cleanup: %v %s", err, out)
+		}
+	}()
+	ownerCompose("up", "-d", "owner")
+	ownerID := strings.TrimSpace(string(ownerCompose("ps", "-q", "owner")))
+	if ownerID == "" {
+		t.Fatal("owner fixture did not start")
+	}
+	ownerProject, err := exec.CommandContext(ctx, "docker", "--context", dc, "container", "inspect", "--format", `{{index .Config.Labels "com.docker.compose.project"}}`, ownerID).CombinedOutput()
+	if err != nil || strings.TrimSpace(string(ownerProject)) != "owner-"+id.Project {
+		t.Fatalf("ambient project redirected owner fixture: %v %s", err, ownerProject)
+	}
+	checkOwner := func() {
+		t.Helper()
+		if got := strings.TrimSpace(string(ownerCompose("ps", "-q", "owner"))); got != ownerID {
+			t.Fatal("owner container replaced or stopped")
+		}
+		out, err := exec.CommandContext(ctx, "docker", "--context", dc, "container", "inspect", "--format", "{{.State.Running}}", ownerID).CombinedOutput()
+		if err != nil || strings.TrimSpace(string(out)) != "true" {
+			t.Fatalf("owner service no longer running: %v %s", err, out)
+		}
+		for path, content := range map[string][]byte{ownerFile: ownerContent, ownerOverride: overrideContent} {
+			if got, err := os.ReadFile(path); err != nil || !bytes.Equal(got, content) {
+				t.Fatal("owner Compose file changed")
+			}
 		}
 	}
 	runCLI("plan")
@@ -87,6 +145,7 @@ func TestDockerFoundation(t *testing.T) {
 	docker := func(args ...string) []byte {
 		t.Helper()
 		cmd := exec.CommandContext(ctx, "docker", append(append([]string(nil), base...), args...)...)
+		cmd.Env = process.CleanEnvironment(os.Environ())
 		out, e := cmd.CombinedOutput()
 		if e != nil {
 			t.Fatalf("Docker %v failed: %v\n%s", args, e, out)
@@ -97,11 +156,16 @@ func TestDockerFoundation(t *testing.T) {
 		cleanup, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		cmd := exec.CommandContext(cleanup, "docker", append(base, "down")...)
+		cmd.Env = process.CleanEnvironment(os.Environ())
 		if out, e := cmd.CombinedOutput(); e != nil {
 			t.Errorf("cleanup: %v %s", e, out)
 		}
 	}()
 	docker("config", "--quiet")
+	if services := strings.TrimSpace(string(docker("config", "--services"))); services != "hermes" {
+		t.Fatalf("owner services entered RepoKit project: %s", services)
+	}
+	checkOwner()
 	docker("up", "-d", "--build", "hermes")
 	// Bounded readiness polling does not imply authentication or inference readiness.
 	ready := false
@@ -121,6 +185,7 @@ func TestDockerFoundation(t *testing.T) {
 	marker := filepath.Join(root, ".hermes/lock-ready")
 	lockArgs := append(append([]string{}, base...), "exec", "-T", "--user", "hermes", "hermes", "/usr/bin/flock", "-n", "/workspace/.hermes-repokit.lock", "sh", "-c", "printf ready > /opt/data/lock-ready; sleep 3")
 	client := exec.CommandContext(ctx, "docker", lockArgs...)
+	client.Env = process.CleanEnvironment(os.Environ())
 	if err := client.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +251,12 @@ func TestDockerFoundation(t *testing.T) {
 	if verifyErr == nil || json.Unmarshal(output, &probes) != nil {
 		t.Fatalf("full acceptance falsely certified: %v %s", verifyErr, output)
 	}
+	pendingCore := map[string]struct{}{
+		"kanban:dispatch-live":     {},
+		"kanban:dispatcher-canary": {},
+	}
 	for _, p := range probes {
+		delete(pendingCore, p.Component)
 		pending := map[string]verify.Status{
 			"kanban:dispatch":            verify.Inactive,
 			"kanban:dispatch-configured": verify.Inactive,
@@ -216,7 +286,7 @@ func TestDockerFoundation(t *testing.T) {
 			// Embedded-runtime packaging/identity is independent of memory
 			// acceptance; only the live memory and review surfaces must stay
 			// uncertified without private setup.
-			if p.Status == verify.Healthy && p.Component != "openviking-container" {
+			if (p.Status == verify.Healthy || p.Status == verify.Active) && p.Component != "openviking-container" {
 				t.Fatal("integration falsely certified")
 			}
 			continue
@@ -224,6 +294,9 @@ func TestDockerFoundation(t *testing.T) {
 		if p.Status != verify.Healthy {
 			t.Fatalf("scaffold probe: %+v", p)
 		}
+	}
+	if len(pendingCore) != 0 {
+		t.Fatalf("missing credential-free core evidence: %v", pendingCore)
 	}
 	for _, role := range team.ForRepository(id) {
 		dir := filepath.Join(root, ".hermes")
@@ -305,7 +378,9 @@ func TestDockerFoundation(t *testing.T) {
 	ready = false
 	for i := 0; i < 60; i++ {
 		args := append(append([]string{}, base...), "exec", "-T", "--user", "hermes", "hermes", "test", "-w", "/opt/data/kanban.db.init.lock")
-		if exec.CommandContext(ctx, "docker", args...).Run() == nil {
+		cmd := exec.CommandContext(ctx, "docker", args...)
+		cmd.Env = process.CleanEnvironment(os.Environ())
+		if cmd.Run() == nil {
 			ready = true
 			break
 		}
@@ -320,7 +395,8 @@ func TestDockerFoundation(t *testing.T) {
 	if out, err := cmd.CombinedOutput(); err != nil || !strings.Contains(string(out), "v0.21.5") {
 		t.Fatalf("native exec after restart/removal: %v %s", err, out)
 	}
-	t.Log("PASS: real CLI plan/install/verify/rerun; disposable installer binary and source removed; native generic profiles cloned with distinct identities and fresh memories; existing profile edits preserved; raw Compose restart and persistent board. No inference or full v1 gate claimed.")
+	checkOwner()
+	t.Log("PASS: existing owner Compose files and running service preserved; real CLI plan/install/verify/rerun; disposable installer binary and source removed; native generic profiles cloned with distinct identities and fresh memories; existing profile edits preserved; raw Compose restart and persistent board. No inference or full v1 gate claimed.")
 }
 
 // This runner is used ONLY in the credential-free fixture, to expose native

@@ -213,7 +213,8 @@ description still match; owner edits remain drift and are not overwritten.
 Dispatch is off during bootstrap and incomplete setup. Successful setup activates
 one default gateway dispatcher with review dispatch enabled, concurrency one,
 automatic decomposition disabled and the explicit six-profile allowlist.
-OpenViking authentication is a mandatory activation gate. Specialists keep dispatch disabled. SOUL distinguishes persistent profiles
+OpenViking readiness is reported separately and does not block core activation.
+Specialists keep dispatch disabled. SOUL distinguishes persistent profiles
 from running workers and requires inspection of live dispatch before promising
 progress; it never uses one-shot dispatch to bypass incomplete activation.
 

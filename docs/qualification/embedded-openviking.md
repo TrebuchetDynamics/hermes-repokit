@@ -1,8 +1,10 @@
 # OpenViking inside the repository Hermes container
 
-> Delivery follow-up: full offline and race suites now pass, including the
-> Unix-socket cases blocked in the earlier record below. Live Docker acceptance
-> remains unqualified. See [delivery validation](../implementation-progress.md#git-delivery-validation-2026-09-28).
+> Delivery update (2026-09-28, capable session): the embedded persistent state
+> root is `/opt/data/openviking` (not `/app/.openviking`). The full offline and
+> race suites pass, including the formerly sandbox-blocked Unix-socket cases, and
+> the embedded Docker acceptance plus the related single-container fixtures pass
+> on a Docker-capable host. See the acceptance record at the end.
 
 The owner selected this topology on 2026-09-28. It supersedes the independent
 OpenViking sidecar in earlier plans and qualification records. Existing sidecar
@@ -25,9 +27,11 @@ A real subprocess regression test checks this drain ordering; unknown entrypoint
 revisions fail the build rather than receiving a speculative patch.
 
 The native service binds `127.0.0.1:1933`. All six Hermes profiles use this URL
-and the existing repository account/user contract. `.hermes/openviking` remains
-the private persistent bind at `/app/.openviking`; configuration, database,
-provider credentials and extraction remain native OpenViking responsibilities.
+and the existing repository account/user contract. The durable state root is
+`/opt/data/openviking`, backed by the repository's private `.hermes/openviking`
+directory through the existing `/opt/data` bind (no separate memory mount is
+required); configuration, database, provider credentials and extraction remain
+native OpenViking responsibilities.
 Missing private configuration remains pending, not healthy. API-key identity
 validation is still required despite loopback binding.
 
@@ -65,13 +69,19 @@ this topology is live-qualified. Cross-profile recall, extraction, authenticated
 identity and cross-repository isolation still require real private provider setup.
 Do not reuse old sidecar PASS results for these gates.
 
-Recorded source validation (2026-09-28): Go build, vet with Docker tags,
-formatting, diff checks, targeted topology/setup/health tests and the real
-shutdown regression passed. Full `go test ./...` and `go test -race ./...`
-passed every package except `internal/target`: the six cases of
-`TestNativeGatewaySocketsRemainInspectable` failed with sandbox
-`setsockopt: operation not permitted`. No tests were weakened or skipped to
-hide this. Enabled `TestDockerOpenVikingPending` stopped during disposable
-install with `container names could not be inspected`, before creating
-containers or building the new image. The owner's stopped installation and
-private data were not modified. Embedded Docker acceptance remains blocked.
+Recorded validation (2026-09-28, Docker-capable session): `go build ./...`,
+`go vet -tags docker ./...`, `gofmt`, `go test ./... -count=1` and
+`go test -race ./... -count=1` all pass, including the six
+`TestNativeGatewaySocketsRemainInspectable` Unix-socket cases previously blocked
+by `setsockopt`. On a Docker daemon, `TestDockerOpenVikingPending` builds the
+derived Hermes image, confirms Compose exposes no independent OpenViking
+service, observes the real 503 pending endpoint at the embedded
+`/opt/data/openviking` workspace, and verifies private storage survives Hermes
+recreation after the temporary bootstrap executable is removed. The related
+`TestDockerFoundation`, `TestDockerDevelopmentRuntime`,
+`TestDockerDefaultKanbanChannels` and `TestDockerMaintenanceNativePackage`
+fixtures also pass.
+
+Still open: cross-profile recall, extraction, authenticated identity and
+cross-repository isolation require real private provider setup. Packaging and
+pending-lifecycle evidence is not memory acceptance.

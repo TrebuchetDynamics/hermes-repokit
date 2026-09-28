@@ -58,6 +58,9 @@ versions differ. Do not assume `--version` or release binaries exist.
   OpenViking is an internal supervised process, not a Compose sidecar.
 - Repository root mounts at `/workspace`; private `<repo>/.hermes` mounts at
   `/opt/data`, with `HERMES_HOME=/opt/data`. Preserve this generated layout.
+- Existing repository Compose files and services coexist with RepoKit's explicit
+  `.hermes/compose.yaml` and separate project namespace; preserve the owner's stack.
+  Source builds of the bootstrap use `CGO_ENABLED=0` and need no host C compiler.
 - Install safely exposes the generated launcher at `~/.local/bin/hermes-<repo>`
   through a symlink, preserving conflicts and reporting missing PATH. It creates
   no shell aliases and edits no shell startup files. See [host command handling](references/installation.md#automatic-host-command).

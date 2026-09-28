@@ -21,7 +21,7 @@ func (r *teamResumeInput) RunInput(_ context.Context, input io.Reader, _ string,
 		return process.Result{Output: "REPOKIT_MAINTENANCE=configured"}
 	}
 	if strings.Contains(string(data), "REPOKIT_GATEWAY_PY") {
-		return process.Result{Output: "REPOKIT_GATEWAY=not-running\nREPOKIT_DISPATCH=prepared"}
+		return process.Result{Output: "REPOKIT_GATEWAY=current\nREPOKIT_CANARY=researcher-done\nREPOKIT_DISPATCH=prepared"}
 	}
 	return process.Result{Output: r.result}
 }
@@ -35,7 +35,7 @@ func TestTeamResumeWithoutPrivateWizard(t *testing.T) {
 	input := &teamResumeInput{result: `REPOKIT_TEAM={"status":"configured","drift":[]}`}
 	a.Initializer = input
 	a.Stdin = strings.NewReader("")
-	if code, out, diag := invoke(t, a, "setup", "--team"); code == 0 || input.calls != 3 || !strings.Contains(diag, "mandatory") {
+	if code, out, diag := invoke(t, a, "setup", "--team"); code != 0 || input.calls != 4 || !strings.Contains(diag, "Optional memory") {
 		t.Fatalf("team-only resume: code=%d calls=%d out=%s diag=%s", code, input.calls, out, diag)
 	}
 	input.result = `REPOKIT_TEAM={"status":"pending-setup","drift":[]}`

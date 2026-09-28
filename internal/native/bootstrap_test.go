@@ -92,6 +92,18 @@ func TestInitializeUsesContainerLockAndSanitizesFailure(t *testing.T) {
 	if err == nil || strings.Contains(err.Error(), "secret") {
 		t.Fatalf("failure diagnostic: %v", err)
 	}
+	r.result.Output = "secret output\nREPOKIT_DISPATCH_FAILURE=RuntimeError|dispatch_main:400>switch_gateway:121\nsecret trailer"
+	_, err = ConvergeGateway(context.Background(), id, "local", r)
+	if err == nil || !strings.Contains(err.Error(), "switch_gateway:121") || strings.Contains(err.Error(), "secret") {
+		t.Fatalf("dispatch diagnostic missing or unsanitized: %v", err)
+	}
+	for _, unsafe := range []string{"RuntimeError|owner_secret:123", "PrivateSecret|switch_gateway:123", "RuntimeError|switch_gateway:123 secret"} {
+		r.result.Output = "REPOKIT_DISPATCH_FAILURE=" + unsafe
+		_, err = ConvergeGateway(context.Background(), id, "local", r)
+		if err == nil || strings.Contains(err.Error(), unsafe) {
+			t.Fatalf("untrusted dispatch diagnostic accepted: %v", err)
+		}
+	}
 	args := strings.Join(r.args, " ")
 	if !strings.Contains(args, "--context local compose --env-file /dev/null -f ") || !strings.Contains(args, "exec -T --user hermes --env HOME=/opt/data --workdir /workspace hermes /usr/bin/flock -n /workspace/.hermes-repokit.lock /bin/sh -s -- /workspace /opt/data") || r.data == "" {
 		t.Fatalf("unsafe invocation: %v", r.args)

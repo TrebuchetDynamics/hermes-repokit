@@ -123,14 +123,15 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "Setup requires the running pinned Hermes deployment. Inspect Docker access and service state. Start with: %s\n", launcher.StartCommand(id.Compose, dockerContext))
 			return 1
 		}
+		if memorySetup {
+			// Optional memory must not suspend a running core dispatcher.
+			return a.finishSetup(id, dockerContext, a.setupMemory(id, dockerContext, stdout, stderr), stdout, stderr)
+		}
 		if code := a.prepareDispatch(id, dockerContext, stderr); code != 0 {
 			return code
 		}
 		if teamSetup {
 			return a.finishSetup(id, dockerContext, a.initialize(id, dockerContext, true, stdout, stderr), stdout, stderr)
-		}
-		if memorySetup {
-			return a.finishSetup(id, dockerContext, a.setupMemory(id, dockerContext, stdout, stderr), stdout, stderr)
 		}
 		if code := native.Setup(id.Launcher, id.Compose, dockerContext, a.Stdin, stdout, stderr); code != 0 {
 			return code
@@ -142,7 +143,11 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		if code := a.initialize(id, dockerContext, true, stdout, stderr); code != 0 {
 			return code
 		}
+		if code := a.finishSetup(id, dockerContext, 0, stdout, stderr); code != 0 {
+			return code
+		}
 		if code := a.setupMemory(id, dockerContext, stdout, stderr); code != 0 {
+			fmt.Fprintln(stderr, "Optional memory setup incomplete; core dispatch remains operational. Retry setup --memory independently.")
 			return code
 		}
 		return a.finishSetup(id, dockerContext, 0, stdout, stderr)
@@ -222,6 +227,9 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 		p.ProposedChanges = append(p.ProposedChanges, "reconcile the six native team profiles after default setup; preserve user drift and unknown profiles; integrations remain pending")
 	}
 	p.ProposedChanges = append(p.ProposedChanges, "create or reuse ~/.local/bin/"+id.Container+" as a symlink to the generated launcher when safe; preserve conflicts and report missing PATH")
+	if compose.LegacyLayaBuildSelected(id) {
+		p.ProposedChanges = append(p.ProposedChanges, "recognized legacy Hermes/OpenViking/Laya build stack: stop the legacy OpenViking writer using original Compose, then install backs up compose.before-core.yaml and generates the core runtime; all service data preserved")
+	}
 	ctx := context.Background()
 	p.Collisions = append(p.Collisions, a.gitIssues(ctx, id)...)
 	if p.ExistingState {

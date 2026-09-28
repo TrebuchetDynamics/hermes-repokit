@@ -1,5 +1,6 @@
 """One-shot installer, executed by the pinned Hermes Python; not a runtime hook."""
 import contextlib
+import copy
 import json
 import logging
 import os
@@ -232,13 +233,53 @@ def configure(home, name, role, run):
                 updates['platform_toolsets.'+platform] = role['toolsets']
         for key,value in updates.items():
             run('-p', name, 'config', 'set', key, json.dumps(value))
-        for platform in configured_interactive_platforms(read_config(home),native_interactive_catalog()):
-            if platform in kanban_selections(read_config(home)):
-                run('-p',name,'tools','enable',*role['toolsets'],'--platform',platform)
     run('profile', 'describe', name, '--text', role['description'])
     (home / 'SOUL.md').write_text(role['soul'])
     (home / 'SOUL.md').chmod(0o600)
     reconcile_project_skills(home, name, run)
+
+
+def reconcile_inherited_worker_channels(home, role, run):
+    # Old native clones persisted the stock channel preset beside our narrow
+    # CLI/global selections. Admit only that exact historical managed shape.
+    if role['name']=='default': return
+    try:
+        soul=(home/'SOUL.md').read_bytes()
+        if soul not in [value.encode('utf-8') for value in managed_souls(role)]: return
+        meta=yaml.safe_load((home/'profile.yaml').read_text()) or {}
+        if not isinstance(meta,dict) or meta.get('description')!=role['description']: return
+        config=read_config(home)
+        if kanban_disabled(config): return
+        selections=kanban_selections(config)
+        catalog=native_interactive_catalog()
+        if any(p not in catalog for p in selections): return
+        contracts=[role]
+        if role.get('legacy_toolsets'):
+            contracts.append({**role,'toolsets':role['legacy_toolsets']})
+        for prior in contracts:
+            candidate=copy.deepcopy(config)
+            updates={}
+            for platform, selected in selections.items():
+                if platform=='cli' or set(selected)==set(prior['toolsets']): continue
+                baseline={'platform_toolsets':{platform:[catalog[platform]['preset']]}}
+                # Native resolution may auto-enable ambient plugins. The
+                # historical stock contract contains built-in categories only;
+                # an explicitly saved plugin remains owner drift.
+                stock=native_platform_tools(baseline,platform) & set(catalog[platform]['required'])
+                if set(selected)!=stock: break
+                candidate['platform_toolsets'][platform]=prior['toolsets']
+                updates[platform]=prior['toolsets']
+            else:
+                if not updates or not managed_fields_match(candidate,prior): continue
+                # Validate every saved platform and managed field before the
+                # first native write; partial owner drift preserves the profile.
+                for platform, tools in updates.items():
+                    run('-p',role['name'],'config','set','platform_toolsets.'+platform,json.dumps(tools))
+                if not managed_fields_match(read_config(home),prior):
+                    raise RuntimeError('inherited channel reconciliation did not persist')
+                return
+    except (OSError,ValueError):
+        return  # Unknown or incomplete historical state remains owner drift.
 
 
 def reconcile_coding_profile(home, role, run):
@@ -255,7 +296,9 @@ def reconcile_coding_profile(home, role, run):
     run('-p',role['name'],'config','set','toolsets',json.dumps(role['toolsets']))
     for platform in platforms:
         if platform in kanban_selections(config):
-            run('-p',role['name'],'tools','enable','code_execution','skills','--platform',platform)
+            # tools enable also saves newly discovered ambient plugins. This
+            # exact managed upgrade must preserve the specialist tool boundary.
+            run('-p',role['name'],'config','set','platform_toolsets.'+platform,json.dumps(role['toolsets']))
 
 
 def provision(root, roles, run, native_default_soul):
@@ -269,6 +312,7 @@ def provision(root, roles, run, native_default_soul):
         name = role['name']
         home = root if name == 'default' else profiles / name
         if home.exists():
+            reconcile_inherited_worker_channels(home,role,run)
             reconcile_coding_profile(home,role,run)
             if matches(home, role):
                 if get(read_config(home),'terminal.backend') is None:

@@ -1,8 +1,9 @@
 # Development runtime qualification
 
-> Delivery follow-up: full offline and race suites now pass, including the
-> Unix-socket cases blocked in the earlier record below. Live Docker acceptance
-> remains unqualified. See [delivery validation](../implementation-progress.md#git-delivery-validation-2026-09-28).
+> Delivery update (2026-09-28, Docker-capable session): the full offline and race
+> suites pass, including the formerly blocked Unix-socket cases, and the
+> credential-free Docker fixtures pass on a Docker daemon. Live model, memory and
+> Telegram acceptance remain pending private provider setup.
 
 RepoKit now generates a derived Hermes development image and an optional
 separate Docker acceptance service. This is a source implementation, not a
@@ -78,21 +79,21 @@ REPOKIT_DOCKER_TESTS=1 REPOKIT_DIND_TESTS=1 \
 That privileged fixture is intentionally not enabled by the helper's ordinary
 Docker-suite gate. Running it inside another test daemon is a separate opt-in.
 
-Current sandbox denies AF_UNIX setsockopt and Docker access from subprocesses.
-No live installation, generated .hermes, credentials, gateway or container was
-modified to conceal that limitation. Real image builds, nested-daemon operation,
+A Docker-capable session now permits real image builds and the credential-free
+Docker fixtures. The privileged nested-daemon fixture
+(`REPOKIT_DOCKER_TESTS=1 REPOKIT_DIND_TESTS=1`) was not run in this pass.
 Telegram/CLI coding parity, model-driven review and full dogfood remain pending.
 
 ## Source validation, 2026-09-28
 
 | Check | Observed result |
 | --- | --- |
-| `go test -count=1 ./...` | All packages pass except six existing `TestNativeGatewaySocketsRemainInspectable` subcases: AF_UNIX `setsockopt: operation not permitted` |
-| `go test -race -count=1 ./...` | Same six environment failures; other packages pass |
-| Focused race checks after topology-regression additions | Verify, offline acceptance and Docker-helper packages pass |
+| `go test -count=1 ./...` | All packages pass, including the six `TestNativeGatewaySocketsRemainInspectable` Unix-socket subcases |
+| `go test -race -count=1 ./...` | All packages pass |
 | `go vet ./...` and `go vet -tags docker ./...` | Pass |
-| Formatting and `git diff --check` | Pass |
-| Docker suite with ordinary and DinD gates enabled | Six fixtures attempted; all blocked at daemon access/container enumeration before runtime qualification |
+| Formatting and `gofmt` | Pass |
+| Docker fixtures, ordinary gate (`REPOKIT_DOCKER_TESTS=1`) | `TestDockerDevelopmentRuntime`, `TestDockerFoundation`, `TestDockerDefaultKanbanChannels`, `TestDockerMaintenanceNativePackage` and `TestDockerOpenVikingPending` pass |
+| Docker fixture, DinD gate (`REPOKIT_DIND_TESTS=1`) | Not run in this pass |
 | Existing source baseline | HEAD unchanged; all 197 baseline paths remain; skill files unchanged |
 
 The offline launcher-removal fixture was updated to acknowledge setup's native

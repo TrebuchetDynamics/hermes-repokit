@@ -1,6 +1,7 @@
 package target
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -41,8 +42,8 @@ func TestUnsupportedNamesRefuseWithoutTruncation(t *testing.T) {
 		}
 	}
 }
-func TestInspectFindsDanglingLinksRootComposeAndPermissions(t *testing.T) {
-	for _, name := range []string{"compose.yaml", "compose.override.yml", ".hermes"} {
+func TestInspectFindsDanglingNativeLinksAndPermissions(t *testing.T) {
+	for _, name := range []string{".hermes"} {
 		t.Run(name, func(t *testing.T) {
 			p := privateDir(t)
 			os.Symlink("missing", filepath.Join(p, name))
@@ -59,6 +60,52 @@ func TestInspectFindsDanglingLinksRootComposeAndPermissions(t *testing.T) {
 		t.Fatal("public state permitted")
 	}
 }
+func TestInspectIgnoresExistingRootComposeFiles(t *testing.T) {
+	for _, name := range []string{"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml", "compose.override.yaml", "compose.override.yml", "docker-compose.override.yaml", "docker-compose.override.yml"} {
+		for _, kind := range []string{"regular", "malformed", "dangling-link"} {
+			t.Run(name+"/"+kind, func(t *testing.T) {
+				root := privateDir(t)
+				path := filepath.Join(root, name)
+				content := []byte("name: owner-stack\nservices:\n  owner:\n    image: busybox\n")
+				if kind == "malformed" {
+					content = []byte("services: [broken owner YAML")
+				}
+				var err error
+				if kind == "dangling-link" {
+					err = os.Symlink("missing-owner-file", path)
+				} else {
+					err = os.WriteFile(path, content, 0644)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				before, err := os.Lstat(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				id, err := Resolve(root)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if issues := Inspect(id, ""); len(issues) != 0 {
+					t.Fatalf("owner Compose is outside native state: %v", issues)
+				}
+				after, err := os.Lstat(path)
+				if err != nil || !os.SameFile(before, after) || before.Mode() != after.Mode() || before.ModTime() != after.ModTime() {
+					t.Fatal("owner entry changed")
+				}
+				if kind == "dangling-link" {
+					if link, err := os.Readlink(path); err != nil || link != "missing-owner-file" {
+						t.Fatal("owner symlink changed")
+					}
+				} else if got, err := os.ReadFile(path); err != nil || string(got) != string(content) {
+					t.Fatal("owner contents changed")
+				}
+			})
+		}
+	}
+}
+
 func TestPathCollisionAndPrivateNativeState(t *testing.T) {
 	p := privateDir(t)
 	id, _ := Resolve(p)
@@ -312,6 +359,84 @@ func TestNativeToolExceptionsKeepModesAndPrefixesStrict(t *testing.T) {
 			id, _ := Resolve(p)
 			if len(Inspect(id, "")) == 0 {
 				t.Fatalf("accepted writable directory: %s", rel)
+			}
+		})
+	}
+}
+
+func TestHuggingFaceModelCacheMetadataPreservesNativeArtifacts(t *testing.T) {
+	model := "models--owner--speech-model"
+	hash := strings.Repeat("a", 64)
+	revision := strings.Repeat("b", 40)
+	base := ".cache/huggingface/hub/"
+	for _, tc := range []struct {
+		path string
+		link bool
+		mode os.FileMode
+		want bool
+	}{
+		{base + model + "/blobs/" + hash, true, 0, true},
+		{base + model + "/snapshots/" + revision + "/model.bin", true, 0, true},
+		{base + model + "/snapshots/" + revision + "/nested/config.json", true, 0, true},
+		{base + ".locks/" + model + "/" + hash + ".lock", false, 0664, true},
+		{base + ".locks/" + model + "/" + revision + ".lock", false, 0664, true},
+		{base + "blobs/aa/" + hash + ".lock", false, 0666, true},
+		{base + "blobs/aa/" + hash + ".refs", false, 0666, true},
+		{base + "blobs/aa/" + hash, false, 0666, false},
+		{base + "blobs/aa/" + hash + ".refs", true, 0, false},
+		{base + "blobs/aa/" + hash + ".lock", false, 0777, false},
+		{base + ".locks/" + model + "/owner.py", false, 0666, false},
+		{base + ".locks/" + model + "/unknown.lock", false, 0666, false},
+		{base + model + "/snapshots/" + revision + "/owner.py", false, 0666, false},
+		{base + model + "/snapshots/unknown/model.bin", true, 0, false},
+		{base + model + "/refs/main", true, 0, false},
+		{base + model + "/snapshots/" + revision, true, 0, false},
+		{base + model + "/blobs", true, 0, false},
+		{base + model, true, 0, false},
+		{".cache/huggingface/hub", true, 0, false},
+		{".cache/huggingface-other/hub/" + model + "/blobs/" + hash, true, 0, false},
+	} {
+		t.Run(tc.path+fmt.Sprint(tc.link, tc.mode), func(t *testing.T) {
+			root := privateDir(t)
+			path := filepath.Join(root, ".hermes", tc.path)
+			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if tc.link {
+				// A dangling target verifies inspection never follows cache pointers.
+				if err := os.Symlink("/missing-native-model-blob", path); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := os.WriteFile(path, []byte("cache metadata"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Chmod(path, tc.mode); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, err := os.Lstat(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			id, err := Resolve(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := len(Inspect(id, "")) == 0; got != tc.want {
+				t.Fatalf("allowed=%v, want %v", got, tc.want)
+			}
+			after, err := os.Lstat(path)
+			if err != nil || !os.SameFile(before, after) || before.Mode() != after.Mode() {
+				t.Fatal("inspection changed native cache")
+			}
+			if tc.want {
+				if err := os.Chmod(filepath.Dir(path), 0777); err != nil {
+					t.Fatal(err)
+				}
+				if len(Inspect(id, "")) == 0 {
+					t.Fatal("accepted writable cache ancestor")
+				}
 			}
 		})
 	}
