@@ -191,6 +191,7 @@ func TestDockerFoundation(t *testing.T) {
 			"kanban:dispatch":            verify.Inactive,
 			"kanban:dispatch-configured": verify.Inactive,
 			"kanban:dispatch-live":       verify.Inactive,
+			"kanban:dispatch-policy":     verify.Degraded,
 			"kanban:dispatcher-canary":   verify.Unqualified,
 			"gateway-inputs":             verify.Unknown,
 			"maintenance:live":           verify.Unqualified,
