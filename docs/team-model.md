@@ -61,6 +61,13 @@ runs private OpenViking configuration/linking and operational activation;
 available, without reopening private setup. This also supports users who completed
 native setup through the standalone launcher. `setup --memory` resumes memory setup separately.
 
+The initial native config trusts `/workspace` for repository-local skills. New
+profiles inherit that trust; native `skills trust /workspace` adds it to existing
+managed profiles during reconciliation without replacing other trusted roots or
+skill settings. Explicit project-discovery opt-outs remain respected, and native
+scan-time quarantine remains active. The gateway generation includes project
+trust/discovery settings so changes require convergence and a fresh conversation.
+
 Native profile creation uses the final role name because Hermes also registers
 profile services/routing. Immediately replace a new clone's identity and clear
 its copied `memories/MEMORY.md` and `memories/USER.md`; then configure it and

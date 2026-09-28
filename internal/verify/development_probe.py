@@ -18,8 +18,8 @@ TOOLS={'git':('/usr/bin/git','--version'),'bash':('/usr/bin/bash','--version'),
 
 def inspect_tools(go_required, run=subprocess.run):
     env={'PATH':'/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin','HOME':'/nonexistent',
-         'GOTOOLCHAIN':'local','GOCACHE':'off','npm_config_userconfig':'/dev/null',
-         'npm_config_globalconfig':'/dev/null','NODE_OPTIONS':'','LC_ALL':'C'}
+         'GOTOOLCHAIN':'local','GOCACHE':'off','npm_config_userconfig':'/nonexistent/npm-user-config',
+         'npm_config_globalconfig':'/nonexistent/npm-global-config','NODE_OPTIONS':'','LC_ALL':'C'}
     result={}
     for name,cmd in TOOLS.items():
         if name=='go' and not go_required: continue

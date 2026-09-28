@@ -59,6 +59,22 @@ class GenerationTest(unittest.TestCase):
         config['model']['default']='different-model'
         path.write_text(json.dumps(config))
         self.assertNotEqual(before,self.digest())
+
+    def test_project_skill_trust_changes_invalidate_live_generation(self):
+        path=self.root/'profiles/researcher/config.yaml'
+        config=json.loads(path.read_text())
+        before=self.digest()
+        config['skills']={'trusted_project_dirs':['/workspace']}
+        path.write_text(json.dumps(config))
+        self.assertNotEqual(before,self.digest())
+        before=self.digest()
+        config['skills']['project_discovery']=False
+        path.write_text(json.dumps(config))
+        self.assertNotEqual(before,self.digest())
+        before=self.digest()
+        config['skills']['config']={'owner-skill':{'private_key':'never-hash-this'}}
+        path.write_text(json.dumps(config))
+        self.assertEqual(before,self.digest())
     def test_all_boards_and_residual_worker_prevent_restart(self):
         def board(path):
             path.parent.mkdir(parents=True,exist_ok=True)

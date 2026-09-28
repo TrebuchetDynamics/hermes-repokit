@@ -191,6 +191,33 @@ def reconcile_default_kanban(root, run):
             raise RuntimeError('native platform tools did not resolve after enable')
 
 
+def project_skill_settings(home):
+    skills = read_config(home).get('skills')
+    if skills is None: skills = {}
+    if not isinstance(skills, dict):
+        raise RuntimeError('invalid native project skill settings')
+    trusted = skills.get('trusted_project_dirs')
+    if trusted is None: trusted = []
+    if isinstance(trusted, str): trusted = [trusted]
+    if not isinstance(trusted, list) or any(not isinstance(path, str) or not path for path in trusted):
+        raise RuntimeError('invalid native project skill trust')
+    return skills, trusted
+
+
+def reconcile_project_skills(home, name, run):
+    skills, trusted = project_skill_settings(home)
+    # Preserve an explicit owner opt-out and unrelated skills settings. Native
+    # trust adds only this repository; normal scan-time quarantine still applies.
+    if skills.get('project_discovery') is False:
+        return
+    if any(Path(path).expanduser().resolve() == Path('/workspace') for path in trusted):
+        return
+    run('-p', name, 'skills', 'trust', '/workspace')
+    _, trusted = project_skill_settings(home)
+    if not any(Path(path).expanduser().resolve() == Path('/workspace') for path in trusted):
+        raise RuntimeError('native project skill trust did not persist')
+
+
 def configure(home, name, role, run):
     # The native CLI remains responsible for config semantics and metadata.
     for key, value in expected(role).items():
@@ -211,6 +238,7 @@ def configure(home, name, role, run):
     run('profile', 'describe', name, '--text', role['description'])
     (home / 'SOUL.md').write_text(role['soul'])
     (home / 'SOUL.md').chmod(0o600)
+    reconcile_project_skills(home, name, run)
 
 
 def reconcile_coding_profile(home, role, run):
@@ -245,6 +273,7 @@ def provision(root, roles, run, native_default_soul):
             if matches(home, role):
                 if get(read_config(home),'terminal.backend') is None:
                     run('-p',name,'config','set','terminal.backend','local')
+                reconcile_project_skills(home, name, run)
                 continue  # Never erase memories on a rerun.
             soul = home / 'SOUL.md'
             # Only an exact historical contract with matching managed metadata
@@ -254,6 +283,7 @@ def provision(root, roles, run, native_default_soul):
                     run('-p',name,'config','set','terminal.backend','local')
                 soul.write_text(role['soul'])
                 soul.chmod(0o600)
+                reconcile_project_skills(home, name, run)
                 continue
             # Compare every managed field, not merely SOUL, before adoption.
             config = read_config(home)
@@ -268,6 +298,7 @@ def provision(root, roles, run, native_default_soul):
                 run('profile', 'describe', name, '--text', role['description'])
                 soul.write_text(role['soul'])
                 soul.chmod(0o600)
+                reconcile_project_skills(home, name, run)
             else:
                 drift.append(name)
             continue
@@ -303,6 +334,7 @@ def main(payload):
     # Also repair channel selections after a direct native setup, before the
     # separate interactive team-provisioning gate. Never copy credentials here.
     reconcile_default_kanban(root, run)
+    reconcile_project_skills(root, 'default', run)
     config = read_config(root)
     # Native setup can exit zero after printing noninteractive guidance. An
     # explicit saved model is required as well; this is not an auth/inference probe.

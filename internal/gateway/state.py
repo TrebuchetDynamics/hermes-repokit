@@ -51,6 +51,7 @@ def generation(root, roles, repo_id):
             'description':mapping(home/'profile.yaml').get('description'),
             'tools':config.get('toolsets'), 'platforms':config.get('platform_toolsets'),
             'disabled':(config.get('agent') or {}).get('disabled_toolsets'),
+            'project_skills':{k:(config.get('skills') or {}).get(k) for k in ('project_discovery','trusted_project_dirs')},
             'kanban':{k:(config.get('kanban') or {}).get(k) for k in ('dispatch_in_gateway','auto_decompose','max_in_progress','orchestrator_profile','review_dispatch','dispatch_profiles','dispatch_interval_seconds','auto_subscribe_on_create','notify_in_gateway')},
             'memory':{k:memory.get(k) for k in ('provider','memory_enabled','user_profile_enabled')},
             'model':{k:(config.get('model') or {}).get(k) for k in ('default','provider')},

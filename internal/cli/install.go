@@ -49,7 +49,7 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 	}
 	artifacts := map[string]install.Artifact{
 		"compose.yaml":          {Data: data, Mode: 0600},
-		"config.yaml":           {Data: []byte("kanban:\n  dispatch_in_gateway: false\n  auto_decompose: false\n  orchestrator_profile: default\n  max_in_progress: 1\ntoolsets: [kanban, memory]\nplatform_toolsets:\n  cli: [kanban, memory]\nterminal:\n  backend: local\n  cwd: /workspace\n"), Mode: 0600},
+		"config.yaml":           {Data: []byte("kanban:\n  dispatch_in_gateway: false\n  auto_decompose: false\n  orchestrator_profile: default\n  max_in_progress: 1\ntoolsets: [kanban, memory]\nplatform_toolsets:\n  cli: [kanban, memory]\nterminal:\n  backend: local\n  cwd: /workspace\nskills:\n  trusted_project_dirs: [/workspace]\n"), Mode: 0600},
 		"bin/" + id.Container:   {Data: script, Mode: 0700},
 		"openviking/.gitignore": {Data: []byte("*\n"), Mode: 0600},
 	}

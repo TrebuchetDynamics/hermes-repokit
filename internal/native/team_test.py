@@ -109,8 +109,17 @@ class ProvisionTest(unittest.TestCase):
             (home/'profile.yaml').write_text(json.dumps({'description':args[-1]}))
         elif args[0] == '-p':
             home = self.root if args[1]=='default' else self.root/'profiles'/args[1]
-            if self.fail_config: raise RuntimeError('secret failure')
+            if self.fail_config and args[2:4] == ('config','set'): raise RuntimeError('secret failure')
             config = json.loads((home/'config.yaml').read_text())
+            if args[2:4] == ('skills','trust'):
+                self.assertEqual(args[4:],('/workspace',))
+                skills=config.setdefault('skills',{})
+                trusted=skills.get('trusted_project_dirs') or []
+                if isinstance(trusted,str): trusted=[trusted]
+                if '/workspace' not in trusted: trusted.append('/workspace')
+                skills['trusted_project_dirs']=trusted
+                (home/'config.yaml').write_text(json.dumps(config))
+                return
             if args[2:4] == ('tools','enable'):
                 platform=args[-1]
                 enabled=self.resolved_tools(config,platform) | set(args[4:-2])
@@ -130,6 +139,89 @@ class ProvisionTest(unittest.TestCase):
             (home/'profile.yaml').write_text(json.dumps({'description':args[-1]}))
     def apply(self):
         return team.provision(self.root, self.roles, self.native_run, native_default_soul='native default')
+
+    def test_project_skills_trusted_across_new_profiles_without_changing_owner_settings(self):
+        config=team.read_config(self.root)
+        config['skills']={'trusted_project_dirs':['/other'], 'disabled':['owner-skill'],
+                          'external_dirs':['/shared'], 'inline_shell':False}
+        (self.root/'config.yaml').write_text(json.dumps(config))
+        self.assertEqual(self.apply(),[])
+        for role in self.roles:
+            home=self.root if role['name']=='default' else self.root/'profiles'/role['name']
+            self.assertEqual(team.read_config(home)['skills'],{
+                'trusted_project_dirs':['/other','/workspace'], 'disabled':['owner-skill'],
+                'external_dirs':['/shared'], 'inline_shell':False})
+        self.calls.clear()
+        self.assertEqual(self.apply(),[])
+        self.assertFalse(any(c[2:4]==('skills','trust') for c in self.calls))
+
+    def test_existing_managed_profiles_gain_trust_without_losing_memory(self):
+        self.apply()
+        for role in self.roles:
+            home=self.root if role['name']=='default' else self.root/'profiles'/role['name']
+            config=team.read_config(home)
+            config.pop('skills',None)
+            (home/'config.yaml').write_text(json.dumps(config))
+            (home/'memories/MEMORY.md').write_text('retained learning')
+        self.assertEqual(self.apply(),[])
+        for role in self.roles:
+            home=self.root if role['name']=='default' else self.root/'profiles'/role['name']
+            self.assertEqual(team.read_config(home).get('skills',{}).get('trusted_project_dirs'),['/workspace'])
+            self.assertEqual((home/'memories/MEMORY.md').read_text(),'retained learning')
+
+    def test_project_discovery_opt_out_is_preserved(self):
+        config=team.read_config(self.root)
+        config['skills']={'project_discovery':False,'trusted_project_dirs':['/owner']}
+        (self.root/'config.yaml').write_text(json.dumps(config))
+        self.assertEqual(self.apply(),[])
+        for role in self.roles:
+            home=self.root if role['name']=='default' else self.root/'profiles'/role['name']
+            self.assertEqual(team.read_config(home)['skills'],config['skills'])
+        self.assertFalse(any(c[2:4]==('skills','trust') for c in self.calls))
+
+    def test_trust_zero_exit_without_saved_configuration_is_rejected(self):
+        native=self.native_run
+        def ignore_trust(*args):
+            if args[2:4]!=('skills','trust'): native(*args)
+        with self.assertRaisesRegex(RuntimeError,'project skill trust'):
+            team.provision(self.root,self.roles,ignore_trust,'native default')
+
+    def test_equivalent_workspace_trust_does_not_write_again(self):
+        for trusted in (['/workspace/'], '/workspace'):
+            config=team.read_config(self.root)
+            config['skills']={'trusted_project_dirs':trusted}
+            (self.root/'config.yaml').write_text(json.dumps(config))
+            before=(self.root/'config.yaml').read_bytes()
+            team.reconcile_project_skills(self.root,'default',self.native_run)
+            self.assertEqual((self.root/'config.yaml').read_bytes(),before)
+        self.assertEqual(self.calls,[])
+
+    def test_invalid_project_trust_is_preserved_without_native_commands(self):
+        for settings in ([], 'invalid', {'trusted_project_dirs':{}}, {'trusted_project_dirs':[None]}, {'trusted_project_dirs':['']}):
+            with self.subTest(settings=settings):
+                config=team.read_config(self.root)
+                config['skills']=settings
+                (self.root/'config.yaml').write_text(json.dumps(config))
+                before=(self.root/'config.yaml').read_bytes()
+                with self.assertRaises(RuntimeError):
+                    team.reconcile_project_skills(self.root,'default',self.native_run)
+                self.assertEqual((self.root/'config.yaml').read_bytes(),before)
+        self.assertEqual(self.calls,[])
+
+    def test_default_trust_is_reconciled_before_provider_setup(self):
+        config=team.read_config(self.root)
+        config.pop('model')
+        (self.root/'config.yaml').write_text(json.dumps(config))
+        def native(args,**kwargs):
+            self.assertEqual(args[0],'hermes')
+            self.native_run(*args[1:])
+            return types.SimpleNamespace(returncode=0)
+        with patch.dict(team.os.environ,{'HERMES_HOME':str(self.root)}), patch.object(team.subprocess,'run',side_effect=native), contextlib.redirect_stdout(io.StringIO()) as output:
+            team.main({'roles':self.roles,'after_setup':False})
+        self.assertIn('pending-setup',output.getvalue())
+        self.assertEqual(team.read_config(self.root).get('skills',{}).get('trusted_project_dirs'),['/workspace'])
+        self.assertEqual(list((self.root/'profiles').iterdir()),[])
+
     def test_native_clone_replaces_identity_and_preserves_credentials(self):
         self.assertEqual(self.apply(), [])
         self.assertTrue(any(c[-2:] == ('terminal.cwd', '/workspace') for c in self.calls))

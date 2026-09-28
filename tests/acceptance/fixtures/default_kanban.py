@@ -87,7 +87,12 @@ with tempfile.TemporaryDirectory(prefix='repokit-kanban-') as directory:
     configure(worker_home,'executor',role,run)
     worker=yaml.safe_load((worker_home/'config.yaml').read_text())
     for platform in configured_interactive_platforms(worker,catalog):
-        assert kanban_selections(worker)[platform]==role['toolsets'], platform
+        selections=set(kanban_selections(worker)[platform])
+        # The channel's own native preset tools legitimately remain; the worker
+        # must still carry its role tools and no orchestrator breadth, in both the
+        # saved selection and the resolved effective toolsets.
+        assert set(role['toolsets']) <= selections, (platform, selections)
+        assert not {'kanban','terminal','web','browser'} & selections, (platform, selections)
         enabled=_get_platform_tools(worker,platform,include_default_mcp_servers=False)
         assert not {'kanban','terminal','web','browser'} & enabled, (platform,enabled)
     assert worker['toolsets']==role['toolsets']

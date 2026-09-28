@@ -16,6 +16,13 @@ hermes-repokit verify
 ```
 
 The default roster is default/researcher/planner/executor/reviewer/steward.
+Fresh installation trusts `/workspace` for native project-local skills before
+the container starts. Team provisioning carries that trust to all six profiles;
+existing managed profiles gain it during `setup --team`. Hermes still scans
+project skills and honors disabled skills. Existing trusted paths, skill settings
+and an explicit `skills.project_discovery: false` are preserved. Start a fresh
+conversation after reconciliation to refresh the skill index.
+
 `--engineering` is a legacy alias. Plain `setup` explicitly selects default and requires
 a real interactive terminal for private provider setup. If native setup was already
 completed through the launcher, run `hermes-repokit setup --team` to provision
