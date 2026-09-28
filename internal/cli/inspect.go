@@ -2,11 +2,16 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 )
 
 // gitIssues inspects index and effective ignore rules without printing filenames
@@ -29,9 +34,9 @@ func (a App) gitIssues(ctx context.Context, id target.Identity) []string {
 		if visible.Err != nil || visible.Truncated || visible.Output != "" {
 			issues = append(issues, "private .hermes state is not fully ignored by Git")
 		}
-		// Include a future credential path; a current empty directory alone does not
-		// establish that later native setup files are excluded.
-		for _, path := range []string{".hermes/.repokit-ignore-probe", ".hermes/.env"} {
+		// Include future native API-key and OAuth stores; a current empty directory
+		// alone does not establish that later setup files are excluded.
+		for _, path := range []string{".hermes/.repokit-ignore-probe", ".hermes/.env", ".hermes/auth.json"} {
 			ignored := a.Runner.Run(ctx, "git", "-C", id.Root, "check-ignore", "--quiet", "--no-index", "--", path)
 			if ignored.Err != nil || ignored.Truncated {
 				issues = append(issues, "private .hermes ignore protection cannot be verified")
@@ -40,4 +45,40 @@ func (a App) gitIssues(ctx context.Context, id target.Identity) []string {
 		}
 	}
 	return issues
+}
+
+// nativeRuntimeReady checks the exact runtime before any native mutation or
+// private wizard. Missing/stopped metadata is pending; a foreign runtime refuses.
+func (a App) nativeRuntimeReady(id target.Identity, dockerContext string) (bool, error) {
+	const format = `{"status":{{json .State.Status}},"image":{{json .Config.Image}},"imageID":{{json .Image}},"mounts":{{json .Mounts}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"workspace":{{range .Mounts}}{{if eq .Destination "/workspace"}}{{json .Source}}{{end}}{{end}},"home":{{range .Mounts}}{{if eq .Destination "/opt/data"}}{{json .Source}}{{end}}{{end}},"unexpectedMounts":"{{range .Mounts}}{{if or (ne .Type "bind") (and (ne .Destination "/workspace") (ne .Destination "/opt/data"))}}x{{end}}{{end}}"}`
+	observed := a.Runner.Run(context.Background(), "docker", "--context", dockerContext, "container", "inspect", "--format", format, id.Container)
+	var runtime struct {
+		verify.Runtime
+		Image, ImageID, Service, UnexpectedMounts string
+		Mounts                                    []verify.RuntimeMount
+	}
+	if observed.Err != nil || observed.Truncated || json.Unmarshal([]byte(observed.Output), &runtime) != nil || runtime.Status != "running" {
+		return false, nil
+	}
+	if _, selected := compose.DevelopmentSelected(id); selected && runtime.Image == qualification.FoundationImage && runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && runtime.UnexpectedMounts == "" {
+		return false, nil
+	}
+	if selected, ok := compose.DevelopmentSelected(id); ok && selected.DockerTests && runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") {
+		base := map[string]string{"/workspace": id.Root, "/opt/data": filepath.Join(id.Root, ".hermes")}
+		valid := len(runtime.Mounts) == len(base)
+		for _, m := range runtime.Mounts {
+			want, ok := base[m.Destination]
+			if !ok || m.Type != "bind" || !m.RW || m.Source != want {
+				valid = false
+			}
+			delete(base, m.Destination)
+		}
+		if valid && len(base) == 0 && verify.HermesImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) {
+			return false, nil
+		}
+	}
+	if !verify.HermesImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) || runtime.Service != "hermes" || !verify.RuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) || runtime.Project != id.Project || runtime.Workspace != id.Root || runtime.Home != filepath.Join(id.Root, ".hermes") {
+		return false, fmt.Errorf("running container image or identity does not match the qualified deployment")
+	}
+	return true, nil
 }

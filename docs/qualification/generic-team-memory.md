@@ -119,7 +119,7 @@ executed assertions above use the pinned images. Relevant source references:
 
 ## Production wiring follow-up
 
-Normal install now generates the pinned sidecar and private persistent directory;
+Normal install now embeds the pinned runtime inside Hermes with a private persistent directory;
 `setup --memory` delegates native server/connection setup and links the shared
 native connection across the roster. See [wiring evidence](openviking-wiring.md).
 The original resolver probes above remain configuration evidence; live memory

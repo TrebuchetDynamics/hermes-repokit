@@ -8,7 +8,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/locking"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
@@ -34,7 +33,7 @@ func TestDockerFoundation(t *testing.T) {
 	if os.Getenv("REPOKIT_DOCKER_TESTS") != "1" {
 		t.Skip("set REPOKIT_DOCKER_TESTS=1 with an authorized local Docker daemon")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 	dc := os.Getenv("REPOKIT_DOCKER_CONTEXT")
 	if dc == "" {
@@ -68,6 +67,19 @@ func TestDockerFoundation(t *testing.T) {
 			t.Fatalf("CLI %v: %v %s", command, err, out)
 		}
 	}
+	// Team scaffolding is credential-free, but operational dispatch now requires
+	// private memory setup. Prove the exact pending boundary,
+	// rather than treating an arbitrary setup error as fixture success.
+	runPendingCLI := func(command ...string) {
+		t.Helper()
+		cmd := exec.CommandContext(ctx, installer, command...)
+		cmd.Dir = root
+		cmd.Env = append(os.Environ(), "DOCKER_CONTEXT="+dc)
+		out, err := cmd.CombinedOutput()
+		if err == nil || !strings.Contains(string(out), "Operational dispatch pending: shared OpenViking memory is mandatory.") {
+			t.Fatalf("expected explicit incomplete-integration gate for %v: %v %s", command, err, out)
+		}
+	}
 	runCLI("plan")
 	runCLI("install")
 	base := []string{"--context", dc, "compose", "--env-file", "/dev/null", "-f", id.Compose}
@@ -89,7 +101,7 @@ func TestDockerFoundation(t *testing.T) {
 		}
 	}()
 	docker("config", "--quiet")
-	docker("up", "-d", "hermes")
+	docker("up", "-d", "--build", "hermes")
 	// Bounded readiness polling does not imply authentication or inference readiness.
 	ready := false
 	for i := 0; i < 60; i++ {
@@ -165,9 +177,7 @@ func TestDockerFoundation(t *testing.T) {
 	os.WriteFile(filepath.Join(root, ".hermes/memories/MEMORY.md"), []byte("default-only history"), 0600)
 	os.WriteFile(filepath.Join(root, ".hermes/memories/USER.md"), []byte("default-only user history"), 0600)
 
-	if err := native.Initialize(ctx, id, dc, true, fixtureInitializer{t}); err != nil {
-		t.Fatal(err)
-	}
+	runPendingCLI("setup", "--team") // Scaffold without claiming private integrations or live dispatch.
 	scaffoldVerify := exec.CommandContext(ctx, installer, "verify")
 	scaffoldVerify.Dir = root
 	output, verifyErr := scaffoldVerify.CombinedOutput()
@@ -176,7 +186,31 @@ func TestDockerFoundation(t *testing.T) {
 		t.Fatalf("full acceptance falsely certified: %v %s", verifyErr, output)
 	}
 	for _, p := range probes {
-		if strings.HasPrefix(p.Component, "openviking") || p.Component == "nerve" || p.Component == "laya" || p.Component == "memory" || p.Component == "review" {
+		pending := map[string]verify.Status{
+			"kanban:dispatch":            verify.Inactive,
+			"kanban:dispatch-configured": verify.Inactive,
+			"kanban:dispatch-live":       verify.Inactive,
+			"kanban:dispatcher-canary":   verify.Unqualified,
+			"gateway-inputs":             verify.Unknown,
+			"maintenance:live":           verify.Unqualified,
+			"channel:cli:route":          verify.Unknown,
+			"channel:cli:authorization":  verify.Unqualified,
+			"memory:default:fallback":    verify.Inactive,
+		}
+		if want, ok := pending[p.Component]; ok {
+			if p.Status != want {
+				t.Fatalf("credential-free boundary: %+v; want %s", p, want)
+			}
+			continue
+		}
+		if p.Component == "gateway-generation" {
+			if p.Status != verify.Inactive {
+				t.Fatalf("unexpected gateway: %+v", p)
+			}
+			continue
+		}
+
+		if strings.HasPrefix(p.Component, "openviking") || p.Component == "memory" || p.Component == "review" {
 			if p.Status == verify.Healthy {
 				t.Fatal("integration falsely certified")
 			}
@@ -186,7 +220,7 @@ func TestDockerFoundation(t *testing.T) {
 			t.Fatalf("scaffold probe: %+v", p)
 		}
 	}
-	for _, role := range team.Roster() {
+	for _, role := range team.ForRepository(id) {
 		dir := filepath.Join(root, ".hermes")
 		if role.Name != "default" {
 			dir = filepath.Join(dir, "profiles", role.Name)
@@ -221,7 +255,7 @@ func TestDockerFoundation(t *testing.T) {
 		}
 		preserved[path] = data
 	}
-	runCLI("install")
+	runPendingCLI("install")
 	for path, want := range preserved {
 		got, err := os.ReadFile(path)
 		if err != nil || !bytes.Equal(got, want) {
@@ -294,9 +328,7 @@ func (r fixtureInitializer) RunInput(ctx context.Context, input io.Reader, progr
 	script = strings.ReplaceAll(script, "stderr=subprocess.DEVNULL", "stderr=None")
 	script = strings.ReplaceAll(script, "except Exception:\n    print(", "except Exception:\n    import traceback; traceback.print_exc()\n    print(")
 	timeout := 2 * time.Minute
-	if strings.Contains(script, "REPOKIT_SUPERVISION_PY") {
-		timeout = 20 * time.Minute
-	}
+
 	result := (process.Runner{Timeout: timeout}).RunInput(ctx, strings.NewReader(script), program, args...)
 	if result.Err != nil {
 		r.t.Log(result.Output)

@@ -96,9 +96,23 @@ func TestInitializeUsesContainerLockAndSanitizesFailure(t *testing.T) {
 	if !strings.Contains(args, "--context local compose --env-file /dev/null -f ") || !strings.Contains(args, "exec -T --user hermes --env HOME=/opt/data --workdir /workspace hermes /usr/bin/flock -n /workspace/.hermes-repokit.lock /bin/sh -s -- /workspace /opt/data") || r.data == "" {
 		t.Fatalf("unsafe invocation: %v", r.args)
 	}
-	r.result = process.Result{}
+	r.result = process.Result{Output: `REPOKIT_TEAM={"status":"configured","drift":[]}`}
 	if err := Initialize(context.Background(), id, "local", false, r); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestInitializeRequiresExplicitTeamResult(t *testing.T) {
+	root := t.TempDir()
+	os.Chmod(root, 0700)
+	os.Mkdir(filepath.Join(root, ".hermes"), 0700)
+	os.WriteFile(filepath.Join(root, ".hermes-repokit.lock"), nil, 0600)
+	id, _ := target.Resolve(root)
+	for _, output := range []string{"", `REPOKIT_TEAM={"status":"unexpected"}`, `REPOKIT_TEAM={"status":"pending-setup","drift":[]}`} {
+		r := &bootstrapInput{result: process.Result{Output: output}}
+		if err := Initialize(context.Background(), id, "local", true, r); err == nil {
+			t.Fatalf("incomplete native result accepted: %q", output)
+		}
 	}
 }
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Hermes RepoKit"
+  short_description: "Install and use RepoKit in repositories"
+  default_prompt: "Use $skill-hermes-repokit to install or resume Hermes RepoKit in this repository and verify native launcher usage."

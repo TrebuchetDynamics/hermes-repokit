@@ -9,9 +9,9 @@ import (
 	"os"
 )
 
-// addSidecar executes under the publication lock, with an exact public
+// upgradeCompose executes under the publication lock, with an exact public
 // Compose preimage. It never opens or rewrites native configuration/credentials.
-func addSidecar(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInfo, previous []byte, files map[string]Artifact, prepareMemory bool, customBackupName string) (bool, error) {
+func upgradeCompose(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInfo, previous []byte, files map[string]Artifact, prepareMemory bool, customBackupName string) (bool, error) {
 	state, err := root.OpenRoot(".hermes")
 	if err != nil {
 		return false, err
@@ -25,14 +25,14 @@ func addSidecar(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInf
 	if err != nil {
 		return false, err
 	}
-	backupName := "compose.before-laya.yaml"
+	backupName := "compose.before-memory.yaml"
 	if prepareMemory {
 		backupName = "compose.hermes-only.yaml"
 	}
 	if customBackupName != "" {
 		backupName = customBackupName
 	}
-	if err := validateLayaPreparation(state, files, previous, backupName); err != nil {
+	if err := prepareDevelopmentArtifacts(state, files, previous, backupName, false); err != nil {
 		return false, err
 	}
 	if prepareMemory {
@@ -71,7 +71,7 @@ func addSidecar(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInf
 	} else if err := createOrMatch(state, backupName, previous); err != nil {
 		return false, err
 	}
-	if err := prepareLayaArtifacts(state, files, previous, backupName); err != nil {
+	if err := prepareDevelopmentArtifacts(state, files, previous, backupName, true); err != nil {
 		return false, err
 	}
 	temp := ".compose-stage-" + rand.Text()

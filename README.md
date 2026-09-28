@@ -1,131 +1,170 @@
-# Hermes RepoKit
+<p align="center">
+  <img src="./assets/readme/hero.svg" width="100%" alt="Hermes RepoKit — bootstrap one repository-specific Docker Hermes container with six native profiles: default, researcher, planner, executor, reviewer and steward.">
+</p>
 
-Bootstrap a repository-specific Docker Hermes environment.
+<p align="center">
+  <img src="https://img.shields.io/badge/Go-1.26-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go 1.26">
+  <img src="https://img.shields.io/badge/runtime-Docker%20Compose-2496ED?style=flat-square&amp;logo=docker&amp;logoColor=white" alt="Docker Compose runtime">
+  <img src="https://img.shields.io/badge/profiles-6-F0B24A?style=flat-square" alt="Six native profiles">
+  <img src="https://img.shields.io/badge/status-pre--v1-D08A2E?style=flat-square" alt="Status: pre-v1">
+</p>
 
-RepoKit generates ordinary Docker Compose, private `.hermes` state and a
-standalone `hermes-<repo>` launcher. After bootstrap, RepoKit is not required.
+**Hermes RepoKit** turns a repository into a self-contained Hermes development
+environment: one Docker container, six coordinated native profiles, a shared
+Kanban board and embedded OpenViking memory. It generates ordinary Docker Compose,
+private `.hermes` state and a standalone `hermes-<repo>` launcher — then steps out
+of the way. The installed runtime does not need RepoKit.
 
-**The six-role team, shared-memory setup and local Nerve/Laya wiring are
-implemented; full integration acceptance and v1 are not complete.** RepoKit
-scaffolds a small repository organization, not a collection of technology-specific
-bots.
+> **Status · pre-v1.** The six-role team, shared memory and gateway activation are
+> implemented and tested offline. Full integration acceptance is not complete:
+> live model work, memory recall and independent same-card review remain
+> unqualified. See [Evidence and remaining gates](#evidence-and-remaining-gates).
 
-| Profile | Purpose |
-| --- | --- |
-| default | Primary user-facing assistant and orchestrator |
-| researcher | Evidence and unknowns |
-| planner | Bounded execution contracts |
-| executor | Artifact production |
-| reviewer | Independent verification |
-| steward | Team/profile lifecycle |
+## Quickstart
 
-Talk to `default` normally. It answers lightweight questions directly and routes
-substantive work. Steward prefers task skills before creating persistent
-specialists; retirement preserves history, and deletion needs explicit approval.
-See the [team model and boundaries](docs/team-model.md).
+End-user binaries need Docker Compose, Git and a POSIX shell — no host Go, Python,
+Node or Hermes. Run from the repository you want a team for.
 
 ```sh
 cd my-project
-hermes-repokit plan
-hermes-repokit install
-# Run the printed Compose build/start command for all three services.
-hermes-repokit setup            # private default, team, memory, local supervision
-hermes-repokit verify
-.hermes/bin/hermes-my-project   # primary default profile
+hermes-repokit plan      # inspect the target; writes nothing
+hermes-repokit install   # publish Compose, launcher and private state
+# Run the printed Compose build/start command.
+hermes-repokit setup     # private provider, team, memory and activation
+hermes-repokit verify    # read-only health and gate report
+.hermes/bin/hermes-my-project
 ```
 
-Rerun `install` to initialize the shared board and inspect/reconcile an already
-provisioned team. `--engineering` remains a compatibility alias; the universal
-roster is now the default. Newly cloned profiles receive distinct SOULs and fresh
-curated memory. Existing user changes and unknown profiles are preserved.
-Normal installation includes the pinned official OpenViking image and the
-pinned local Laya build recipe. Plain `setup` runs native default setup, provisions
-the team, configures shared OpenViking memory through private native wizards,
-then installs/configures/enables upstream Nerve for all six profiles and checks
-real `LOCAL_ONLY` decisions. Resume either integration with `setup --memory` or
-`setup --supervision`. Live memory recall and model-driven task acceptance remain
-pending. See the [native handoff](docs/bootstrap-quickstart.md) and
-[Laya packaging guide](packaging/laya/README.md).
-No PATH link or shell configuration change is automatic.
+<p align="center">
+  <img src="./assets/readme/lifecycle.svg" width="100%" alt="The five-stage RepoKit lifecycle: plan and verify are read-only, install publishes the deployment, setup runs interactive private configuration, and the generated launcher is standalone.">
+</p>
 
-Without a PATH link, the standalone command is
-`.hermes/bin/hermes-my-project`. It opens native Hermes chat as `default` with no arguments
-and forwards explicit arguments unchanged:
+`install` prints the exact Compose build/start command for your Docker context.
+`setup` runs in your private terminal and never captures credentials; `--team`
+resumes reconciliation without repeating provider login, and `--memory` resumes
+memory setup. Existing owner edits, profiles and memories are preserved, and no
+PATH link or shell change is automatic. See the [setup and recovery guide](docs/bootstrap-quickstart.md).
+
+## Usage
+
+Talk to `default`; it answers lightweight work directly and delegates substantive
+changes across the team. The standalone launcher opens native chat as `default`
+with no arguments and forwards explicit native arguments unchanged:
 
 ```sh
-.hermes/bin/hermes-my-project setup
+.hermes/bin/hermes-my-project                 # native chat as default
+.hermes/bin/hermes-my-project profile list
 .hermes/bin/hermes-my-project kanban list
 .hermes/bin/hermes-my-project plugins list
 ```
 
-## What RepoKit leaves behind
+Resume an interrupted setup with `setup --team` or `setup --memory`. After
+bootstrap, ordinary Docker Compose owns the runtime; use the Docker context
+captured in the launcher and the commands in the
+[setup and recovery guide](docs/bootstrap-quickstart.md#ordinary-runtime-management).
 
-```text
-my-project/
-└── .hermes/
-    ├── compose.yaml
-    ├── bin/hermes-my-project
-    ├── config.yaml
-    ├── openviking/             # native service configuration and durable data
-    ├── laya-image/             # standalone pinned image build inputs
-    ├── laya/                   # persistent writable model-runtime caches
-    └── .gitignore              # ignores all native state, including credentials
-```
+## The team
 
-Native setup creates authentication, sessions and other standard Hermes state.
-Exactly one Hermes container mounts the repository at `/workspace` and native
-state at `/opt/data`. Standard Compose owns the runtime. Native files remain
-authoritative; receipts are not needed. Reruns preserve matching artifacts and
-native configuration, and refuse ambiguous ownership or generated-file changes.
-Dispatch and automatic decomposition start disabled, with one in-progress task.
-New specialists are cloned only after default setup. Native lifecycle owns profile
-publication; interrupted profiles are preserved for inspection. See the
-[generic-team qualification](docs/qualification/generic-team.md).
+Talk to `default`. It handles lightweight work directly and delegates substantive
+changes across the permanent roster.
 
-## First milestone
-
-The four commands have offline tests. A real Docker test installed through the
-CLI, verified the container, safely reran installation, removed the copied
-RepoKit source and binary, then used native commands and raw Compose restart
-with persistent Kanban state. This establishes credential-free foundation
-independence, not authenticated chat or full v1 integration qualification.
-
-See [runtime evidence](docs/qualification/runtime-observations.md) and the
-[implementation](internal/cli/install.go). `verify` checks core artifact and
-runtime metadata, role SOULs, native integration configuration and bounded health
-responses. Memory `active` means all six bindings authenticate as the repository
-user through read-only `/health`; it does not prove recall or extraction. Nerve
-configuration and Laya health are reported separately without loading plugins or
-running inference. `review` remains `unqualified`, so `verify` still exits nonzero.
-An edited Compose/launcher is preserved but reported unknown. See the
-[current evidence and limits](docs/qualification/runtime-integrations.md).
-
-## Later integration qualification
-
-| Component | Direction and evidence |
+| Profile | Responsibility |
 | --- | --- |
-| Hermes | Official immutable image tested for Compose startup, native exec, profiles, Kanban initialization and restart persistence. Authenticated chat/setup remain pending. |
-| Superpowers | Upstream `obra/superpowers`; exact candidate SHA received 229 CAUTION findings. Installation is blocked pending explicit approval of the [scanner report](docs/qualification/superpowers-8ca22dba-scan.txt). |
-| Nerve/Laya | Upstream plugin and its supported sidecar only. Default pinned CPU build, six native plugin installs/hooks and `LOCAL_ONLY` decisions passed. Offline outage, installer removal and coordinated Compose recreation passed in a disposable stack; main-model supervised work remains unqualified. See [evidence](docs/qualification/runtime-integrations.md). |
-| OpenViking | Pinned official sidecar, private persistent directory, native init/doctor/validation/restart/health/wizard setup and six-profile connection linking. Pending-mode/recreation and native linking fixtures passed; private model configuration, live write/recall and isolation remain pending. See [wiring evidence](docs/qualification/openviking-wiring.md). |
-| Same-card review | Native Hermes plus Nerve first. Distinct executor/reviewer actors must be proved before release; no speculative policy plugin. |
+| `default` | User-facing assistant, coordinator and decision owner |
+| `researcher` | Resolve unknowns and gather evidence |
+| `planner` | Define a bounded execution contract |
+| `executor` | Produce the requested artifact or change |
+| `reviewer` | Independently verify against the contract |
+| `steward` | Maintain profile identities and the team lifecycle |
 
-OpenViking is scaffolded without guessed models or credentials. Start all services
-with the printed Compose command, then run `hermes-repokit setup` in your private
-terminal. Use `setup --memory` to resume memory setup after the team exists. Follow the
-[native setup handoff](docs/bootstrap-quickstart.md#openviking-configuration).
-Its native integration can synchronize turns/tool results and extract memory
-automatically. Embedding/VLM configuration determines where model data
-is processed. RepoKit delegates credentials to native setup and does not impose
-invented durable-only memory semantics.
+Steward prefers a task-scoped skill before creating a persistent specialist.
+Retirement preserves history; deletion needs explicit approval. See the
+[team model and boundaries](docs/team-model.md).
+
+## What it leaves behind
+
+<p align="center">
+  <img src="./assets/readme/deployment.svg" width="100%" alt="RepoKit writes a private .hermes directory and one Compose-owned Hermes container running an s6 supervisor, a default gateway, six profiles, a shared Kanban board and embedded memory on loopback at 127.0.0.1:1933.">
+</p>
+
+RepoKit writes a private `my-project/.hermes/` directory and one Compose-owned
+Hermes container. It is only a bootstrapper: after install, ordinary Docker
+Compose and the native launcher own the deployment.
+
+The directory holds `compose.yaml`, the standalone `bin/hermes-my-project`
+launcher, `config.yaml`, the pinned `development-image/`, private `openviking/`
+memory data and a `.gitignore` that ignores all native state.
+
+The container mounts the repository at `/workspace`, native state at `/opt/data`
+and memory data at `/app/.openviking`. Official OpenViking runs inside Hermes
+under the native s6 supervisor on loopback, with no published host port; provider
+credentials stay in native private setup. OpenViking can synchronize turns and
+tool results and extract memory automatically — the owner's embedding and
+extraction model choices decide where that data is processed.
+
+The generated development image carries pinned tools and adds Go when the root
+`go.mod` requires it. Optional `install --docker-tests` adds an isolated,
+privileged test daemon behind an opt-in Compose profile, without mounting the host
+Docker socket. See [development runtime qualification](docs/qualification/development-runtime.md).
+
+## Existing deployments
+
+Older generated Laya stacks are not automatic upgrade candidates: current install
+fails closed and preserves their state. Migrating to the core deployment requires
+an owner-coordinated backup and teardown with the original tools, followed by a
+fresh installation. Do not hand-patch generated Compose or private state, and note
+that owner-installed plugins and private data are not removed automatically. This
+source change has not altered any live deployment. See
+[migration limits](docs/bootstrap-quickstart.md#legacy-deployment-migration).
+
+## How it runs
+
+Fresh installs keep automatic dispatch off. Successful setup requires native
+profile, provider and tool readiness plus authenticated shared memory before it
+enables one `default` gateway dispatcher with automatic review, concurrency one
+and no automatic decomposition. Operational readiness also requires a real
+no-write researcher canary. Live Telegram delivery and independent same-card
+review remain pending.
+
+## Evidence and remaining gates
+
+`verify` observes artifacts, native configuration, runtime metadata and bounded
+health responses; it does not run models, dispatch tasks or write memory. Memory
+`active` means the six bindings authenticate as the repository user — it does not
+prove extraction or recall. Same-card review is `unqualified`, so a healthy
+scaffold can still produce a nonzero exit status.
+
+Credential-free foundation fixtures previously demonstrated native profiles,
+Kanban persistence and launcher/Compose operation after removing a copied
+installer. Those observations do not qualify the current embedded-memory image or
+real model-driven work. See [historical runtime observations](docs/qualification/runtime-observations.md)
+and [current implementation status](docs/implementation-progress.md).
+
+| Area | Remaining evidence |
+| --- | --- |
+| Embedded memory | Live write/recall, restart persistence and cross-repository denial |
+| Team work | Real executor/reviewer correction cycle and originating-channel delivery |
+| Runtime independence | Full integrated removal-first acceptance with real work and memory |
+| Optional plugins | Native scanner admission and owner-selected configuration |
+
+The recorded Superpowers candidate was refused with 229 CAUTION findings; its
+[scanner report](docs/qualification/superpowers-8ca22dba-scan.txt) remains an
+explicit admission gate for that candidate. Optional plugins are owner-managed.
+
+## Agent skill
+
+[skill-hermes-repokit](skills/skill-hermes-repokit/SKILL.md) teaches an agent to
+install, resume, verify and use RepoKit in a target repository. Copy the folder
+into your agent's skills directory — `~/.agents/skills/` for Codex, Pi and
+OpenCode, or `~/.claude/skills/` for Claude Code — preserving any existing skill of
+the same name. The folder follows the portable [Agent Skills](https://agentskills.io/)
+layout, and installing it does not start a deployment.
 
 ## Development
 
-Go module: `github.com/TrebuchetDynamics/hermes-repokit`; Go 1.26 or newer.
-No third-party Go modules are currently needed. Supported build targets are
-Linux amd64 and arm64; the pinned local Laya CPU recipe is currently qualified
-on Linux amd64. End-user binaries will require Docker Compose, Git and
-a POSIX shell, without host Go, Python, Node, Pi or Hermes.
+Go module: `github.com/TrebuchetDynamics/hermes-repokit`; Go 1.26 or newer. Host
+builds target Linux amd64 and arm64; the generated development image targets Linux
+amd64. End-user binaries need Docker Compose, Git and a POSIX shell.
 
 ```sh
 go test ./...
@@ -134,23 +173,16 @@ go vet ./...
 gofmt -l cmd internal tests
 ```
 
-Ordinary tests are offline. The following explicitly opts into creating and
-removing a disposable Docker project using the pinned official Hermes image:
+Ordinary tests are offline. Docker acceptance creates and removes disposable
+projects only with explicit opt-in:
 
 ```sh
 REPOKIT_DOCKER_TESTS=1 go test -tags=docker ./tests/acceptance -run TestDockerFoundation -v
 REPOKIT_DOCKER_TESTS=1 go test -tags=docker ./tests/acceptance -run TestDockerOpenVikingPending -v
 ```
 
-Those fixtures prove credential-free foundation and pending memory-service
-behavior. The separately gated `TestDockerSupervisionStack` performs real local
-inference; its invocation and boundaries are in the
-[runtime qualification record](docs/qualification/runtime-integrations.md).
-None establishes live main-model work, memory recall, independent review or the
-full integrated removal-first gate.
-
-See the [quickstart and native handoff](docs/bootstrap-quickstart.md),
+The full offline and race suites, including the Unix-socket fixtures, pass.
+Live Docker and model acceptance remain unqualified. See the
 [design](docs/superpowers/specs/2026-09-27-repokit-bootstrap-design.md),
-[implementation plan](docs/superpowers/plans/2026-09-27-repokit-bootstrap.md),
-[runtime evidence](docs/qualification/runtime-observations.md), and
-[implementation progress](docs/implementation-progress.md).
+[plan](docs/superpowers/plans/2026-09-27-repokit-bootstrap.md), and
+[remaining work](TODO.md).

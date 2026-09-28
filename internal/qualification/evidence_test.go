@@ -79,7 +79,7 @@ func TestIncompleteOrContradictoryEvidenceIsUnknown(t *testing.T) {
 }
 
 func TestAllRequiredUpstreamSurfacesRequireVersionBoundRuntimeEvidence(t *testing.T) {
-	for _, operation := range []Operation{"image", "profile-descriptions", "toolsets", "openviking", "nerve", "laya", "same-card-review"} {
+	for _, operation := range []Operation{"image", "profile-descriptions", "toolsets", "openviking", "same-card-review"} {
 		t.Run(string(operation), func(t *testing.T) {
 			revision := strings.Repeat("a", 40)
 			e := Evidence{Operation: operation, SelectedRevision: revision, Verdict: Supported, SourceReference: "docs/qualification/source.md", RuntimeReference: "docs/qualification/runtime.md"}

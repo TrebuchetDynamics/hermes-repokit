@@ -3,6 +3,9 @@ package compose
 
 import (
 	"fmt"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/dockertest"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"regexp"
@@ -10,10 +13,10 @@ import (
 )
 
 type Options struct {
-	HermesImage, OpenVikingImage, LayaImage string
-	UID, GID                                int
-	// LayaBuild selects the embedded local recipe instead of a content image ID.
-	LayaBuild bool
+	HermesImage, OpenVikingImage string
+	UID, GID                     int
+	Development                  *development.Requirements
+	DockerTests                  bool
 }
 
 var identity = regexp.MustCompile(`^[a-z0-9][a-z0-9-]+$`)
@@ -25,19 +28,27 @@ func Render(id target.Identity, o Options) ([]byte, error) {
 	if o.OpenVikingImage != "" && !qualification.ImmutableImage(o.OpenVikingImage) {
 		return nil, fmt.Errorf("OpenViking requires immutable image digest")
 	}
-	if o.LayaBuild && o.LayaImage != "" {
-		return nil, fmt.Errorf("choose the local Laya build or a content image ID")
+	if o.DockerTests && o.Development == nil {
+		return nil, fmt.Errorf("Docker acceptance requires the generated development runtime")
 	}
-	if o.LayaImage != "" && !LocalImageID(o.LayaImage) {
-		return nil, fmt.Errorf("Laya requires a qualified local content image ID")
+	if o.Development != nil && o.HermesImage != qualification.FoundationImage {
+		return nil, fmt.Errorf("development runtime requires the qualified Hermes base")
+	}
+	if o.Development != nil && o.OpenVikingImage != "" && o.OpenVikingImage != projectmemory.Image {
+		return nil, fmt.Errorf("embedded OpenViking requires the qualified image")
 	}
 	var s strings.Builder
 	fmt.Fprintf(&s, `# Native state is authoritative. Ordinary Docker Compose owns this deployment.
 name: %q
 services:
   hermes:
-    image: %q
-    container_name: %q
+`, id.Project)
+	if o.Development != nil {
+		fmt.Fprintf(&s, "    image: %q\n    build:\n      context: ./development-image\n    platform: linux/amd64\n    pull_policy: build\n", development.ImageName(id.Project, *o.Development))
+	} else {
+		fmt.Fprintf(&s, "    image: %q\n", o.HermesImage)
+	}
+	fmt.Fprintf(&s, `    container_name: %q
     restart: unless-stopped
     working_dir: /workspace
     # Keep the native exec endpoint available before interactive provider setup.
@@ -47,7 +58,11 @@ services:
       HERMES_WRITE_SAFE_ROOT: /opt/data:/workspace
       HERMES_UID: %q
       HERMES_GID: %q
-    volumes:
+`, id.Container, fmt.Sprint(o.UID), fmt.Sprint(o.GID))
+	if o.Development != nil && o.OpenVikingImage != "" {
+		s.WriteString("      REPOKIT_OPENVIKING: \"1\"\n")
+	}
+	s.WriteString(`    volumes:
       - type: bind
         source: ".."
         target: /workspace
@@ -58,8 +73,13 @@ services:
         target: /opt/data
         bind:
           create_host_path: false
-`, id.Project, o.HermesImage, id.Container, fmt.Sprint(o.UID), fmt.Sprint(o.GID))
-	if o.OpenVikingImage != "" {
+`)
+	if o.DockerTests {
+		s.WriteString(dockertest.Mounts())
+	}
+	// Retained solely to recognize historical generated deployments for upgrade.
+	// Normal installation always selects the derived development runtime above.
+	if o.Development == nil && o.OpenVikingImage != "" {
 		fmt.Fprintf(&s, `  openviking:
     image: %q
     user: %q
@@ -82,38 +102,13 @@ services:
           create_host_path: false
 `, o.OpenVikingImage, fmt.Sprintf("%d:%d", o.UID, o.GID))
 	}
-	if o.LayaImage != "" || o.LayaBuild {
-		s.WriteString("  laya:\n")
-		if o.LayaImage != "" {
-			fmt.Fprintf(&s, "    image: %q\n    pull_policy: never\n", o.LayaImage)
-		} else {
-			s.WriteString("    build:\n      context: ./laya-image\n    platform: linux/amd64\n")
+	if o.DockerTests {
+		extra, err := dockertest.EmitServices(o.UID, o.GID)
+		if err != nil {
+			return nil, err
 		}
-		fmt.Fprintf(&s, `    network_mode: service:hermes
-    depends_on:
-      hermes:
-        condition: service_started
-        restart: true
-    restart: unless-stopped
-    user: %q
-    read_only: true
-    tmpfs:
-      - /tmp:rw,nosuid,nodev,size=256m
-    cpus: 4
-    mem_limit: 6g
-`, fmt.Sprintf("%d:%d", o.UID, o.GID))
-		if o.LayaBuild {
-			s.WriteString(`    environment:
-      HF_HOME: /cache/huggingface
-      TORCHINDUCTOR_CACHE_DIR: /cache/torchinductor
-    volumes:
-      - type: bind
-        source: "./laya"
-        target: /cache
-        bind:
-          create_host_path: false
-`)
-		}
+		s.WriteString(extra)
+		s.WriteString(dockertest.Resources())
 	}
 	return []byte(s.String()), nil
 }

@@ -28,7 +28,7 @@ type InputRunner interface {
 // held INSIDE that container, so killing the Docker client cannot release it
 // while a daemon-owned native subprocess is still writing state.
 func Initialize(ctx context.Context, id target.Identity, dockerContext string, afterSetup bool, r InputRunner) error {
-	result, err := runBootstrap(ctx, id, dockerContext, afterSetup, initializationScript(afterSetup), r)
+	result, err := runBootstrap(ctx, id, dockerContext, afterSetup, initializationScript(id, afterSetup), r)
 	if err != nil {
 		return err
 	}

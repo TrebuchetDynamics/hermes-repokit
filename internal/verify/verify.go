@@ -89,13 +89,17 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 	}
 	// Compare only bounded public generated Compose, never credentials or receipt.
 	if artifact.Status == Unknown {
+		if o, ok := compose.DevelopmentSelected(id); ok {
+			artifact = Probe{"compose", Healthy, "generated development Compose matches this repository"}
+			if !compose.DevelopmentRecipeMatches(id, *o.Development) {
+				artifact = Probe{"compose", Degraded, "development build recipe differs; owner state preserved"}
+			}
+		}
+	}
+	if artifact.Status == Unknown {
 		expected, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()})
 		if err == nil && matchesCompose(id, expected) {
 			artifact = Probe{"compose", Healthy, "generated Hermes-only Compose matches this repository"}
-		} else if compose.SelectedLaya(id) != "" {
-			artifact = Probe{"compose", Healthy, "generated Compose with selected immutable Laya image matches"}
-		} else if compose.DefaultLayaSelected(id) {
-			artifact = Probe{"compose", Healthy, "generated Hermes/OpenViking/Laya build Compose matches this repository"}
 		} else if expected, err = compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, UID: os.Getuid(), GID: os.Getgid()}); err == nil && matchesCompose(id, expected) {
 			artifact = Probe{"compose", Healthy, "generated Hermes/OpenViking Compose matches this repository"}
 		}
@@ -108,6 +112,11 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 		}
 	} else if !os.IsNotExist(err) {
 		board = Probe{"kanban", Unknown, "native board metadata unavailable"}
+	}
+	if _, selected := compose.DevelopmentSelected(id); selected && runtime.Status == Healthy {
+		if _, _, err := integrationRuntime(ctx, id, r); err != nil {
+			runtime = Probe{"hermes", Degraded, "running container does not match selected development image or expected writable mounts; recreation may be pending"}
+		}
 	}
 	probes := []Probe{artifact, runtime, config, launch, board}
 	if issues := target.Inspect(id, ""); len(issues) > 0 {
@@ -144,7 +153,7 @@ func Profiles(id target.Identity) []Probe {
 		return []Probe{{"team", PendingSetup, "native home unavailable"}}
 	}
 	defer root.Close()
-	for _, role := range team.Roster() {
+	for _, role := range team.ForRepository(id) {
 		dir := "."
 		if role.Name != "default" {
 			dir = filepath.Join("profiles", role.Name)
@@ -166,7 +175,10 @@ func Profiles(id target.Identity) []Probe {
 			} else {
 				soul, e := io.ReadAll(io.LimitReader(f, 65537))
 				f.Close()
-				if e != nil || string(soul) != role.Soul {
+				if e == nil && (string(soul) == role.LegacySoul || (role.PreviousSoul != "" && string(soul) == role.PreviousSoul)) {
+					probe.Status = PendingSetup
+					probe.Detail = "historical managed SOUL needs repository identity upgrade; run setup --team"
+				} else if e != nil || string(soul) != role.Soul {
 					probe.Status = Degraded
 					probe.Detail = "role SOUL drift; owner identity preserved"
 				}

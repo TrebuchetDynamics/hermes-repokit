@@ -4,22 +4,26 @@ import (
 	_ "embed"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
 
 //go:embed team.py
 var teamScript string
 
-func initializationScript(afterSetup bool) string {
+var ErrTeamPending = errors.New("team setup pending: configure the default model privately, then run setup --team")
+
+func initializationScript(id target.Identity, afterSetup bool) string {
 	payload, _ := json.Marshal(struct {
 		Roles      []team.Role `json:"roles"`
 		AfterSetup bool        `json:"after_setup"`
-	}{team.Roster(), afterSetup})
+	}{team.ForRepository(id), afterSetup})
 	// Only generated text enters this heredoc. No credentials or owner content.
-	return bootstrapScript + "\npython - <<'REPOKIT_TEAM_PY'\n" + teamScript +
+	return bootstrapScript + "\npython - <<'REPOKIT_TEAM_PY'\n" + team.KanbanPolicy + "\n" + teamScript +
 		"\nimport base64\ntry:\n    main(json.loads(base64.b64decode('" + base64.StdEncoding.EncodeToString(payload) + "')))\nexcept Exception:\n    print('RepoKit team provisioning failed; existing profiles preserved.', file=sys.stderr)\n    sys.exit(1)\nREPOKIT_TEAM_PY\n"
 }
 
@@ -47,6 +51,14 @@ func teamResult(output string) error {
 			}
 			return fmt.Errorf("profile drift preserved: %s; inspect native profiles before reconciliation", strings.Join(names, ", "))
 		}
+		switch result.Status {
+		case "configured":
+			return nil
+		case "pending-setup":
+			return ErrTeamPending
+		default:
+			return fmt.Errorf("invalid team provisioning status")
+		}
 	}
-	return nil
+	return fmt.Errorf("native team provisioning result missing; inspect existing profiles before retrying")
 }

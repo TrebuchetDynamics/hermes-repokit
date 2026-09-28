@@ -36,8 +36,6 @@ Every row remains **unknown for deployment**. Existing source research may infor
 
 The forwarding examples in the design are not declarations that the selected Hermes version supports those spellings. Task 1 adds no Hermes command aliases, default UID, shell wrapper or runtime adapter.
 
-The [integration findings](../research/2026-09-27-repokit-integration-findings.md) inspect Hermes revision `28e6496a5e3adfea57bebfc9571b981bff378523` as source research, not a deployment pin. They record source-level review and memory behavior. The final directive accepts native OpenViking background sync/extraction; the earlier durable-only privacy exclusion is superseded. Review actor enforcement still requires qualification. The [precursor review](../research/2026-09-27-repokit-precursor-review.md) is additional design evidence. Neither record is promoted into a supported operation by Task 1.
-
 ## Task 1 command behavior
 
 The host binary exposes exactly `plan`, `install`, `setup` and `verify`. Global or per-command help succeeds. Missing/unknown commands, unknown flags and unexpected positional arguments are usage errors (exit 2). Recognized actions return an explicit not-implemented diagnostic (exit 1); none pretends to install, inspect or verify a target. Arbitrary rejected argument values are not echoed.

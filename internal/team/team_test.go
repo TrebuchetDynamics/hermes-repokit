@@ -34,7 +34,7 @@ func TestStableGenericRoster(t *testing.T) {
 
 func TestStewardOwnsLifecycleAndDefaultOwnsConversation(t *testing.T) {
 	roles := Roster()
-	for _, text := range []string{"Skills first", "Never attempt to delete", "explicit user authorization", "retire", "OpenViking", "Nerve"} {
+	for _, text := range []string{"Skills first", "Never attempt to delete", "explicit user authorization", "retire", "OpenViking"} {
 		if !strings.Contains(roles[5].Soul, text) {
 			t.Errorf("steward missing %s", text)
 		}
@@ -43,5 +43,18 @@ func TestStewardOwnsLifecycleAndDefaultOwnsConversation(t *testing.T) {
 		if !strings.Contains(roles[0].Soul, text) {
 			t.Errorf("default missing %s", text)
 		}
+	}
+}
+
+func TestExecutorHasNativeCodingToolsWithoutOrchestratorKanban(t *testing.T) {
+	role := Roster()[3]
+	tools := "," + strings.Join(role.Toolsets, ",") + ","
+	for _, want := range []string{"file", "terminal", "code_execution", "skills", "memory"} {
+		if !strings.Contains(tools, ","+want+",") {
+			t.Errorf("executor lacks %s", want)
+		}
+	}
+	if strings.Contains(tools, ",kanban,") {
+		t.Fatal("worker has persistent orchestrator tools")
 	}
 }

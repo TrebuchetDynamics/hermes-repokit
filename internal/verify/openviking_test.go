@@ -41,54 +41,21 @@ func TestOpenVikingObservationNeverProbesModels(t *testing.T) {
 			os.WriteFile(filepath.Join(id.Root, ".hermes/openviking/ov.conf"), []byte("secret configuration must never be read"), 0600)
 		}
 		probes := OpenViking(context.Background(), id, r)
-		status := map[string]Status{}
-		for _, p := range probes {
-			status[p.Component] = p.Status
-		}
-		if status["openviking"] != Healthy || !strings.Contains(probes[len(probes)-1].Detail, "acceptance unqualified") {
-			t.Fatal("service health was confused with memory acceptance")
-		}
-		want := PendingSetup
-		if configured {
-			want = Healthy
-		}
-		if status["openviking-config"] != want || status["openviking-runtime"] != Healthy {
-			t.Fatalf("unexpected observation: %v", probes)
-		}
-	}
-	for _, call := range r.calls {
-		if strings.Contains(call, " exec ") || strings.Contains(call, "/ready") || strings.Contains(call, "ov.conf") {
-			t.Fatal("verification executed native service or read private config")
-		}
-	}
-	for _, health := range []string{"starting", "unhealthy"} {
-		badHealth := *r
-		badHealth.output = strings.ReplaceAll(r.output, `"health":"healthy"`, `"health":"`+health+`"`)
-		states := map[string]Status{}
-		for _, p := range OpenViking(context.Background(), id, &badHealth) {
-			states[p.Component] = p.Status
-		}
-		if states["openviking-container"] != Healthy || states["openviking-runtime"] != Degraded {
-			t.Fatalf("matching running service must allow native diagnosis despite health=%s: %v", health, states)
-		}
-	}
-	for _, change := range [][2]string{
-		{`"status":"running"`, `"status":"exited"`},
-		{id.Project, "different-project"},
-		{filepath.Join(id.Root, ".hermes/openviking"), "/owner/other-memory"},
-	} {
-		other := *r
-		other.output = strings.ReplaceAll(r.output, change[0], change[1])
-		for _, p := range OpenViking(context.Background(), id, &other) {
-			if (p.Component == "openviking-container" || p.Component == "openviking-runtime") && p.Status != Degraded {
-				t.Fatalf("mismatched or stopped service accepted: %+v", p)
+		for _, probe := range probes {
+			if probe.Component == "openviking-config" {
+				want := PendingSetup
+				if configured {
+					want = Healthy
+				}
+				if probe.Status != want {
+					t.Fatal(probe)
+				}
+			} else if probe.Status != PendingSetup {
+				t.Fatal("legacy sidecar accepted as embedded memory", probe)
 			}
 		}
 	}
-	r.output = strings.ReplaceAll(r.output, projectmemory.Image, "owner:latest")
-	for _, p := range OpenViking(context.Background(), id, r) {
-		if p.Component == "openviking-runtime" && p.Status != Degraded {
-			t.Fatal("wrong image accepted")
-		}
+	if len(r.calls) != 0 {
+		t.Fatal("legacy sidecar was probed instead of reporting topology drift")
 	}
 }

@@ -38,12 +38,8 @@ team, with no per-profile peer by default. Keep built-in memory enabled.
 Verify every effective connection source, including environment and linked
 OpenViking config, so an inherited peer does not silently split shared memory.
 
-For supervised workers, install the qualified upstream Nerve revision disabled,
-verify the local Laya backend with a real typed decision, configure Nerve's
-reflex_backend=laya and local URL/model, then enable. Never enable its hosted
-backend first or fall back to hosted Jev. Nerve/Laya are infrastructure, not roles.
 Verify native profile resolution, description, identity, capabilities, shared
-memory and applicable supervision before handing the profile back to default.
+memory before handing the profile back to default.
 
 ## Preserve user ownership
 

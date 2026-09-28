@@ -1,0 +1,325 @@
+// Package development describes the bounded development toolchain RepoKit builds
+// into the Hermes image. Detection never executes repository-controlled code.
+package development
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+)
+
+const maxManifestBytes = 1 << 20
+const maxRootEntries = 4096
+const maxManifests = 64
+
+type Requirements struct {
+	Go          bool     `json:"go"`
+	Detected    []string `json:"detected"`
+	Unsupported []string `json:"unsupported"`
+}
+
+// Detect inspects only root manifests. Nested workspaces, dependency installation,
+// arbitrary version selectors, Rust and JVM provisioning remain unqualified.
+func Detect(path string) (Requirements, error) {
+	r := Requirements{Detected: []string{}, Unsupported: []string{}}
+	root, err := os.OpenRoot(path)
+	if err != nil {
+		return r, err
+	}
+	defer root.Close()
+	dir, err := root.Open(".")
+	if err != nil {
+		return r, err
+	}
+	entries, err := dir.ReadDir(maxRootEntries + 1)
+	dir.Close()
+	if err != nil && err != io.EOF {
+		return r, err
+	}
+	if len(entries) > maxRootEntries {
+		return r, fmt.Errorf("development detection: root exceeds %d entries", maxRootEntries)
+	}
+	found := map[string]bool{}
+	manifestCount := 0
+	for _, entry := range entries {
+		name := entry.Name()
+		kind := ""
+		switch {
+		case name == "go.mod":
+			kind = "go"
+		case name == "package.json":
+			kind = "node"
+		case name == "pyproject.toml" || (strings.HasPrefix(name, "requirements") && strings.HasSuffix(name, ".txt")):
+			kind = "python"
+		case name == "Makefile" || name == "makefile" || name == "GNUmakefile":
+			kind = "make"
+		case name == "Cargo.toml":
+			kind = "rust"
+		case name == "pom.xml" || strings.HasPrefix(name, "build.gradle"):
+			kind = "jvm"
+		default:
+			continue
+		}
+		manifestCount++
+		if manifestCount > maxManifests {
+			return r, fmt.Errorf("development detection: exceeds %d root manifests", maxManifests)
+		}
+		data, err := readManifest(root, name)
+		if err != nil {
+			return r, err
+		}
+		found[kind] = true
+		switch kind {
+		case "go":
+			r.Go = true
+			r.Unsupported = append(r.Unsupported, goRequirements(string(data))...)
+		case "node":
+			var pkg struct {
+				Engines        map[string]string `json:"engines"`
+				PackageManager string            `json:"packageManager"`
+			}
+			if len(strings.TrimSpace(string(data))) == 0 || strings.TrimSpace(string(data))[0] != '{' {
+				return r, fmt.Errorf("development detection: package.json must be an object")
+			}
+			if err := json.Unmarshal(data, &pkg); err != nil {
+				return r, fmt.Errorf("development detection: invalid package.json")
+			}
+			for _, engine := range []struct{ name, version string }{{"node", NodeVersion}, {"npm", NPMVersion}} {
+				if constraint, ok := pkg.Engines[engine.name]; ok && !matchesVersion(engine.version, constraint) {
+					r.Unsupported = append(r.Unsupported, "package.json "+engine.name+" version constraint not qualified by pinned runtime")
+				}
+			}
+			for engine := range pkg.Engines {
+				if engine != "node" && engine != "npm" {
+					r.Unsupported = append(r.Unsupported, "package.json additional engine is not qualified")
+				}
+			}
+			if pkg.PackageManager != "" && pkg.PackageManager != "npm@"+NPMVersion {
+				r.Unsupported = append(r.Unsupported, "package.json packageManager is not the pinned npm")
+			}
+		case "python":
+			if name == "pyproject.toml" {
+				// Deliberately a narrow, fail-closed reader rather than an incomplete
+				// TOML parser that claims all Python build systems are supported.
+				for line := range strings.SplitSeq(string(data), "\n") {
+					line = strings.TrimSpace(line)
+					if strings.HasPrefix(line, "#") || !strings.Contains(line, "requires-python") {
+						continue
+					}
+					m := pythonRequirement.FindStringSubmatch(line)
+					if len(m) != 2 || !matchesPythonVersion(m[1]) {
+						r.Unsupported = append(r.Unsupported, "pyproject.toml Python version constraint not qualified by pinned runtime")
+					}
+				}
+			}
+		case "rust", "jvm":
+			r.Unsupported = append(r.Unsupported, kind+" toolchain provisioning is not supported")
+		}
+	}
+	for kind := range found {
+		r.Detected = append(r.Detected, kind)
+	}
+	sort.Strings(r.Detected)
+	sort.Strings(r.Unsupported)
+	r.Unsupported = compact(r.Unsupported)
+	return r, nil
+}
+
+func readManifest(root *os.Root, name string) ([]byte, error) {
+	info, err := root.Lstat(name)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() || info.Size() > maxManifestBytes {
+		return nil, fmt.Errorf("development detection: %s must be a bounded regular file, not a symlink", name)
+	}
+	f, err := root.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	opened, err := f.Stat()
+	if err != nil || !os.SameFile(info, opened) {
+		return nil, fmt.Errorf("development detection: %s changed while opening", name)
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxManifestBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxManifestBytes {
+		return nil, fmt.Errorf("development detection: %s exceeds size limit", name)
+	}
+	return data, nil
+}
+
+var pythonRequirement = regexp.MustCompile(`^requires-python\s*=\s*["']([^"']+)["']\s*(?:#.*)?$`)
+var version = regexp.MustCompile(`^(?:v)?([0-9]+)(?:\.([0-9]+))?(?:\.([0-9]+))?$`)
+var selector = regexp.MustCompile(`^(>=|<=|>|<|==|=|!=|\^|~)?\s*(v?[0-9]+(?:\.[0-9]+){0,2})$`)
+var operatorSpace = regexp.MustCompile(`(>=|<=|>|<|==|=|!=|\^|~)\s+`)
+var pythonSelector = regexp.MustCompile(`^(>=|<=|>|<|==|!=)([0-9]+\.[0-9]+(?:\.[0-9]+)?)$`)
+
+func matchesPythonVersion(constraint string) bool {
+	var normalized []string
+	for _, part := range strings.Split(constraint, ",") {
+		part = operatorSpace.ReplaceAllString(strings.TrimSpace(part), "$1")
+		m := pythonSelector.FindStringSubmatch(part)
+		if len(m) != 3 {
+			return false
+		}
+		v := m[2]
+		if strings.Count(v, ".") == 1 {
+			v += ".0"
+		}
+		normalized = append(normalized, m[1]+v)
+	}
+	return matchesVersion(PythonVersion, strings.Join(normalized, " "))
+}
+
+func numbers(s string) ([3]int, bool) {
+	var v [3]int
+	m := version.FindStringSubmatch(s)
+	if len(m) == 0 {
+		return v, false
+	}
+	for i := range v {
+		if m[i+1] == "" {
+			continue
+		}
+		n, err := strconv.Atoi(m[i+1])
+		if err != nil {
+			return v, false
+		}
+		v[i] = n
+	}
+	return v, true
+}
+
+func compare(a, b [3]int) int {
+	for i := range a {
+		if a[i] < b[i] {
+			return -1
+		}
+		if a[i] > b[i] {
+			return 1
+		}
+	}
+	return 0
+}
+
+// matchesVersion recognizes simple ANDed numeric constraints. Anything else
+// stays explicitly unqualified instead of silently accepting an incompatible pin.
+func matchesVersion(actual, constraint string) bool {
+	a, ok := numbers(actual)
+	if !ok || strings.TrimSpace(constraint) == "" {
+		return false
+	}
+	constraint = strings.ReplaceAll(constraint, ",", " ")
+	// Join the optional whitespace between operator and version before splitting.
+	constraint = operatorSpace.ReplaceAllString(constraint, "$1")
+	for _, part := range strings.Fields(constraint) {
+		m := selector.FindStringSubmatch(part)
+		if len(m) == 0 {
+			return false
+		}
+		v, ok := numbers(m[2])
+		if !ok {
+			return false
+		}
+		c := compare(a, v)
+		switch m[1] {
+		case ">=":
+			if c < 0 {
+				return false
+			}
+		case ">":
+			if c <= 0 {
+				return false
+			}
+		case "<=":
+			if c > 0 {
+				return false
+			}
+		case "<":
+			if c >= 0 {
+				return false
+			}
+		case "!=":
+			if c == 0 {
+				return false
+			}
+		case "^":
+			upper := [3]int{v[0] + 1, 0, 0}
+			if v[0] == 0 {
+				upper = [3]int{0, v[1] + 1, 0}
+				if v[1] == 0 {
+					upper = [3]int{0, 0, v[2] + 1}
+				}
+			}
+			if c < 0 || compare(a, upper) >= 0 {
+				return false
+			}
+		case "~":
+			if c < 0 || compare(a, [3]int{v[0], v[1] + 1, 0}) >= 0 {
+				return false
+			}
+		default:
+			parts := strings.Count(m[2], ".") + 1
+			for i := 0; i < parts; i++ {
+				if a[i] != v[i] {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}
+
+func goRequirements(data string) []string {
+	var unsupported []string
+	found := false
+	for line := range strings.SplitSeq(data, "\n") {
+		line, _, _ = strings.Cut(line, "//")
+		fields := strings.Fields(line)
+		if len(fields) == 0 || (fields[0] != "go" && fields[0] != "toolchain") {
+			continue
+		}
+		if fields[0] == "go" {
+			if found {
+				unsupported = append(unsupported, "duplicate go directive")
+			}
+			found = true
+		}
+		if len(fields) == 2 && fields[0] == "toolchain" && fields[1] == "default" {
+			continue
+		}
+		if len(fields) != 2 {
+			unsupported = append(unsupported, "go.mod toolchain directive is not qualified")
+			continue
+		}
+		wanted := strings.TrimPrefix(fields[1], "go")
+		v, ok := numbers(wanted)
+		pin, _ := numbers(GoVersion)
+		if !ok || v[0] != 1 || compare(v, pin) > 0 {
+			unsupported = append(unsupported, "go.mod requires a Go toolchain beyond pinned "+GoVersion)
+		}
+	}
+	if !found {
+		unsupported = append(unsupported, "go.mod has no qualified go directive")
+	}
+	return unsupported
+}
+
+func compact(values []string) []string {
+	out := values[:0]
+	for _, v := range values {
+		if len(out) == 0 || out[len(out)-1] != v {
+			out = append(out, v)
+		}
+	}
+	return out
+}

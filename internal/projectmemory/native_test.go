@@ -55,7 +55,7 @@ assert get_builtin_memory_store_flags({'memory':config}) == (True,True)
 for profile in ('default','researcher','planner','executor','reviewer','steward'):
     with patch.object(ov, 'get_secret', return_value=None), patch.object(ov, '_ovcli_values_for', return_value={}):
         settings = ov._resolve_connection_settings(config['openviking'])
-    assert settings == {'endpoint':'http://openviking:1933', 'api_key':'', 'account':'repokit', 'user':'repokit-qualification-a', 'agent':''}, (profile,settings)
+    assert settings == {'endpoint':'http://127.0.0.1:1933', 'api_key':'', 'account':'repokit', 'user':'repokit-qualification-a', 'agent':''}, (profile,settings)
 # Verify the actual linked-config parser, including both peer aliases.
 for key in ('actor_peer_id','agent_id'):
     assert ov._connection_values_from_ovcli({key:'private-peer'})['agent'] == 'private-peer'

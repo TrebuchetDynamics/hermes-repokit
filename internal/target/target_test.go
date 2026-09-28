@@ -1,6 +1,7 @@
 package target
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -96,5 +97,174 @@ func TestNativeReadableChildrenStayPrivateBehindRoot(t *testing.T) {
 	id, _ := Resolve(p)
 	if issues := Inspect(id, ""); len(issues) != 0 {
 		t.Fatalf("private root protects native children: %v", issues)
+	}
+}
+
+func TestNativeToolInstallDoesNotInvalidatePrivateDeployment(t *testing.T) {
+	p := privateDir(t)
+	state := filepath.Join(p, ".hermes")
+	links := map[string]string{
+		"home/.cache/uv/wheels-v6/pypi/edge-tts/revision": "../../../archive-v0/revision",
+		".cache/uv/wheels-v6/pypi/browser-use/revision":   "../../../archive-v0/revision",
+		".local/share/uv/tools/browser-use/bin/python":    "/usr/local/bin/python3",
+		".local/bin/cua-driver":                           "/opt/data/.cua-driver/packages/current/cua-driver",
+		".cua-driver/packages/current":                    "releases/0.30.2-linux",
+		"bin/browser-use":                                 "/opt/data/.local/share/uv/tools/browser-use/bin/browser-use",
+	}
+	for rel, dest := range links {
+		path := filepath.Join(state, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(dest, path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	locks := []string{".cache/uv/.lock", ".local/share/uv/tools/.lock", "home/.cache/uv/.lock", "lazy-packages/.lock"}
+	for _, rel := range locks {
+		path := filepath.Join(state, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("native lock"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(path, 0666); err != nil {
+			t.Fatal(err)
+		}
+	}
+	id, _ := Resolve(p)
+	if issues := Inspect(id, ""); len(issues) != 0 {
+		t.Fatalf("native setup rejected: %v", issues)
+	}
+	for rel, dest := range links {
+		if got, err := os.Readlink(filepath.Join(state, rel)); err != nil || got != dest {
+			t.Fatalf("native link changed: %s", rel)
+		}
+	}
+	for _, rel := range locks {
+		info, err := os.Stat(filepath.Join(state, rel))
+		if err != nil || info.Mode().Perm() != 0666 {
+			t.Fatalf("native lock changed: %s", rel)
+		}
+	}
+}
+
+func TestNativeToolExceptionsDoNotPermitRedirectedManagedPaths(t *testing.T) {
+	for _, rel := range []string{
+		"compose.yaml", "config.yaml", ".env", "auth.json", "kanban.db", "profiles", "bin",
+		"development-image", "openviking", ".cache", ".cache/uv", ".local", ".local/bin",
+		".local/share", ".local/share/uv", ".local/share/uv/tools", ".cua-driver", ".cua-driver/packages",
+		"profiles/executor/config.yaml", "development-image/Dockerfile",
+		"home", "home/.cache", "home/.cache/uv", "lazy-packages", "gateway.sock", "state/gateway.loop-tick.123.sock",
+	} {
+		t.Run(rel, func(t *testing.T) {
+			p := privateDir(t)
+			path := filepath.Join(p, ".hermes", rel)
+			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(privateDir(t), path); err != nil {
+				t.Fatal(err)
+			}
+			id, _ := Resolve(p)
+			if len(Inspect(id, "")) == 0 {
+				t.Fatalf("accepted redirected %s", rel)
+			}
+		})
+	}
+	p := privateDir(t)
+	id, _ := Resolve(p)
+	path := filepath.Join(p, ".hermes", "bin", id.Container)
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("/opt/data/bin/browser-use", path); err != nil {
+		t.Fatal(err)
+	}
+	if len(Inspect(id, "")) == 0 {
+		t.Fatal("accepted redirected generated launcher")
+	}
+}
+
+func TestNativeGatewaySocketsRemainInspectable(t *testing.T) {
+	for _, tc := range []struct {
+		rel     string
+		allowed bool
+	}{
+		{"gateway.sock", true},
+		{"state/gateway.loop-tick.123.sock", true},
+		{"unknown.sock", false},
+		{"config.yaml", false},
+		{"state/gateway.loop-tick.bad.sock", false},
+		{"state/gateway.loop-tick.123.sock.extra", false},
+	} {
+		t.Run(tc.rel, func(t *testing.T) {
+			p, err := os.MkdirTemp("", "rksock-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(p)
+			path := filepath.Join(p, ".hermes", tc.rel)
+			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			listener, err := net.Listen("unix", path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer listener.Close()
+			if err := os.Chmod(path, 0755); err != nil {
+				t.Fatal(err)
+			}
+			id, _ := Resolve(p)
+			if got := len(Inspect(id, "")) == 0; got != tc.allowed {
+				t.Fatalf("socket allowed=%v, want %v", got, tc.allowed)
+			}
+			if err := os.Chmod(path, 0777); err != nil {
+				t.Fatal(err)
+			}
+			if len(Inspect(id, "")) == 0 {
+				t.Fatal("accepted writable socket")
+			}
+		})
+	}
+}
+
+func TestNativeToolExceptionsKeepModesAndPrefixesStrict(t *testing.T) {
+	for _, rel := range []string{"config.yaml", "compose.yaml", "development-image/Dockerfile", ".cache/uv/module.py", ".local/share/uv/tools/module.py", ".cache/uv-other/.lock", "bin/browser-use"} {
+		t.Run(rel, func(t *testing.T) {
+			p := privateDir(t)
+			path := filepath.Join(p, ".hermes", rel)
+			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("owner data"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(path, 0666); err != nil {
+				t.Fatal(err)
+			}
+			id, _ := Resolve(p)
+			if len(Inspect(id, "")) == 0 {
+				t.Fatalf("accepted writable native file: %s", rel)
+			}
+		})
+	}
+	for _, rel := range []string{"bin", ".cache/uv", ".cache/uv/archive", ".local/share/uv/tools"} {
+		t.Run("directory/"+rel, func(t *testing.T) {
+			p := privateDir(t)
+			path := filepath.Join(p, ".hermes", rel)
+			if err := os.MkdirAll(path, 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(path, 0777); err != nil {
+				t.Fatal(err)
+			}
+			id, _ := Resolve(p)
+			if len(Inspect(id, "")) == 0 {
+				t.Fatalf("accepted writable directory: %s", rel)
+			}
+		})
 	}
 }

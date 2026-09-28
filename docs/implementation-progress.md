@@ -1,130 +1,97 @@
-# Implementation progress — 2026-09-27
+# Implementation status
 
-The latest six-role Universal Team Roster directive is the target; v1 is **not complete**.
+RepoKit's maintained runtime is one Hermes development container with six native
+profiles, shared Kanban and embedded OpenViking. The optional Docker acceptance
+daemon remains an explicit testing feature. Optional plugins are owner-managed.
 
-Current generic-team work supersedes earlier engineering-profile policy:
-[team model](team-model.md), [implementation plan](superpowers/plans/2026-09-27-repokit-generic-team.md),
-[acceptance evidence](qualification/generic-team.md). Default is the primary UX;
-steward owns profile evolution. Native config cloning follows private default
-setup and resets only new identities. Shared OpenViking and local Nerve/Laya
-production wiring is implemented; live memory and main-model work remain separate
-acceptance gates. See the [current runtime record](qualification/runtime-integrations.md).
+The source implements private-state/ownership checks, a standalone launcher,
+conservative profile reconciliation, shared-memory setup/linking, operational
+activation and passive verification. Full v1 acceptance remains incomplete.
 
-## Completed implementation foundations
+## Preserved historical evidence
 
-- Separate plan correction commit `a90381b`: Go host, upstream Nerve/Laya, native OpenViking, native review first, automatic memory extraction accepted.
-- Canonical Go module and typed version-bound qualification contracts.
-- Canonical repository identity, exact public names, path-hashed Compose project; filesystem/PATH/root Compose checks. CLI additionally inspects Git tracking and Docker names.
-- Digest-pinned readable Compose renderer, private atomic directory publication with Linux `RENAME_NOREPLACE`, fsync, kernel locking and conservative reruns.
-- Standalone POSIX launcher with captured Docker context, absolute Compose path, selector clearing, exact argv/streams/exit behavior and terminal selection.
-- Native setup delegation and context-correct stopped-service instruction.
-- Read-only JSON `plan` and component `verify`: files/configuration, pinned runtime identity and bounded authenticated memory/Laya health checks; no receipt trust, native DB calls, plugin loading or inference.
-- Default Hermes/OpenViking/Laya CLI `install`, embedded pinned Laya build inputs, persistent writable caches, locked inventory recheck, exact historical Compose upgrades/backups and ordinary Compose startup handoff.
-- Plain `setup` sequences private default setup, six-role provisioning, native memory init/doctor/validation/restart/health/wizard/linking and native local Nerve installation/configuration/activation. Separate flags resume memory or supervision.
-- All six Nerve installs use native admission, remain disabled until local configuration is verified, and check fresh native hooks plus actual `LOCAL_ONLY` decisions before and after coordinated Hermes/Laya recreation. No hosted fallback is configured.
-- Exact plugin caution-admission predicate; no forced install.
-- Offline unit/acceptance coverage including hostile argv, TTY matrix, SIGINT exit, child-held lock, stale lock file, owner edits, missing/corrupt receipts, failed preparation, concurrent publication, interrupted/partial-state refusal and process-group cleanup.
-- Core Go packages and the executable entrypoint have tests; embedded packaging inputs are exercised through installation and real image qualification.
+Credential-free Docker foundation fixtures previously exercised native six-role
+cloning, distinct SOULs, Kanban handoffs and same-card lifecycle transitions in
+separate profile processes. The recorded final scaffold run took 120.56 seconds;
+a later package run recorded 120.67 seconds. Those fixtures used synthetic provider
+configuration, not live model workers. Ordinary Compose restart/recreation and
+removal of copied installer artifacts preserved the board and profiles.
 
-## Historical foundation evidence
+Native OpenViking configuration/linking fixtures also passed historically.
+Configuration and pending-service observations do not qualify the current embedded
+image, actual extraction/recall or cross-repository isolation. See [runtime
+observations](qualification/runtime-observations.md), [team evidence](qualification/generic-team.md)
+and [memory wiring](qualification/openviking-wiring.md).
 
-Credential-free `TestDockerFoundation` passed: generated Compose parsed; a new
-official Hermes container ran from an unrelated disposable repository; native
-exec and Kanban initialization worked; raw Compose restart preserved the board.
-Cleanup used ordinary Compose down, without `-v`.
+The historical development self-install had six profiles and successful fresh
+default/researcher model sessions. That narrower authentication/identity evidence
+did not establish model-driven Kanban work, independent review or shared recall.
+No new deployment evidence is asserted by the current source cleanup.
 
-Separately observed native profile creation/description and setup help on the
-pinned image. Superpowers native installation failed closed at CAUTION with
-229 findings for the exact recorded SHA. The official OpenViking image starts
-its missing-config handoff; native init reports persistent workspace
-`/app/.openviking/data` and cancels without required credentials. No inference,
-actual memory write/recall or cross-repository denial was claimed.
+## Source changes and blockers recorded on 2026-09-28
 
-Fresh independent code review identified five important issues. Regression
-checks reproduced and fixed: no-clobber publication, incomplete reruns,
-descendant cleanup, verify Docker context, and setup recovery context/selectors.
-`Publish.prepare` remains restricted to immutable image retrieval. Implemented
-native initialization holds its writer lock inside the container; Docker client
-lifetime alone is not the locking boundary.
+Setup preflight checks private-state Git protection, generated artifacts and the
+qualified running image/project/service/mounts before entering a native wizard.
+Owner changes, foreign mounts/images and unknown runtime metadata refuse safely.
+Native identity reconciliation uses repository-scoped SOULs and preserves drift.
+Default's configured interactive channels receive native preset tools plus Kanban
+and memory. A fresh native conversation is required to refresh cached tool schemas.
 
-## Current runtime integration evidence
+Operational setup separates dispatch-off bootstrap from automatic default gateway
+execution/review. It checks providers, identities, tools, routing and authenticated
+shared OpenViking; fences board claims; preserves active/finalizing workers; and
+requires native singleton/startup evidence and a real no-write researcher canary.
+Read-only verification never dispatches or runs inference.
 
-The combined foundation/native-memory-link fixture passed in about 163 seconds;
-the OpenViking pending-service fixture passed in about 11 seconds. The real
-six-role Nerve/Laya fixture passed in about 221 seconds, including native hooks,
-`LOCAL_ONLY` decisions, offline operation, fail-closed outage, installer removal
-and coordinated Compose recreation. The generated default build separately
-passed offline image content qualification and persistent-cache recreation.
-See [exact scope and commands](qualification/runtime-integrations.md).
+The current full `go test ./...` and `go test -race ./...` attempts ran without
+exclusions. All packages passed except `internal/target`: its six
+`TestNativeGatewaySocketsRemainInspectable` cases failed with
+`setsockopt: operation not permitted`. Required socket tests were neither weakened
+nor counted as passing. Vet, formatting and diff-whitespace checks passed, and the
+core executable built successfully at `/tmp/hermes-repokit-core`.
 
-These tests use synthetic main-model configuration or connection fixtures where
-stated. They do not establish live main-model dispatch, memory recall/isolation,
-independent model judgment or full integrated removal-first acceptance.
+The full Docker acceptance suite was also attempted with both
+`REPOKIT_DOCKER_TESTS=1` and `REPOKIT_DIND_TESTS=1`. All six fixtures failed at Docker
+socket access or container enumeration; they were attempted, not skipped:
+development runtime, foundation, isolated acceptance daemon, default Kanban channels,
+native maintenance package and pending OpenViking. Local logs are
+`/tmp/repokit-remove-supervision-test.log`,
+`/tmp/repokit-remove-supervision-race.log` and
+`/tmp/repokit-remove-supervision-docker.log`.
 
-## Outstanding, in order
+Live reconciliation, embedded-image builds, Telegram task/result delivery, canary,
+self-restart and private-memory acceptance were not completed. No private setup was
+repeated or runtime state repaired by hand. These are source-only changes, not proof
+that a running deployment or published revision has converged.
 
-1. Supply private native main-model and embedding/extraction configuration for
-   disposable acceptance. No host credentials have been borrowed.
-2. Prove live model-driven manual and controlled gateway dispatch, including a
-   genuine same-card executor/reviewer correction cycle.
-3. Prove real cross-profile OpenViking write/recall, restart persistence and
-   cross-repository denial. Configuration/linking and health are already wired.
-4. Qualify future specialists, the full combined removal-first gate and full
-   self-dogfood. Existing six-role local supervision evidence remains narrower.
-5. Resolve exact Superpowers scanner admission independently; the recorded
-   229 CAUTION findings remain open and are not waived by other integration work.
+## Git delivery validation, 2026-09-28
 
-## Scope and evidence rulings
+Fresh `go test -count=1 ./...` and `go test -race -count=1 ./...` passed every
+package, including all previously blocked Unix-socket cases. Normal and
+Docker-tagged vet, formatting, `git diff --check`, Docker acceptance compilation,
+and `go build ./...` passed. Relative documentation links resolve. Python bytecode
+caches are ignored and excluded from delivery.
 
-- Reused the existing `qualification` package instead of duplicating `qualify`; no external dependencies means no fabricated `go.sum`.
-- Native readable child files beneath a 0700 state root are allowed; native Hermes itself creates 0755 profile directories. Group/world writable native children still refuse.
-- Metadata observations can proceed while plugin/model admission is blocked. No later runtime integration is enabled based on guessed commands.
-- Development binaries are not a v1 release. The local Go 1.26.1 toolchain needs patched-release qualification before shipping.
-- Current ruling: normal `install` publishes all three services; startup belongs to ordinary Compose, and native configuration/credentials belong to native setup. Artifact publication does not certify live model work or full v1 acceptance.
-- Concurrent edits to TODO, the bootstrap spec/plan and native-contract/upstream-Nerve notes were preserved separately from implementation commits.
+Delivery review also caught activation failing on absent or heading-free READMEs,
+including the new HTML-led README. The canary now requires `NO_MARKDOWN_TITLE`
+for those cases while retaining worker ancestry and no-write checks. Regression
+coverage preserves bounded-read failures and terminal legacy canary history;
+versioned keys avoid resuming unfinished tasks with the older contract.
 
-## Foundation closeout validation
+These offline results supersede the earlier socket blocker. Docker image builds,
+live model work and private setup were not run during Git delivery and remain
+separate acceptance gates.
 
-Fresh `go test ./... -count=1`, race tests, vet, formatting, diff checks and the
-real Docker foundation fixture passed. Local links in the changed documentation
-were checked. An independent review reproduced missing Git-ignore protection on
-safe reruns and verification; regression tests failed before the fix and passed
-after adding shared read-only index/ignore checks. Removed ignore files, ignore
-exceptions and force-tracked native state now refuse without rewriting files.
-The reviewer checked the fix and found no additional actionable issue.
+## Remaining acceptance
 
-## Phase 7 implementation rulings
+1. Run the full required suite and current image build in an authorized environment.
+2. Prove gateway-spawned researcher work and originating-channel notification.
+3. Prove an actual executor/reviewer correction cycle with distinct same-card actors.
+4. Prove cross-profile memory write/recall, restart persistence and repository denial.
+5. Complete the integrated removal-first fixture, future-specialist qualification
+   and bounded self-dogfood before release.
+6. Resolve the recorded Superpowers scanner candidate separately if selected.
 
-- Ruling: preserve ordinary Compose startup. Initial publication reports pending;
-  rerunning install on the running pinned deployment performs native initialization.
-  An absent/stopped service never causes an implicit start.
-- Current ruling: the six-role roster is the default; `--engineering` is a
-  compatibility alias. Nerve/Laya deployment and native setup are implemented;
-  Superpowers admission and live OpenViking acceptance remain deferred. Profile
-  files alone do not establish active integrations.
-- Ruling: acquire the writer lock inside Docker for native operations. A host
-  lock inherited by the Docker client does not cover surviving daemon-owned exec
-  work. Current team creation uses final native profile names to preserve native
-  registration and routing semantics. Interrupted profiles are preserved for
-  inspection; existing profiles remain owner state.
-- Superpowers scanner decision was requested for the exact SHA/report and a
-  disposable credential-free load test. Until approved, no plugin installation,
-  enablement or affirmative scanner response is authorized. Phase 7 remains open.
-
-
-## Universal roster closeout
-
-Six native roles, their SOULs, default UX routing, steward policy, conservative
-post-setup config cloning, drift preservation and explicit integration-gate
-reporting are implemented. The final disposable native fixture passed in
-120.56 seconds; unit/race/vet/format/link checks and Linux arm64 compilation
-passed. Independent review findings about default adoption, setup targeting,
-noninteractive success and native staging side effects were addressed with
-regression checks. See the [current matrix](qualification/generic-team.md).
-
-The initial single-worker local Laya experiment is now supplemented by default
-pinned build packaging and six-role native Nerve acceptance, including offline
-outage/removal/recreation. OpenViking still needs private embedding/extraction
-configuration before live recall/isolation/persistence qualification. `verify`
-reports native configuration and health independently; review remains explicitly
-unqualified. Full team acceptance and release self-dogfood remain pending.
+See [operational dispatch evidence](qualification/operational-dispatch.md),
+[gateway evidence](qualification/gateway-convergence.md),
+[development runtime](qualification/development-runtime.md) and [remaining work](../TODO.md).

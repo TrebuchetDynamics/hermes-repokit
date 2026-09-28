@@ -32,7 +32,7 @@ class MemoryTest(unittest.TestCase):
  def check(self,home,candidate):
   self.assertEqual(candidate['openviking']['ovcli_config_path'],self.link)
  def test_effective_connection_rejects_profile_overrides_and_linked_peers(self):
-  shared={'endpoint':'http://openviking:1933','api_key':'fixture','account':'','user':'','agent':''}
+  shared={'endpoint':'http://127.0.0.1:1933','api_key':'fixture','account':'','user':'','agent':''}
   for field,value in [('endpoint','http://owner:1933'),('api_key','other-fixture'),('account','other-account'),('user','other-repo'),('agent','peer')]:
    with self.subTest(field=field):
     effective=dict(shared,**{field:value})
@@ -41,7 +41,7 @@ class MemoryTest(unittest.TestCase):
   ov=types.SimpleNamespace(_ovcli_values_for=lambda _:dict(shared,agent='linked-peer'),_resolve_connection_settings=lambda _:shared)
   with self.assertRaises(RuntimeError):memory.resolve_connection(ov,{},'repository')
  def test_effective_connection_accepts_same_native_link(self):
-  shared={'endpoint':'http://openviking:1933','api_key':'fixture','account':'','user':'','agent':''}
+  shared={'endpoint':'http://127.0.0.1:1933','api_key':'fixture','account':'','user':'','agent':''}
   ov=types.SimpleNamespace(_ovcli_values_for=lambda _:shared,_resolve_connection_settings=lambda _:shared)
   self.assertEqual(memory.resolve_connection(ov,{},'repository'),shared)
  def test_share_native_link_without_copying_credentials(self):

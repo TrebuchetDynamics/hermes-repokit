@@ -42,6 +42,38 @@ func TestFreshPublicationAndRerunPreserveNativeFiles(t *testing.T) {
 		}
 	}
 }
+
+func TestRerunPreservesNativeToolLinksAndLocks(t *testing.T) {
+	id, files := fixture(t)
+	if _, err := Publish(id, files, nil); err != nil {
+		t.Fatal(err)
+	}
+	state := filepath.Join(id.Root, ".hermes")
+	link := filepath.Join(state, "bin/browser-use")
+	if err := os.Symlink("/opt/data/.local/share/uv/tools/browser-use/bin/browser-use", link); err != nil {
+		t.Fatal(err)
+	}
+	cache := filepath.Join(state, ".cache/uv")
+	if err := os.MkdirAll(cache, 0700); err != nil {
+		t.Fatal(err)
+	}
+	lock := filepath.Join(cache, ".lock")
+	if err := os.WriteFile(lock, []byte("native"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(lock, 0666); err != nil {
+		t.Fatal(err)
+	}
+	if created, err := Publish(id, files, nil); created || err != nil {
+		t.Fatalf("rerun: %v %v", created, err)
+	}
+	if got, err := os.Readlink(link); err != nil || got != "/opt/data/.local/share/uv/tools/browser-use/bin/browser-use" {
+		t.Fatalf("native link replaced: %v", err)
+	}
+	if got, err := os.ReadFile(lock); err != nil || string(got) != "native" {
+		t.Fatalf("native lock replaced: %v", err)
+	}
+}
 func TestFailedPreparationLeavesNoPublishedState(t *testing.T) {
 	id, f := fixture(t)
 	_, e := Publish(id, f, func() error { return errors.New("pull failed") })

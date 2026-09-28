@@ -73,5 +73,5 @@ func StartCommand(compose, context string) string {
 
 // StartMemoryCommand leaves service lifecycle with ordinary Compose.
 func StartMemoryCommand(compose, context string) string {
-	return "(" + clearSelectors + "; docker --context " + quote(context) + " compose --env-file /dev/null -f " + quote(compose) + " up -d openviking)"
+	return "(" + clearSelectors + "; docker --context " + quote(context) + " compose --env-file /dev/null -f " + quote(compose) + " up -d --build hermes)"
 }

@@ -43,11 +43,11 @@ func memorySetup(id target.Identity, dockerContext string, configured bool, run 
 		return exec.Command("docker", append([]string{"--context", dockerContext, "compose", "--env-file", "/dev/null", "-f", id.Compose}, args...)...)
 	}
 	native := func(command string) *exec.Cmd {
-		return compose("exec", "openviking", "openviking-server", command)
+		return compose("exec", "--user", "hermes", "hermes", "repokit-openviking", "server", command)
 	}
 	if !configured {
-		fmt.Fprintln(out, "In native OpenViking init, select remote binding 0.0.0.0:1933 with API-key auth and persistent workspace /app/.openviking/data. Keep the root key in native server state; Hermes needs a separate normal repository user key.")
-		fmt.Fprintln(out, "Enter embedding and extraction-model credentials only in native setup. Decline 'Start the server now?'; the container entrypoint manages the server.")
+		fmt.Fprintln(out, "In native OpenViking init, select Remote mode with API-key auth on port 1933; the installed wrapper forces the actual listener to 127.0.0.1. Select persistent workspace /opt/data/openviking/data. Keep the root key in native server state; Hermes needs a separate normal repository user key.")
+		fmt.Fprintln(out, "Enter embedding and extraction-model credentials only in native setup. Decline 'Start the server now?'; the Hermes container supervisor manages the server.")
 		if code := run(native("init")); code != 0 {
 			return code
 		}
@@ -55,18 +55,18 @@ func memorySetup(id target.Identity, dockerContext string, configured bool, run 
 	if code := run(native("doctor")); code != 0 {
 		return code
 	}
-	if code := run(compose("exec", "-T", "openviking", "python", "-c", memoryServerScript, "validate")); code != 0 {
+	if code := run(compose("exec", "-T", "--user", "hermes", "hermes", "repokit-openviking", "python", "-c", memoryServerScript, "validate")); code != 0 {
 		return code
 	}
 	// The entrypoint notices a first config, but an existing server only reads
 	// model/storage changes at startup. Reload before the native health gate.
-	if code := run(compose("restart", "openviking")); code != 0 {
+	if code := run(compose("exec", "-T", "--user", "hermes", "hermes", "repokit-openviking", "restart")); code != 0 {
 		return code
 	}
-	if code := run(compose("exec", "-T", "openviking", "python", "-c", memoryServerScript, "health")); code != 0 {
+	if code := run(compose("exec", "-T", "--user", "hermes", "hermes", "repokit-openviking", "python", "-c", memoryServerScript, "health")); code != 0 {
 		return code
 	}
-	fmt.Fprintln(out, "Use Custom URL http://openviking:1933 and a normal user key for account repokit and this repository. Choose Mirror to OpenViking store to share the native connection with all six profiles.")
+	fmt.Fprintln(out, "Use Custom URL http://127.0.0.1:1933 and a normal user key for account repokit and this repository. Choose Mirror to OpenViking store to share the native connection with all six profiles.")
 	if code := run(exec.Command(id.Launcher, "-p", "default", "memory", "setup", "openviking")); code != 0 {
 		return code
 	}

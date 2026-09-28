@@ -1,0 +1,296 @@
+#!/usr/bin/python3
+"""Run authorized Docker tests against the opt-in Unix-socket test daemon.
+
+This is operational separation, not a security sandbox: the DinD sidecar is
+privileged. Never use this helper to run untrusted code on a shared host.
+"""
+import argparse
+import contextlib
+import json
+import os
+import re
+from pathlib import Path
+import shutil
+import signal
+import stat
+import subprocess
+import sys
+import tempfile
+import time
+
+SOCKET = 'unix:///docker-test/run/docker.sock'
+DOCKER = '/usr/bin/docker'
+SOURCE = Path('/workspace')
+SCRATCH = Path('/docker-tests')
+SAFE_PATH = '/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin:/opt/hermes/.venv/bin'
+MAX_FILES = 100000
+MAX_BYTES = 1024 * 1024 * 1024
+EXCLUDED = {'.git', '.hermes', '.backups', '.backup', 'backups', 'backup',
+            'auth.json', 'credentials.json', '__pycache__'}
+ENV_EXAMPLES = {'.env.example', '.env.sample'}
+
+
+def fixture_environment(root, incoming):
+    """Allow only non-secret display settings; never inherit runtime credentials."""
+    env = {k: incoming[k] for k in ('TERM', 'LANG', 'LC_ALL', 'TZ') if k in incoming}
+    env.update({
+        'PATH': str(root / 'bin') + ':' + SAFE_PATH,
+        'HOME': str(root / 'home'),
+        'TMPDIR': str(root / 'tmp'), 'TMP': str(root / 'tmp'), 'TEMP': str(root / 'tmp'),
+        'XDG_CONFIG_HOME': str(root / 'home/.config'),
+        'XDG_CACHE_HOME': str(root / 'home/.cache'),
+        'DOCKER_HOST': SOCKET, 'DOCKER_CONTEXT': 'default',
+        'DOCKER_CONFIG': str(root / 'docker-config'),
+        'REPOKIT_DOCKER_TESTS': '1', 'REPOKIT_DOCKER_CONTEXT': 'default',
+        'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null',
+        'GIT_TERMINAL_PROMPT': '0',
+        'GOCACHE': str(root / 'cache/go-build'), 'GOMODCACHE': str(root / 'cache/go-mod'),
+        'PYTHONDONTWRITEBYTECODE': '1',
+    })
+    return env
+
+
+def safe_docker_args(args):
+    """Accept ordinary CLI operations, keeping global endpoint controls fixed."""
+    # Persistent --config flags are accepted after subcommands by Docker too.
+    # Refuse them throughout argv; even a late option must not load host auth.
+    if any(a == '--config' or a.startswith('--config=') for a in args):
+        raise ValueError('Docker configuration overrides are disabled for this fixture')
+    result = []
+    i = 0
+    while i < len(args) and args[i].startswith('-'):
+        arg = args[i]
+        if arg in ('--context', '-c'):
+            if i + 1 >= len(args) or args[i+1] != 'default':
+                raise ValueError('only the isolated default Docker context is allowed')
+            i += 2
+            continue
+        if arg == '--context=default' or arg == '-cdefault':
+            i += 1
+            continue
+        if (arg.startswith(('--host', '--context', '--config', '--tls', '-H', '-c'))):
+            raise ValueError('Docker endpoint/configuration overrides are disabled for this fixture')
+        if arg in ('--log-level', '-l'):
+            if i + 1 >= len(args):
+                raise ValueError('missing Docker log level')
+            result.extend(args[i:i+2]); i += 2; continue
+        if arg in ('--debug', '-D', '--help', '-h', '--version', '-v') or arg.startswith('--log-level='):
+            result.append(arg); i += 1; continue
+        raise ValueError('unsupported Docker global option in isolated fixture')
+    return result + args[i:]
+
+
+def private_path(name):
+    parts = Path(name).parts
+    return (not parts or Path(name).is_absolute() or '..' in parts or
+            any(p in EXCLUDED or p.startswith('.hermes-') for p in parts) or
+            any((p == '.env' or p.startswith('.env.')) and p not in ENV_EXAMPLES for p in parts) or
+            any(p.endswith(('~', '.bak', '.backup', '.pyc', '.pyo')) for p in parts))
+
+
+def snapshot(source, destination, env):
+    """Copy current source, including edits, without private/ignored host state."""
+    clean = {k:v for k,v in env.items() if not k.startswith('GIT_')}
+    clean.update({'GIT_CONFIG_NOSYSTEM':'1', 'GIT_CONFIG_GLOBAL':'/dev/null'})
+    listed = subprocess.run(['git','-C',str(source),'ls-files','--cached','--others',
+                             '--exclude-standard','-z'],env=clean,check=True,capture_output=True).stdout
+    names = sorted(set(p for p in listed.split(b'\0') if p))
+    if not names:
+        return
+    if len(names) > MAX_FILES:
+        raise ValueError('source snapshot exceeds file limit')
+    ignored = subprocess.run(['git','-C',str(source),'check-ignore','--no-index','--stdin','-z'],
+                             input=b'\0'.join(names)+b'\0',env=clean,capture_output=True)
+    if ignored.returncode not in (0,1):
+        raise ValueError('cannot establish ignored source paths')
+    ignore = set(ignored.stdout.split(b'\0'))
+    total = 0
+    rootfd = os.open(source,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+    try:
+        for raw in names:
+            name = os.fsdecode(raw)
+            if raw in ignore or private_path(name):
+                continue
+            parts = Path(name).parts
+            current = os.dup(rootfd)
+            try:
+                for part in parts[:-1]:
+                    new = os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=current)
+                    os.close(current);current=new
+                try:
+                    fd = os.open(parts[-1],os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=current)
+                except (FileNotFoundError,IsADirectoryError):
+                    continue  # Deleted tracked paths are absent in this working snapshot.
+                except OSError as exc:
+                    if exc.errno == 40:  # ELOOP: do not follow links out of the source tree.
+                        continue
+                    raise
+                with os.fdopen(fd,'rb') as original:
+                    info=os.fstat(original.fileno())
+                    if not stat.S_ISREG(info.st_mode):
+                        continue
+                    total += info.st_size
+                    if total > MAX_BYTES:
+                        raise ValueError('source snapshot exceeds byte limit')
+                    target=destination/name
+                    target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+                    with target.open('xb') as out:
+                        remaining=info.st_size
+                        while remaining:
+                            data=original.read(min(1024*1024,remaining))
+                            if not data:break
+                            out.write(data);remaining-=len(data)
+                    target.chmod(0o700 if info.st_mode & 0o111 else 0o600)
+            except FileNotFoundError:
+                continue
+            finally:
+                os.close(current)
+    finally:
+        os.close(rootfd)
+
+
+def docker_environment(env, config):
+    clean = {k:v for k,v in env.items() if not k.startswith(('DOCKER_', 'BUILDX_', 'COMPOSE_'))}
+    clean.update({'DOCKER_HOST':SOCKET,'DOCKER_CONFIG':str(config),'DOCKER_CONTEXT':'default'})
+    return clean
+
+
+
+def label_owned_resources(args, token):
+    # Containers/volumes/networks created directly by the fixture can be cleaned
+    # by an exact per-run label. Compose fixtures retain their own down lifecycle.
+    index=0
+    while index<len(args) and args[index].startswith('-'):
+        index += 2 if args[index] in ('--log-level','-l') else 1
+    command=args[index:]
+    offset=0
+    if command and command[0] in ('run','create'):
+        offset=1
+    elif len(command)>1 and ((command[0]=='container' and command[1] in ('run','create')) or (command[0] in ('volume','network') and command[1]=='create')):
+        offset=2
+    if not offset:return args
+    at=index+offset
+    return args[:at]+['--label','io.repokit.docker-test.fixture='+token]+args[at:]
+
+
+def cleanup_resources(root, env):
+    # The daemon cache and unrelated jobs are preserved. Never use prune or an
+    # unfiltered resource list. Failed list/delete calls cannot broaden cleanup.
+    prefix=[DOCKER,'--config',str(root/'docker-config'),'--host',SOCKET]
+    label='label=io.repokit.docker-test.fixture='+root.name
+    for kind in ('container','network','volume'):
+        try:
+            listing=[kind,'ls','--quiet']+(['--all'] if kind=='container' else [])+['--filter',label]
+            listed=subprocess.run(prefix+listing,env=env,
+                                  capture_output=True,timeout=10,check=True)
+            if len(listed.stdout)>65536:continue
+            names=listed.stdout.decode('ascii').split()
+            if len(names)>256 or any(not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,255}',name) for name in names):continue
+            if not names:continue
+            flags=['--force'] if kind=='container' else []
+            subprocess.run(prefix+[kind,'rm']+flags+['--']+names,env=env,
+                           capture_output=True,timeout=20,check=True)
+        except (OSError,UnicodeError,subprocess.SubprocessError):
+            print('Some labeled Docker fixture resources could not be cleaned; unrelated resources were preserved',file=sys.stderr)
+
+
+def docker_shim(args, config):
+    clean = docker_environment(os.environ,config)
+    args=label_owned_resources(safe_docker_args(args),Path(config).parent.name)
+    return subprocess.call([DOCKER,'--config',str(config),'--host',SOCKET]+args,env=clean)
+
+
+def write_shim(root):
+    # Per-run constants prevent an inherited DOCKER_CONFIG/CONTEXT from selecting
+    # operator credentials. The script imports this installed immutable helper.
+    script = ('#!/usr/bin/python3\nimport runpy,sys\n'
+              'm=runpy.run_path('+repr(str(Path(__file__).resolve()))+')\n'
+              'try: sys.exit(m["docker_shim"](sys.argv[1:],'+repr(str(root/'docker-config'))+'))\n'
+              'except ValueError as e: print(str(e),file=sys.stderr);sys.exit(2)\n')
+    path=root/'bin/docker';path.write_text(script);path.chmod(0o700)
+
+
+
+def terminate_group(child, grace=3):
+    """Terminate descendants even after the original fixture process exited."""
+    try:
+        os.killpg(child.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        child.wait(timeout=3)
+        return
+    deadline = time.monotonic() + grace
+    while True:
+        try:
+            os.killpg(child.pid, 0)
+        except ProcessLookupError:
+            break
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            with contextlib.suppress(ProcessLookupError):
+                os.killpg(child.pid, signal.SIGKILL)
+            break
+        time.sleep(min(0.05, remaining))
+    child.wait(timeout=3)
+
+
+def run_fixture(command, timeout):
+    sock=Path(SOCKET.removeprefix('unix://'))
+    if not stat.S_ISSOCK(sock.lstat().st_mode):
+        raise ValueError('isolated Docker test socket is absent; start the docker-tests profile first')
+    info=SCRATCH.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise ValueError('Docker test scratch volume is absent or not privately owned')
+    root=Path(tempfile.mkdtemp(prefix='fixture-',dir=SCRATCH))
+    child=None
+    env=None
+    daemon_verified=False
+    try:
+        for name in ('bin','home','tmp','docker-config','source','cache/go-build','cache/go-mod'):
+            (root/name).mkdir(parents=True,mode=0o700)
+        (root/'docker-config/config.json').write_text('{}\n')
+        env=fixture_environment(root,os.environ)
+        observed=subprocess.run([DOCKER,'--config',env['DOCKER_CONFIG'],'--host',SOCKET,
+                                 'info','--format','{{json .Labels}}'],env=env,
+                                capture_output=True,timeout=10,check=True)
+        if 'io.repokit.docker-test=1' not in json.loads(observed.stdout):
+            raise ValueError('socket does not identify the RepoKit Docker test daemon')
+        daemon_verified=True
+        snapshot(SOURCE,root/'source',env)
+        subprocess.run(['git','-c','core.hooksPath=/dev/null','init','--quiet',str(root/'source')],env=env,check=True)
+        write_shim(root)
+        child=subprocess.Popen(command,cwd=root/'source',env=env,start_new_session=True)
+        return child.wait(timeout=timeout)
+    finally:
+        if child is not None:
+            terminate_group(child)
+        if daemon_verified:
+            cleanup_resources(root,env)
+        # Remove only our freshly allocated fixture tree. Docker images and cache
+        # remain in the dedicated daemon volume; no global prune is performed.
+        shutil.rmtree(root)
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--timeout',type=int,default=1800)
+    parser.add_argument('command',nargs=argparse.REMAINDER)
+    options=parser.parse_args()
+    if not 1 <= options.timeout <= 86400:
+        parser.error('timeout must be between 1 and 86400 seconds')
+    def terminate(signum, _frame):
+        raise SystemExit(128+signum)
+    signal.signal(signal.SIGTERM,terminate)
+    command=options.command
+    if command and command[0]=='--':command=command[1:]
+    if not command:command=['go','test','-tags','docker','./tests/acceptance']
+    try:
+        return run_fixture(command,options.timeout)
+    except subprocess.TimeoutExpired:
+        print('Docker test fixture timed out',file=sys.stderr);return 124
+    except KeyboardInterrupt:
+        return 130
+    except (OSError,ValueError,subprocess.CalledProcessError,json.JSONDecodeError):
+        print('Docker test fixture unavailable or failed preparation; verify the opt-in daemon and source checkout',file=sys.stderr)
+        return 1
+
+if __name__=='__main__':sys.exit(main())

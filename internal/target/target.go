@@ -15,6 +15,7 @@ import (
 type Identity struct{ Root, Name, Container, Project, Compose, Launcher string }
 
 var separators = regexp.MustCompile(`[^a-z0-9]+`)
+var gatewayTickSocket = regexp.MustCompile(`^state/gateway\.loop-tick\.[1-9][0-9]*\.sock$`)
 
 func Resolve(path string) (Identity, error) {
 	absolute, err := filepath.Abs(path)
@@ -79,7 +80,11 @@ func Inspect(id Identity, pathEnv string) []string {
 			if e != nil {
 				return e
 			}
-			if info.Mode()&os.ModeSymlink != 0 || (!info.IsDir() && !info.Mode().IsRegular()) || !owned(info) || info.Mode().Perm()&0022 != 0 || (p == state && info.Mode().Perm()&0077 != 0) {
+			rel, e := filepath.Rel(state, p)
+			if e != nil {
+				return e
+			}
+			if !safeNativeEntry(filepath.ToSlash(rel), id.Container, info) {
 				issues = append(issues, "unsafe native path: "+strings.TrimPrefix(p, id.Root+"/"))
 			}
 			return nil
@@ -106,6 +111,36 @@ func Inspect(id Identity, pathEnv string) []string {
 	}
 	return issues
 }
+
+// Native tool managers use symlinks with container-only targets and writable
+// cache locks. Inspect metadata without following these links. Their roots and
+// all ancestor directories remain subject to the ordinary ownership/mode rules.
+func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
+	if !owned(info) {
+		return false
+	}
+	if rel == "." {
+		return info.IsDir() && info.Mode().Perm()&0077 == 0
+	}
+	under := func(root string) bool { return strings.HasPrefix(rel, root+"/") }
+	uv := under(".cache/uv") || under(".local/share/uv/tools") || under("home/.cache/uv")
+	toolLink := uv || under(".local/bin") || under(".cua-driver/packages") ||
+		(filepath.Dir(rel) == "bin" && filepath.Base(rel) != launcher)
+	if info.Mode()&os.ModeSymlink != 0 {
+		return toolLink
+	}
+	if info.IsDir() {
+		return info.Mode().Perm()&0022 == 0
+	}
+	if info.Mode()&os.ModeSocket != 0 {
+		return info.Mode().Perm()&0022 == 0 && (rel == "gateway.sock" || gatewayTickSocket.MatchString(rel))
+	}
+	if !info.Mode().IsRegular() {
+		return false
+	}
+	return info.Mode().Perm()&0022 == 0 || (uv && strings.HasSuffix(rel, ".lock")) || rel == "lazy-packages/.lock"
+}
+
 func owned(info fs.FileInfo) bool {
 	st, ok := info.Sys().(*syscall.Stat_t)
 	return ok && st.Uid == uint32(os.Geteuid())

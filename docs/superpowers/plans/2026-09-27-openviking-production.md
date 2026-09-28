@@ -1,6 +1,8 @@
+> Historical sidecar implementation record. Current normal deployment embeds memory in Hermes; see [embedded topology](../../qualification/embedded-openviking.md). Earlier fixture results do not qualify the current image.
+
 # OpenViking production integration
 
-Execute the existing bootstrap design's Phase 9 before Nerve/Laya and live team
+Execute the existing bootstrap design's Phase 9 before live team
 acceptance, per the latest user directive. Work in feat/openviking-production;
 preserve the active root deployment and the separate runtime-integrations worktree.
 
@@ -34,7 +36,7 @@ belongs in the operator's terminal. Metadata verification performs no inference.
 6. After private embedding/extraction/server-auth configuration is available,
    qualify native shared connection for all six profiles, real cross-role recall,
    restart recall, second-repository denial and outage behavior. Then proceed to
-   Nerve/Laya, real model workers and full removal-first acceptance. No synthetic
+   Real model workers and full removal-first acceptance. No synthetic
    response or mere health check counts as live memory acceptance.
 
 ## Review focus
@@ -94,6 +96,6 @@ to this behavior; production already checks server-returned identity.
 Task 6: waiting for the operator's embedding/extraction model endpoints and
 private native configuration. Requested via asynchronous input. No credentials
 borrowed, no guessed model, no live-memory success inferred from fixture data.
-Nerve/Laya, actual workers and full removal-first dogfood remain after this gate.
+Actual workers and full removal-first dogfood remain after this gate.
 Implementation was validated in an isolated worktree. Delivery does not upgrade
 the active main deployment or include the unrelated runtime-integrations work.

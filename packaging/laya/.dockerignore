@@ -1,5 +1,0 @@
-*
-!Dockerfile
-!requirements.lock
-!model-manifest.json
-!download_model.py

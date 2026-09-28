@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="depTitle depDesc">
+  <title id="depTitle">What RepoKit leaves behind: a private .hermes directory beside one Compose-owned Hermes container</title>
+  <desc id="depDesc">The installer writes a private .hermes directory (Compose file, launcher, config, development image, memory data, gitignore) and one Hermes container supervised by s6, running a default gateway, six native profiles, a shared Kanban board and embedded memory on loopback with no published host ports.</desc>
+
+  <rect width="1200" height="520" rx="24" fill="#0A0D0F"/>
+  <rect x="0.5" y="0.5" width="1199" height="519" rx="23.5" fill="none" stroke="#1E2A31"/>
+
+  <g id="deployment-header">
+    <text x="56" y="54" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="15" letter-spacing="2.4" fill="#F0B24A">WHAT REPOKIT LEAVES BEHIND</text>
+    <text x="1144" y="54" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#7F909C">ordinary Docker Compose · native state stays authoritative</text>
+    <text x="56" y="82" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="16" fill="#8FA0AC">The generated deployment keeps working after RepoKit itself is removed.</text>
+  </g>
+
+  <!-- generated tree -->
+  <g id="generated-tree">
+    <rect x="56" y="108" width="392" height="300" rx="16" fill="#12181C" stroke="#26333B"/>
+    <text x="80" y="146" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="15" fill="#E8EEF2">my-project/.hermes/</text>
+    <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="15" fill="#AAB9C4">
+      <text x="80" y="184">├── compose.yaml</text>
+      <text x="80" y="212">├── bin/hermes-my-project</text>
+      <text x="80" y="240">├── config.yaml</text>
+      <text x="80" y="268">├── development-image/</text>
+      <text x="80" y="296">├── openviking/</text>
+      <text x="80" y="324">└── .gitignore</text>
+    </g>
+    <line x1="80" y1="352" x2="424" y2="352" stroke="#26333B"/>
+    <text x="80" y="382" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#7F909C">Private native state, ignored by git.</text>
+  </g>
+
+  <!-- one container -->
+  <g id="container">
+    <rect x="492" y="108" width="652" height="300" rx="16" fill="#12181C" stroke="#26333B"/>
+    <line x1="492" y1="152" x2="1144" y2="152" stroke="#26333B"/>
+    <circle cx="516" cy="130" r="5" fill="#33454F"/>
+    <circle cx="536" cy="130" r="5" fill="#33454F"/>
+    <circle cx="556" cy="130" r="5" fill="#33454F"/>
+    <text x="580" y="136" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="15" fill="#E8EEF2">hermes-&lt;repo&gt;</text>
+    <text x="1120" y="136" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#7F909C">one container</text>
+
+    <rect x="516" y="168" width="604" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+    <text x="532" y="188" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#F0B24A">s6 supervisor — starts and drains the local services</text>
+
+    <text x="516" y="224" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#7F909C">Six permanent native profiles</text>
+    <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="#E8EEF2" text-anchor="middle">
+      <rect x="516" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="563" y="253">default</text>
+      <rect x="618" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="665" y="253">researcher</text>
+      <rect x="720" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="767" y="253">planner</text>
+      <rect x="822" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="869" y="253">executor</text>
+      <rect x="924" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="971" y="253">reviewer</text>
+      <rect x="1026" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="1073" y="253">steward</text>
+    </g>
+
+    <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13">
+      <text x="516" y="304" fill="#E8EEF2">default gateway</text>
+      <text x="700" y="304" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" fill="#AAB9C4">dispatch + review · max in-progress 1</text>
+      <text x="516" y="336" fill="#E8EEF2">shared Kanban</text>
+      <text x="700" y="336" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" fill="#AAB9C4">claims, runs and same-card review</text>
+      <text x="516" y="368" fill="#E8EEF2">embedded memory</text>
+      <text x="700" y="368" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" fill="#AAB9C4">127.0.0.1:1933 · private persistent storage</text>
+    </g>
+  </g>
+
+  <!-- bind mounts -->
+  <g id="mounts">
+    <rect x="56" y="432" width="1088" height="44" rx="10" fill="#12181C" stroke="#26333B"/>
+    <text x="80" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#5BD1A8">bind mounts</text>
+    <text x="190" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">repository &#8594; /workspace</text>
+    <text x="392" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">.hermes &#8594; /opt/data</text>
+    <text x="590" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">openviking/ &#8594; /app/.openviking</text>
+    <text x="1120" y="460" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#7F909C">no published host ports</text>
+  </g>
+</svg>

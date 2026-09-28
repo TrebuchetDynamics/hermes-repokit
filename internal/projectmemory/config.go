@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-const Endpoint = "http://openviking:1933"
+const Endpoint = "http://127.0.0.1:1933"
 const Account = "repokit"
 
 // Image is the official v0.4.21 service qualified for native configuration and

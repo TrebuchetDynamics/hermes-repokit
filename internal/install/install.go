@@ -40,11 +40,6 @@ func PublishOpenVikingChecked(id target.Identity, files map[string]Artifact, pre
 	return publish(id, files, nil, check, []StackUpgrade{{Compose: previousCompose, PrepareMemory: true}})
 }
 
-// PublishLayaChecked adds only the selected sidecar to recognized OpenViking Compose.
-func PublishLayaChecked(id target.Identity, files map[string]Artifact, previousCompose []byte, check func() error) (bool, error) {
-	return publish(id, files, nil, check, []StackUpgrade{{Compose: previousCompose}})
-}
-
 // StackUpgrade identifies an exact prior generated Compose document.
 type StackUpgrade struct {
 	Compose       []byte
@@ -117,7 +112,7 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 				if e == nil && name == "compose.yaml" {
 					for _, prior := range previous {
 						if len(prior.Compose) > 0 && bytes.Equal(b, prior.Compose) {
-							return addSidecar(root, id, rootInfo, lockInfo, prior.Compose, files, prior.PrepareMemory, prior.BackupName)
+							return upgradeCompose(root, id, rootInfo, lockInfo, prior.Compose, files, prior.PrepareMemory, prior.BackupName)
 						}
 					}
 				}
@@ -130,7 +125,7 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 				return false, fmt.Errorf("OpenViking data directory absent; preserve native state and inspect before repair")
 			}
 		}
-		if err := checkLayaArtifacts(root, ".hermes/", files); err != nil {
+		if err := checkDevelopmentArtifacts(root, ".hermes/", files); err != nil {
 			return false, err
 		}
 		return false, nil

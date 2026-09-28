@@ -7,12 +7,12 @@ import (
 	"flag"
 	"fmt"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/supervision"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
@@ -28,7 +28,7 @@ func Commands() []string { return append([]string(nil), commands[:]...) }
 
 type App struct {
 	Directory, Path string
-	LayaImage       string
+	DockerTests     bool
 	Runner          verify.Runner
 	Stdin           io.Reader
 	Initializer     native.InputRunner
@@ -55,22 +55,22 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	flags.Usage = func() {}
 	engineering := false
 	memorySetup := false
-	supervisionSetup := false
+	teamSetup := false
 	if args[0] == "plan" || args[0] == "install" {
-		flags.StringVar(&a.LayaImage, "laya-image", "", "qualified local Laya image ID")
+		flags.BoolVar(&a.DockerTests, "docker-tests", false, "publish opt-in privileged isolated Docker acceptance service; never the host socket")
 	}
 	if args[0] != "setup" {
 		flags.BoolVar(&engineering, "engineering", false, "legacy alias; generic team is the default")
 	} else {
+		flags.BoolVar(&teamSetup, "team", false, "resume team provisioning using the saved default model; no private wizard")
 		flags.BoolVar(&memorySetup, "memory", false, "private native OpenViking setup and shared profile connection")
-		flags.BoolVar(&supervisionSetup, "supervision", false, "native pinned Nerve setup with local Laya verification")
 	}
 	err := flags.Parse(args[1:])
 	if errors.Is(err, flag.ErrHelp) && len(args) == 2 && (args[1] == "-h" || args[1] == "--help") {
 		usage(stdout)
 		return 0
 	}
-	if err != nil || flags.NArg() != 0 || (memorySetup && supervisionSetup) {
+	if err != nil || flags.NArg() != 0 || (teamSetup && memorySetup) {
 		return usageError(stderr)
 	}
 	for _, arg := range args[1:] {
@@ -83,8 +83,8 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	if a.LayaImage == "" {
-		a.LayaImage = compose.SelectedLaya(id)
+	if selected, ok := compose.DevelopmentSelected(id); ok && selected.DockerTests {
+		a.DockerTests = true
 	}
 	if a.Runner == nil {
 		a.Runner = process.Runner{}
@@ -99,16 +99,38 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "unsafe native state:", strings.Join(issues, "; "))
 			return 1
 		}
+		if issues := a.gitIssues(context.Background(), id); len(issues) > 0 {
+			fmt.Fprintln(stderr, "setup refused: private state protection is unverified:", strings.Join(issues, "; "))
+			return 1
+		}
 		dockerContext, routingErr := launcher.Context(id)
 		if routingErr != nil {
 			fmt.Fprintln(stderr, "setup refused: deployment routing cannot be verified")
 			return 1
 		}
-		if supervisionSetup {
-			return a.setupSupervision(id, dockerContext, stdout, stderr)
+		for _, p := range verify.Inspect(context.Background(), id, a.Runner) {
+			if p.Component == "compose" && p.Status != verify.Healthy {
+				fmt.Fprintln(stderr, "setup refused: generated Compose cannot be verified")
+				return 1
+			}
+		}
+		ready, runtimeErr := a.nativeRuntimeReady(id, dockerContext)
+		if runtimeErr != nil {
+			fmt.Fprintln(stderr, "setup refused:", runtimeErr)
+			return 1
+		}
+		if !ready {
+			fmt.Fprintf(stderr, "Setup requires the running pinned Hermes deployment. Inspect Docker access and service state. Start with: %s\n", launcher.StartCommand(id.Compose, dockerContext))
+			return 1
+		}
+		if code := a.prepareDispatch(id, dockerContext, stderr); code != 0 {
+			return code
+		}
+		if teamSetup {
+			return a.finishSetup(id, dockerContext, a.initialize(id, dockerContext, true, stdout, stderr), stdout, stderr)
 		}
 		if memorySetup {
-			return a.setupMemory(id, dockerContext, stdout, stderr)
+			return a.finishSetup(id, dockerContext, a.setupMemory(id, dockerContext, stdout, stderr), stdout, stderr)
 		}
 		if code := native.Setup(id.Launcher, id.Compose, dockerContext, a.Stdin, stdout, stderr); code != 0 {
 			return code
@@ -123,13 +145,16 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		if code := a.setupMemory(id, dockerContext, stdout, stderr); code != 0 {
 			return code
 		}
-		return a.setupSupervision(id, dockerContext, stdout, stderr)
+		return a.finishSetup(id, dockerContext, 0, stdout, stderr)
 	case "verify":
 		probes := verify.Inspect(context.Background(), id, a.Runner)
 		if issues := a.gitIssues(context.Background(), id); len(issues) > 0 {
 			probes = append(probes, verify.Probe{Component: "git", Status: verify.Degraded, Detail: strings.Join(issues, "; ")})
 		}
+		probes = append(probes, verify.Development(context.Background(), id, a.Runner)...)
 		probes = append(probes, verify.Profiles(id)...)
+		probes = append(probes, verify.Gateway(context.Background(), id, a.Runner)...)
+		probes = append(probes, verify.DefaultKanban(context.Background(), id, a.Runner)...)
 		probes = append(probes, verify.OpenViking(context.Background(), id, a.Runner)...)
 		probes = append(probes, verify.RuntimeIntegrations(context.Background(), id, a.Runner)...)
 		if err := json.NewEncoder(stdout).Encode(probes); err != nil {
@@ -157,29 +182,34 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 }
 
 type Plan struct {
-	Target                       target.Identity   `json:"target"`
-	DockerContext                string            `json:"docker_context"`
-	ExistingState                bool              `json:"existing_state"`
-	Collisions                   []string          `json:"collisions"`
-	CandidateImages              map[string]string `json:"candidate_images_not_release_qualified"`
+	Development                  development.Requirements `json:"development_requirements"`
+	DockerTests                  bool                     `json:"docker_tests_opt_in"`
+	Target                       target.Identity          `json:"target"`
+	DockerContext                string                   `json:"docker_context"`
+	ExistingState                bool                     `json:"existing_state"`
+	Collisions                   []string                 `json:"collisions"`
+	CandidateImages              map[string]string        `json:"candidate_images_not_release_qualified"`
 	Profiles, Plugins            []string
 	ProposedMemoryConfig         map[string]any `json:"proposed_memory_config_not_activated"`
 	Kanban                       map[string]any `json:"kanban"`
-	ProposedNerveSettings        map[string]any `json:"proposed_nerve_settings_not_activated"`
-	NerveRevision                string         `json:"candidate_nerve_revision"`
-	OpenViking, NerveLaya        string
+	OpenViking                   string
 	ProposedChanges, Unsupported []string
 }
 
 func (a App) plan(id target.Identity, engineering bool) Plan {
-	p := Plan{Target: id, Collisions: target.Inspect(id, a.Path), CandidateImages: map[string]string{"hermes": qualification.FoundationImage, "openviking": projectmemory.Image}, Profiles: []string{"default"}, Plugins: []string{}, Kanban: map[string]any{"dispatch_in_gateway": false, "auto_decompose": false, "orchestrator_profile": "default", "max_in_progress": 1}, OpenViking: "pending private native embedding/VLM setup and live memory qualification", NerveLaya: "pinned local Laya build scaffold; native supervision setup pending", ProposedChanges: []string{"private .hermes native state", "standalone Hermes/OpenViking/Laya Compose and launcher", "native safe-default config; operator starts Compose and runs setup"}}
+	p := Plan{Target: id, Collisions: target.Inspect(id, a.Path), CandidateImages: map[string]string{"hermes": qualification.FoundationImage, "openviking": projectmemory.Image}, Profiles: []string{"default"}, Plugins: []string{}, Kanban: map[string]any{"dispatch_in_gateway": false, "auto_decompose": false, "orchestrator_profile": "default", "max_in_progress": 1}, OpenViking: "pending private native embedding/VLM setup and live memory qualification", ProposedChanges: []string{"private .hermes native state", "standalone Hermes with embedded OpenViking Compose and launcher", "native safe-default config; operator starts Compose and runs setup"}}
 
+	p.Development, _ = development.Detect(id.Root)
+	if _, err := development.Detect(id.Root); err != nil {
+		p.Unsupported = append(p.Unsupported, "repository toolchain manifests cannot be safely inspected")
+	}
+	p.DockerTests = a.DockerTests
+	p.ProposedChanges = append(p.ProposedChanges, "build pinned Hermes development image; project compiler readiness is verified separately")
+	if a.DockerTests {
+		p.ProposedChanges = append(p.ProposedChanges, "opt-in privileged Docker test daemon with private scratch volumes, no host daemon socket; not a VM security boundary")
+	}
 	p.ProposedMemoryConfig, _ = projectmemory.NativeConfig(id.Project)
-	p.ProposedNerveSettings = supervision.LocalLayaSettings()
-	p.NerveRevision = supervision.NerveRevision
-	p.Plugins = []string{"nerve@" + supervision.NerveRevision}
-	p.ProposedChanges = append(p.ProposedChanges, "persist pinned local Laya build recipe and cache; configure native Nerve before enabling during setup")
-	p.ProposedChanges = append(p.ProposedChanges, "private persistent OpenViking service; native setup required before memory activation")
+	p.ProposedChanges = append(p.ProposedChanges, "private persistent OpenViking inside Hermes; native setup required before memory activation")
 	p.Profiles = nil
 	for _, role := range team.Roster() {
 		p.Profiles = append(p.Profiles, role.Name)
@@ -230,15 +260,6 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 			}
 		}
 	}
-	if a.LayaImage != "" {
-		p.CandidateImages["laya"] = a.LayaImage
-		p.Plugins = []string{"nerve@" + supervision.NerveRevision}
-		p.NerveLaya = "selected local image; native supervision setup and acceptance pending"
-		p.ProposedChanges = append(p.ProposedChanges, "add selected Laya image; ordinary Compose owns startup; native Nerve setup installs disabled, configures local Laya, then enables")
-		if err := supervision.CheckImage(ctx, p.DockerContext, a.LayaImage, a.Runner); err != nil {
-			p.Unsupported = append(p.Unsupported, err.Error())
-		}
-	}
 	return p
 }
 func recognized(command string) bool {
@@ -251,7 +272,7 @@ func recognized(command string) bool {
 }
 func usage(w io.Writer) {
 	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify> [--engineering] [--help]")
-	fmt.Fprintln(w, "       hermes-repokit setup [--memory|--supervision]")
-	fmt.Fprintln(w, "       hermes-repokit <plan|install> --laya-image sha256:IMAGE_ID")
+	fmt.Fprintln(w, "       hermes-repokit setup [--team|--memory]")
+	fmt.Fprintln(w, "       hermes-repokit <plan|install> [--docker-tests]")
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }

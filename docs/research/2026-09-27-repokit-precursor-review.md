@@ -1,6 +1,6 @@
 # RepoKit precursor review: adopt, adapt, reject
 
-Date: 2026-09-27. Source-only review of sibling **pi-toolset** commit `0ddfd0b41b390fe69d0791d4a5afda8ea0d14ae2`; no deployment approval. Current authority: [bootstrap design](../superpowers/specs/2026-09-27-repokit-bootstrap-design.md) and [draft twelve-task plan](../superpowers/plans/2026-09-27-repokit-bootstrap.md). The latest user decision replaces proposed host Python tooling with one Go-built `hermes-repokit` executable. Go is build-only; installed binary needs no Go/Python/venv/pip/Node. Generated launcher still requires only POSIX shell and Docker. Native plugin/Laya Python stays inside independent runtime artifacts; precursor Node implementation is not a host dependency.
+Date: 2026-09-27. Source-only review of sibling **pi-toolset** commit `0ddfd0b41b390fe69d0791d4a5afda8ea0d14ae2`; no deployment approval. Current authority: [bootstrap design](../superpowers/specs/2026-09-27-repokit-bootstrap-design.md) and [maintained implementation plan](../superpowers/plans/2026-09-27-repokit-bootstrap.md). The latest user decision replaces proposed host Python tooling with one Go-built `hermes-repokit` executable. Go is build-only; installed binary needs no Go/Python/venv/pip/Node. Generated launcher still requires only POSIX shell and Docker. Native plugin Python stays inside independent runtime artifacts; precursor Node implementation is not a host dependency.
 
 All paths below are in that immutable precursor commit, relative to `skills/engineering/hermes-repo-install/` unless prefixed `tests/`.
 

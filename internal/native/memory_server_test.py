@@ -13,10 +13,16 @@ spec.loader.exec_module(server)
 class ServerGateTest(unittest.TestCase):
     def setUp(self):
         # Nonsecret config-shape input, never written to a service or used as auth.
-        self.config = {'storage': {'workspace': '/app/.openviking/data'},
-                       'server': {'host': '0.0.0.0', 'port': 1933, 'root_api_key': 'fixture'}}
+        self.config = {'storage': {'workspace': '/opt/data/openviking/data'},
+                       'server': {'host': '127.0.0.1', 'port': 1933, 'root_api_key': 'fixture'}}
 
     def test_native_extraction_default_is_preserved(self):
+        before = copy.deepcopy(self.config)
+        server.validate(self.config)
+        self.assertEqual(self.config, before)
+
+    def test_native_authenticated_remote_wizard_shape_is_accepted(self):
+        self.config['server']['host'] = '0.0.0.0'
         before = copy.deepcopy(self.config)
         server.validate(self.config)
         self.assertEqual(self.config, before)
@@ -24,7 +30,7 @@ class ServerGateTest(unittest.TestCase):
     def test_rejects_unpersisted_workspace_wrong_binding_and_disabled_extraction(self):
         for section, key, value in [('storage', 'workspace', './data'),
                                     ('storage', 'workspace', '/tmp/data'),
-                                    ('server', 'host', '127.0.0.1'),
+                                    ('server', 'host', '192.0.2.1'),
                                     ('server', 'port', 1934),
                                     ('server', 'root_api_key', ''),
                                     ('memory', 'extraction_enabled', False)]:
@@ -48,7 +54,7 @@ class ServerGateTest(unittest.TestCase):
             server.health()
         self.assertEqual(run.call_count, 3)
         for call in run.call_args_list:
-            self.assertEqual(call.args[0], ['openviking-entrypoint', '--healthcheck'])
+            self.assertEqual(call.args[0], ['repokit-openviking', 'health'])
             self.assertEqual(call.kwargs['timeout'], 5)
             self.assertEqual(call.kwargs['stdout'], subprocess.DEVNULL)
 

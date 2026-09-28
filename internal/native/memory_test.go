@@ -25,7 +25,7 @@ func TestMemorySetupStopsAfterFailedNativeDoctor(t *testing.T) {
 	if code != 23 || len(calls) != 2 {
 		t.Fatalf("%d %v", code, calls)
 	}
-	if !strings.Contains(calls[0], "--context local compose --env-file /dev/null -f /repo/.hermes/compose.yaml exec openviking openviking-server init") {
+	if !strings.Contains(calls[0], "--context local compose --env-file /dev/null -f /repo/.hermes/compose.yaml exec --user hermes hermes repokit-openviking server init") {
 		t.Fatal(calls)
 	}
 }
@@ -75,7 +75,7 @@ func TestMemorySetupGatesActivationOnServerChecks(t *testing.T) {
 					stage = "doctor"
 				case strings.HasSuffix(call, " validate"):
 					stage = "validate"
-				case strings.HasSuffix(call, " restart openviking"):
+				case strings.HasSuffix(call, " repokit-openviking restart"):
 					stage = "restart"
 				case strings.HasSuffix(call, " health"):
 					stage = "health"

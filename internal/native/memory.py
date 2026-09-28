@@ -33,7 +33,7 @@ def configure(root, roles, check, run):
         if not isinstance(prior, dict):
             raise RuntimeError('owner connection differs')
         if (prior.get('agent') or prior.get('api_key') or
-                prior.get('endpoint') not in (None, '', 'http://openviking:1933') or
+                prior.get('endpoint') not in (None, '', 'http://127.0.0.1:1933') or
                 prior.get('ovcli_config_path') not in (None, '', str(link)) or
                 (prior.get('use_ovcli_config') and prior.get('ovcli_config_path') != str(link))):
             raise RuntimeError('owner connection differs')
@@ -59,7 +59,7 @@ def resolve_connection(ov, provider_config, repo_id):
     linked = ov._ovcli_values_for(provider_config)
     settings = ov._resolve_connection_settings(provider_config)
     if (linked.get('agent') or settings['agent'] or
-            settings['endpoint'] != 'http://openviking:1933' or
+            settings['endpoint'] != 'http://127.0.0.1:1933' or
             not settings['api_key'] or settings['api_key'] != linked.get('api_key') or
             settings['account'] not in ('', 'repokit') or settings['user'] not in ('', repo_id)):
         raise RuntimeError('effective native connection differs')

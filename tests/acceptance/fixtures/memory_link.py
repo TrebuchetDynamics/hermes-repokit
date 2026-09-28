@@ -8,7 +8,7 @@ roles = ['default', 'researcher', 'planner', 'executor', 'reviewer', 'steward']
 link = root / '.openviking/ovcli.conf.fixture'
 link.parent.mkdir(mode=0o700, exist_ok=True)
 link.write_text(json.dumps(ov._ovcli_data_from_connection_values({
-    'endpoint': 'http://openviking:1933', 'api_key': 'NONSECRET_OFFLINE_FIXTURE',
+    'endpoint': 'http://127.0.0.1:1933', 'api_key': 'NONSECRET_OFFLINE_FIXTURE',
     'account': 'repokit', 'user': 'fixture-repository'})))
 link.chmod(0o600)
 
@@ -23,7 +23,7 @@ def check_native_resolver(home, candidate):
     token = set_secret_scope(build_profile_secret_scope(home), profile_home=str(home))
     try:
         settings = resolve_connection(ov, candidate['openviking'], 'fixture-repository')
-        assert settings['endpoint'] == 'http://openviking:1933'
+        assert settings['endpoint'] == 'http://127.0.0.1:1933'
         # Native user keys intentionally suppress account/user assertion headers:
         # the server derives identity from the key. Production checks /health.
         assert settings['account'] == ''

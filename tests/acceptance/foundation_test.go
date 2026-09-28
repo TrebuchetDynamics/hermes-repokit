@@ -3,6 +3,8 @@ package acceptance
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
@@ -39,7 +42,9 @@ func disposableCLI(t *testing.T) (string, func()) {
 	binary := filepath.Join(source, "hermes-repokit")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "go", "build", "-trimpath", "-o", binary, "./cmd/hermes-repokit")
+	// This intentionally source-only copy has no Git history to stamp. Do not
+	// let ambient VCS discovery make the removal fixture depend on another repo.
+	cmd := exec.CommandContext(ctx, "go", "build", "-buildvcs=false", "-trimpath", "-o", binary, "./cmd/hermes-repokit")
 	cmd.Dir = source
 	cmd.Env = append(os.Environ(), "GOTOOLCHAIN=local", "GOPROXY=off", "GOSUMDB=off")
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -73,9 +78,29 @@ case "$*" in
  'context show') printf 'default\n';;
  'context inspect default --format {{.Endpoints.docker.Host}}') printf 'unix:///var/run/docker.sock\n';;
  '--context default container ls --all --format {{.Names}}') :;;
+ *'label=com.docker.compose.service=openviking --format {{.ID}}') :;;
+ '--context default image inspect '*)
+  case "$*" in
+   *'--format {{json .RootFS.Layers}}'*) printf '%s\n' "$REPOKIT_TEST_LAYERS";;
+   *) printf '%s\n' "$REPOKIT_TEST_IMAGE";;
+  esac
+  ;;
+ '--context default container inspect '*)
+  [ -n "${REPOKIT_TEST_RUNTIME:-}" ] || exit 1
+  printf '%s\n' "$REPOKIT_TEST_RUNTIME"
+  ;;
  *)
   [ "$1" = --context ] && [ "$2" = default ] && [ "$3" = compose ] || exit 2
   shift 7
+  # Setup first suspends native dispatch. This fixture fakes Docker/native
+  # execution only; dispatch semantics have their own native fixtures.
+  if [ "$1" = exec ] && [ "$2" = -T ] && [ "$3" = --user ]; then
+   input=$(cat)
+   case "$input" in
+    *REPOKIT_DISPATCH=prepared*) printf 'REPOKIT_DISPATCH=prepared\n'; exit 0;;
+    *) exit 4;;
+   esac
+  fi
   [ "$1" = exec ] && [ "$2" = -T ] && [ "$3" = --workdir ] && [ "$4" = /workspace ] && [ "$5" = hermes ] && [ "$6" = hermes ] || exit 3
   shift 6
   printf '%s\n' "$@"
@@ -89,6 +114,14 @@ esac
 		cmd := exec.Command(installer, command)
 		cmd.Dir = root
 		cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"))
+		if command == "setup" {
+			runtime, err := json.Marshal(map[string]any{"status": "running", "service": "hermes", "unexpectedMounts": "", "image": development.ImageName(id.Project, development.Requirements{}), "imageID": "sha256:" + strings.Repeat("d", 64), "project": id.Project, "workspace": id.Root, "home": filepath.Join(id.Root, ".hermes"), "mounts": []map[string]any{{"Type": "bind", "Source": id.Root, "Destination": "/workspace", "RW": true}, {"Type": "bind", "Source": filepath.Join(id.Root, ".hermes"), "Destination": "/opt/data", "RW": true}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			image, _ := json.Marshal(map[string]any{"id": "sha256:" + strings.Repeat("d", 64), "os": "linux", "arch": "amd64", "recipe": development.Fingerprint(development.Requirements{}), "base": qualification.FoundationImage, "layers": []string{"sha256:" + strings.Repeat("e", 64), "sha256:" + strings.Repeat("f", 64)}})
+			cmd.Env = append(cmd.Env, "REPOKIT_TEST_RUNTIME="+string(runtime), "REPOKIT_TEST_IMAGE="+string(image), `REPOKIT_TEST_LAYERS=["sha256:`+strings.Repeat("e", 64)+`"]`)
+		}
 		out, err := cmd.CombinedOutput()
 		if command == "setup" {
 			if err == nil || !strings.Contains(string(out), "-p\ndefault\nsetup") || !strings.Contains(string(out), "noninteractive") {

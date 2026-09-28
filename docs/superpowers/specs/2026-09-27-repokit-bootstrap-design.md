@@ -1,126 +1,90 @@
 # Hermes RepoKit bootstrap design
 
-Date: 2026-09-27. Authoritative amendment implementing the user's final directive.
-This replaces earlier bootstrap assumptions and all obsolete runtime-manager plans.
-The existing Go skeleton and README are retained; the repository is no longer documentation-only.
+RepoKit is a short-lived Go bootstrapper for a repository-specific native Hermes
+installation. Its maintained commands are `plan`, `install`, `setup` and `verify`.
+After bootstrap, ordinary Compose and the generated launcher operate independently
+of RepoKit. Native files remain authoritative; diagnostic receipts are optional
+observations, never runtime control state.
 
-## Product
+## Runtime and ownership
 
-Hermes RepoKit is an opinionated, short-lived repository bootstrapper that generates a normal Docker Compose + native Hermes environment. Once configured, RepoKit is not required.
+Normal installation creates one Hermes development container. The repository is
+mounted at `/workspace`, private `.hermes` state at `/opt/data`, and the official
+OpenViking runtime's persistent directory at `/app/.openviking`. OpenViking runs
+inside Hermes under the native s6 supervisor and binds loopback, with no host port.
+The generated development image carries qualified tools and repository-required
+Go. An optional, explicitly selected Docker acceptance daemon uses dedicated test
+storage and never mounts the host Docker socket.
 
-Exactly one Hermes container belongs to a repository. Standard Compose owns service lifecycle; native Hermes owns chat, profiles, Kanban, setup, plugins and memory integration. RepoKit has no daemon, apply loop, dispatcher, chat proxy, runtime database or second Hermes command hierarchy. Generated artifacts, plugins and sidecars must not import/call/mount RepoKit or depend on its optional receipt.
+The installer preserves owner configuration and unknown state. It refuses identity
+collisions, ambiguous ownership, unsafe symlinks, tracked private state and edited
+generated artifacts. Recognized upgrades require evidence and backups; no automatic
+state deletion or guessed migration. Services start through ordinary Compose.
 
-| Component | Implementation/owner |
-| --- | --- |
-| RepoKit CLI, configuration generation and installer tests | Go |
-| Generated `hermes-<repo>` | Standalone POSIX shell |
-| Compose | Readable deterministic YAML |
-| Hermes configuration | Native YAML/files |
-| Superpowers | Upstream `obra/superpowers` native Hermes plugin |
-| Nerve | Upstream Hermes community plugin |
-| Laya | Nerve-supported independent sidecar |
-| OpenViking | Official service and Hermes's native provider |
+## Native team and work
 
-Module: `github.com/TrebuchetDynamics/hermes-repokit`. Prefer the Go standard library; a pinned YAML library is acceptable if needed. There is no host Python/Node/Pi/Hermes prerequisite. Do not rewrite plugins or ML runtimes for language uniformity. Existing package names may remain where they express the same responsibilities; no empty scaffolding directories.
+The permanent roster is default/researcher/planner/executor/reviewer/steward.
+Default coordinates work and human-facing channels; steward manages team evolution.
+Native profile creation/cloning supplies provider configuration, while new profiles
+receive distinct SOULs and fresh curated memory. Reruns preserve learned memory and
+owner edits. Skills are preferred to unnecessary persistent specialists.
 
-## First milestone
+One native Kanban board owns cards, dependencies, runs, claims and review.
+Fresh/incomplete deployments keep dispatch off. Successful setup activates one
+default gateway dispatcher, automatic review, concurrency one, no automatic
+decomposition and a six-profile allowlist. Native provider resolution, role/tool
+contracts, routing and authenticated shared memory are mandatory gates. Setup
+fences claims, preserves active/finalizing workers and validates process identity,
+singleton ownership, startup policy and a real no-write researcher canary.
 
-The initial default deployment contains only Hermes, native safe-default
-configuration, Compose and the standalone launcher. `install` generates these
-files with conservative locking/publication and prints the ordinary Compose
-start command. Native setup follows after the operator starts Hermes. No plugin,
-sidecar, multi-profile orchestration, model call or native initializer runs in
-this milestone. Foundation verification covers artifacts and runtime identity;
-it does not claim authenticated chat or model readiness.
+Substantive artifact work belongs to executor and independent reviewer, normally
+on one card through changes and renewed review. File and terminal toolsets are not
+an OS sandbox; role boundaries remain advisory. Real actor independence, artifacts
+and originating-channel delivery require live acceptance.
 
-Prove the four commands and launcher/Compose independence after removal of
-RepoKit before starting upstream integrations. The later full v1 release gate
-still covers the selected plugins, sidecars and distinct same-card review.
+## Setup and memory
 
-## Deployment and identity
+Private native default setup runs in the owner's terminal. Plain setup continues
+with native team provisioning and OpenViking setup/linking. `setup --team` resumes
+reconciliation without another login; `setup --memory` resumes native memory setup.
+No credentials are collected into RepoKit logs, receipts or generated public files.
 
-```text
-<repo>/.hermes/
-  compose.yaml
-  bin/hermes-<normalized-full-repo-name>
-  config.yaml, profiles/, plugins/
-  ... native Kanban, sessions, authentication and history ...
-  openviking/{ov.conf,ovcli.conf,data/}
-  nerve/
-  laya/                         # only when selected
-  repokit-install.json          # optional nonsecret information
-```
+OpenViking uses account `repokit`, the repository user identity and one shared
+connection, with no per-profile peer. Built-in local memory remains enabled.
+Native synchronization and extraction are intended behavior; owner-selected model
+providers determine external processing. Configuration and authenticated health do
+not establish recall, persistence or cross-repository isolation.
 
-Repository root mounts at `/workspace`; `.hermes` mounts at `/opt/data`.
-Use `HERMES_HOME=/opt/data` and `HERMES_WRITE_SAFE_ROOT=/opt/data:/workspace`.
-Do not derive an image merely to change Unix HOME or guess exec UID/GID.
-Qualify the official image and its exec shim. One Hermes runtime plus selected sidecars is the invariant.
+Optional plugins remain owner-managed through native Hermes admission and setup.
+Scanner refusal must be respected; no force-trust path is introduced. The bundled
+maintenance adapter is limited to native graceful restart requests and successor
+observations, with live behavior separately qualified.
 
-Canonicalize target paths. Normalize the complete basename to lowercase ASCII, replace nonalphanumeric runs with hyphens and trim hyphens. Container and launcher are exactly `hermes-<name>`; never truncate, suffix or hash them. Empty/unsupported names refuse. A canonical-path hash may distinguish Compose projects; equal normalized basenames intentionally collide across projects, including stopped containers.
+## Launcher and verification
 
-Before writing, inspect root Compose variants/overrides, existing `.hermes`, symlinks/dangling links, ownership/modes, tracked private state, running/stopped container identity, PATH and launcher-link collisions. Never adopt ambiguous deployments, silently switch Docker contexts, recursively chown source or overwrite foreign files. Existing owner configuration is authoritative. `.hermes` must remain private and ignored/unindexed.
+The standalone POSIX launcher uses an absolute Compose path and captured context,
+opens `default` with no arguments, forwards explicit native arguments unchanged,
+and preserves streams, signals and exit status. It never starts services or calls
+RepoKit. PATH links require a separate authorized selection and collision checks.
 
-Compose is independently usable with explicit `--env-file /dev/null -f .hermes/compose.yaml`; mount paths resolve relative to that file. Clear interfering Compose selectors, use the selected explicit Docker context, no root forwarding Compose, no project-directory override, no native secret `.env` interpolation. Released presets store immutable image digests and full plugin SHAs, never moving tags. No public sidecar ports, Docker socket, privileged workaround or second board/provider.
+Verification reads bounded artifact/runtime observations and authenticated memory
+health. It does not open/migrate Kanban, load plugins, run models, dispatch work or
+write memory. Configuration, observed process state and behavioral acceptance are
+reported separately. Generation receipts cannot prove live channel schemas or work.
 
-## Four host commands
+## Acceptance and release
 
-- `plan`: bounded read-only target/collision/component inspection and proposed changes; never changes state.
-- `install`: one-shot bootstrap and conservative safe rerun. Creates only new managed artifacts, installs source-qualified pinned components through native admission and initializes safe native defaults. Reports partial effects; never releases dispatch or captures credentials.
-- `setup`: executes generated-launcher `-p default setup` with inherited terminal streams, then provisions the team after successful interactive setup and a saved model. No wizard or credential capture. Stopped service preserves native failure and shows the explicit Compose start command; no automatic start.
-- `verify`: bounded read-only observations of actual files/services/native artifacts, independent of receipt. Statuses: healthy, degraded, pending-setup, unsupported, unknown. Optional failure does not falsely fail unrelated components. No initialization, migration, credential refresh, inference, extraction, dispatch or write probes.
+Offline tests validate control flow and failure handling. Required Docker and
+Unix-socket tests remain explicit gates when sandbox permissions prevent execution.
+A release requires actual memory write/recall/isolation, same-card independent
+review, channel delivery and integrated removal-first operation in a disposable
+repository. Remove only the test-owned installer/source copy, restart with ordinary
+Compose and prove native history, sessions and recalled memory persist.
 
-The six-role team is the default; `--engineering` remains a compatibility alias. Nerve/Laya deployment remains deferred until integration qualification. Later integration selection must be explicit. Selection details must appear in plan output; no silent fallback or enabling incompatible components. Separate native setup handoffs explain pending component configuration.
+The current source does not claim those live gates passed. See [implementation
+status](../../implementation-progress.md), [team model](../../team-model.md),
+[setup guide](../../bootstrap-quickstart.md) and the [plan](../plans/2026-09-27-repokit-bootstrap.md).
 
-## Standalone launcher
-
-`.hermes/bin/hermes-<repo>` is owner-executable POSIX shell plus Docker. No arguments opens native Hermes chat through `-p default`. Every explicit argument is forwarded unchanged, including unknown native commands; native errors are preserved. Use an absolute Compose path and explicit context. Clear `COMPOSE_FILE`, `COMPOSE_PROJECT_NAME`, `COMPOSE_PROFILES`, `COMPOSE_ENV_FILES`. Use `exec`, not eval or `sh -c` around arguments. Preserve streams, exit status, Ctrl-C; allocate TTY only when stdin and stdout are terminals, otherwise use `-T`. Work from any directory.
-
-No auto-start, health gate, receipt check or RepoKit callback. Optional same-name PATH shortcut requires explicit selection/authorization and collision checks; never edit shell rc/PATH automatically. Unknown parent-shell alias/function state leaves shortcut activation pending rather than claiming resolution is safe.
-
-## Safe publication and process execution
-
-Use `os/exec` argv arrays, `context.Context` deadlines, bounded read-only output and cancellation of process groups where appropriate. Native interactive setup inherits streams and signal behavior; never log raw credentials/arguments. Typed configuration/observation structs contain no credentials intended for receipts/logs.
-
-Use private installer locks and atomic no-clobber publication. Verify filesystem ownership and symlink/ancestor identity, preserve dirty Git trees and unknown native state. Reruns compare actual artifacts and independent ownership evidence, not receipt desired state. Missing/corrupt receipt never resets configuration or blocks runtime. Interrupted installs retain truthful partial effects. Locks survive parent death while an authorized mutating child retains the lock descriptor. Never delete a held lock as stale-PID recovery; never use `down -v` for normal recovery.
-
-## Native profiles and plugins
-
-Initial publication leaves native initialization pending until ordinary Compose starts Hermes. Rerun `install` against that running deployment to initialize native state; never implicitly start a service. Fresh installation: native default profile only, persistent Kanban initialized through qualified native APIs, `kanban.dispatch_in_gateway: false`, `kanban.auto_decompose: false`. Enable the Kanban toolset where qualified.
-
-After successful private default setup, provision researcher/planner/executor/reviewer/steward through native configuration cloning, with distinct identities, descriptions and role-appropriate toolsets. Reset copied curated memory only for newly created profiles; preserve existing profiles/history and user drift. Native clone semantics preserve the working provider baseline. Dispatch/decomposition remain off. See the [team model](../../team-model.md) for the current role contract. The operator enables autonomous dispatch through native Hermes, not a RepoKit mode.
-
-Install full-SHA upstream Superpowers via native Hermes plugin installation. Scanner safe may install; caution needs approval for exact findings/SHA; dangerous/failed/disabled scanner refuses. Never force trust. Verify newly loaded schema in a fresh native session.
-
-Install/configure pinned upstream Nerve through its supported native plugin/catalog route. Hermes Kanban remains canonical lifecycle; Nerve provides supervision, definition-of-done, evidence and trajectory. Qualify enablement, per-profile configuration, completion behavior and restart persistence. No local `plugins/nerve` implementation or parallel task store.
-
-Nerve's selected release determines supported Laya protocol, checkpoint and sidecar inputs. Use its native backend/settings (exact names qualified, not inferred from example names) and upstream packaging. Do not create a custom Laya API/server without a proven upstream incompatibility and separately reviewed minimal response. Keep torch/transformers in the sidecar, no host port, necessary cache beneath `.hermes/laya`. Qualify actual typed result/model identity, Nerve LOCAL_ONLY/self-hosted interpretation, restart and degradation on loss. Health/mocks are not inference evidence.
-
-## Native OpenViking
-
-Scaffold the official digest-pinned service, persistent `.hermes/openviking` → `/app/.openviking`, no published 1933 port. Use endpoint `http://openviking:1933`, storage workspace `/app/.openviking/data`, disable bundled bot, and Hermes `memory.provider: openviking` through qualified native configuration. No replacement provider, memory abstraction or secret collection.
-
-Delegate embedding/VLM configuration to native `openviking-server init` and `doctor` inside the selected container, then Hermes `memory setup` or exact qualified configuration. Do not fabricate credentials/model names. Startup pending configuration is pending-setup, not a successful initialized service. Document how native setup can run before the sidecar is healthy without creating a second Hermes runtime.
-
-Accept native sync, automatic extraction and provider egress as intended semantics. The former durable-only/privacy exclusion is **removed**; raw turn/tool synchronization alone does not make the selected integration unsupported. Document synchronized/extracted data and require operator-authorized credentials/model use for live tests. Stronger privacy modes require an explicit future request and upstream support.
-
-Use per-repository service/data/network and appropriate native authentication/identities; test cross-repository denial, durable remember/restart/recall and truthful degradation. Preserve profile-local native memory without pretending it is a replica. Keep credentials out of receipts/logs.
-
-## Same-card independent review
-
-Use native Hermes request-review/request-changes/completion and Nerve supervision first. Acceptance must demonstrate distinct executor and reviewer run actors on the same card, with current candidate evidence and renewed review after changes. No speculative custom review-policy framework.
-
-Only a demonstrated executor/reviewer actor-independence enforcement gap in selected Hermes+Nerve may justify a small standalone native policy plugin. It may use only native state, must fail closed for supervised engineering cards, remain independent of RepoKit and create no second approval database. Record the gap and qualification evidence before implementing it. Do not claim universal enforcement over native administrators or arbitrary same-UID code.
-
-## Testing, release and dogfood
-
-Every substantive Go package has package-local unit tests; ordinary tests are offline and use temporary files/injected runners/fake Docker. Run `go test ./...`, `go test -race ./...`, `go vet ./...` and gofmt checks. Integration/acceptance fixtures stay separate and explicitly gated; absent authority is not a passing release tier.
-
-Cover collisions, aliases, dangling links, ownership, tracked state, interruptions, child-held locks, safe reruns, owner edits, missing/corrupt receipts, failed pull/scanner, shell metacharacters/newlines, TTY/non-TTY and Ctrl-C, stopped service, profile preservation and conservative defaults. Live tiers prove mounts, native setup/chat/args/plugins/profiles/restart; actual Nerve/Laya and OpenViking memory must be measured, not mocked. Enforce operator-specified time/download/spend/data limits.
-
-Mandatory removal-first gate uses an unrelated disposable repository: bootstrap and native component setup; start normal Compose; verify; make RepoKit checkout/binary and optional receipt inaccessible to imports/subprocesses/mounts; change cwd; native launcher and raw Docker/Compose remain usable; restart; actual bounded executor→distinct reviewer same-card task; restart again; sessions/history/memory/Nerve/Laya state persist. PATH hiding alone is insufficient. Unsupported selected integration or absent live evidence prevents v1 completion.
-
-After this gate, dogfood on RepoKit itself with bounded executor implementation, distinct review, tests and normal Git evidence. No improved binary self-apply or runtime-manager promotion.
-
-Release single CGO-disabled binaries for Linux amd64/arm64 with checksums, qualified patched toolchain and reproducible inputs; no host Go needed. Future download helper only verifies/places binaries. Publishing a release is separate from producing local artifacts.
-
-See the [implementation plan](../plans/2026-09-27-repokit-bootstrap.md), [current progress](../../../TODO.md) and source/runtime evidence under `docs/qualification`.
+Source boundaries: [CLI](../../../internal/cli/cli.go),
+[Compose](../../../internal/compose/compose.go), [native team](../../../internal/native/team.py),
+[gateway activation](../../../internal/native/gateway.go), [verification](../../../internal/verify/verify.go).

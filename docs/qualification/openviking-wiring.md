@@ -1,8 +1,10 @@
 # OpenViking wiring qualification
 
-Observed 2026-09-27 on Linux amd64. This qualifies generated deployment and native
-configuration contracts. Live memory acceptance is still pending private model
-and authentication configuration.
+Historical observations from 2026-09-27 on Linux amd64 qualify the earlier
+sidecar deployment and native configuration contracts only. Normal installation
+now embeds OpenViking inside Hermes; see [current topology](embedded-openviking.md).
+The old sidecar fixture does not qualify that image. Live memory acceptance remains
+pending private model and authentication configuration.
 
 ## Selected artifacts
 
@@ -121,12 +123,6 @@ The operator must select reachable embedding and extraction/VLM models, enter
 credentials through native setup, provision the native account and normal
 repository user key, then complete the shared connection wizard. No host
 credentials were borrowed and no model endpoint was guessed.
-
-The [live matrix](generic-team-memory.md#live-acceptance-still-required) still
-requires actual cross-profile write/recall, a second isolated repository,
-restart/recreation/removal recall and outage/recovery behavior. Neither health,
-file persistence nor a resolver test can close those gates. Production
-Nerve/Laya and model-driven Kanban acceptance follow this work; they remain open.
 
 ## Final implementation checks
 

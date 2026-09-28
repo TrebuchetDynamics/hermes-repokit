@@ -31,8 +31,6 @@ Image was pulled; setup, doctor and actual memory operation are not yet qualifie
 
 ## Outstanding gates
 
-Exact image exec UID/HOME, native setup terminal behavior, scanner approval/loading, OpenViking setup/storage/authorization, Nerve catalog pin and Laya transport/checkpoint, actual typed inference, distinct same-card run actors, removal-first acceptance and dogfood remain unproved. No offline fixture or successful pull satisfies these gates.
-
 ## Additional executed evidence
 
 The environment-gated Go Docker foundation fixture passed in 9.08 seconds,

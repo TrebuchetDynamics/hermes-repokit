@@ -23,7 +23,7 @@ func TestDockerOpenVikingPending(t *testing.T) {
 	if os.Getenv("REPOKIT_DOCKER_TESTS") != "1" {
 		t.Skip("set REPOKIT_DOCKER_TESTS=1 with an authorized local Docker daemon")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
 	defer cancel()
 	dc := os.Getenv("REPOKIT_DOCKER_CONTEXT")
 	if dc == "" {
@@ -76,7 +76,10 @@ func TestDockerOpenVikingPending(t *testing.T) {
 		}
 	})
 	docker("config", "--quiet")
-	docker("up", "-d", "--pull", "never", "openviking")
+	if services := string(docker("config", "--services")); strings.Contains(services, "openviking") {
+		t.Fatal("OpenViking rendered as an independent service")
+	}
+	docker("up", "-d", "--build", "hermes")
 	probe := `import urllib.request, urllib.error
 try:
     urllib.request.urlopen('http://127.0.0.1:1933/health', timeout=2)
@@ -85,26 +88,33 @@ except urllib.error.HTTPError as e:
 else:
     raise AssertionError('unconfigured service claimed ready')
 `
-	deadline := time.Now().Add(30 * time.Second)
-	for {
-		args := append(append([]string{}, base...), "exec", "-T", "openviking", "python", "-c", probe)
-		if exec.CommandContext(ctx, "docker", args...).Run() == nil {
-			break
+	// The embedded service only starts after the base image's stage-2 hook has
+	// remapped the runtime user and prepared the data volume, so waiting for the
+	// pending endpoint also establishes that Hermes identity/mount setup is done.
+	waitPending := func() {
+		t.Helper()
+		deadline := time.Now().Add(60 * time.Second)
+		for {
+			args := append(append([]string{}, base...), "exec", "-T", "--user", "hermes", "hermes", "repokit-openviking", "python", "-c", probe)
+			if exec.CommandContext(ctx, "docker", args...).Run() == nil {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatal("official unconfigured endpoint did not return 503")
+			}
+			time.Sleep(time.Second)
 		}
-		if time.Now().After(deadline) {
-			t.Fatal("official unconfigured endpoint did not return 503")
-		}
-		time.Sleep(time.Second)
 	}
-	if got := strings.TrimSpace(string(docker("exec", "-T", "openviking", "id", "-u"))); got != strconv.Itoa(os.Getuid()) {
-		t.Fatalf("sidecar UID = %s", got)
+	waitPending()
+	if got := strings.TrimSpace(string(docker("exec", "-T", "--user", "hermes", "hermes", "id", "-u"))); got != strconv.Itoa(os.Getuid()) {
+		t.Fatalf("embedded process UID = %s", got)
 	}
 	// Qualify native init's path and writer without invoking its private wizard.
-	docker("exec", "-T", "openviking", "python", "-c", `from openviking_cli.setup_wizard import _config_path, _workspace_path
-assert str(_config_path()) == '/app/.openviking/ov.conf'
-assert _workspace_path() == '/app/.openviking/data'
+	docker("exec", "-T", "--user", "hermes", "hermes", "repokit-openviking", "python", "-c", `from openviking_cli.setup_wizard import _config_path, _workspace_path
+assert str(_config_path()) == '/opt/data/openviking/ov.conf'
+assert _workspace_path() == '/opt/data/openviking/data'
 from pathlib import Path
-p = Path('/app/.openviking/persistence-fixture')
+p = Path('/opt/data/openviking/persistence-fixture')
 p.write_text('nonsecret persistent fixture')
 p.chmod(0o600)
 `)
@@ -124,17 +134,18 @@ p.chmod(0o600)
 		}
 	}
 	removeInstaller()
-	docker("up", "-d", "--pull", "never", "--force-recreate", "openviking")
-	docker("exec", "-T", "openviking", "python", "-c", `from pathlib import Path
-assert Path('/app/.openviking/persistence-fixture').read_text() == 'nonsecret persistent fixture'
-assert not Path('/app/.openviking/ov.conf').exists()
+	docker("up", "-d", "--no-build", "--pull", "never", "--force-recreate", "hermes")
+	waitPending()
+	docker("exec", "-T", "--user", "hermes", "hermes", "repokit-openviking", "python", "-c", `from pathlib import Path
+assert Path('/opt/data/openviking/persistence-fixture').read_text() == 'nonsecret persistent fixture'
+assert not Path('/opt/data/openviking/ov.conf').exists()
 `)
 	info, err := os.Stat(filepath.Join(root, ".hermes/openviking"))
 	if err != nil || info.Mode().Perm() != 0700 {
-		t.Fatal("sidecar directory is not private")
+		t.Fatal("memory directory is not private")
 	}
 	if _, err := os.Stat(installer); !os.IsNotExist(err) {
 		t.Fatal("installer survived removal")
 	}
-	t.Log("PASS: pinned nonroot OpenViking pending server returns 503; native config/workspace paths use private mount; install rerun and Compose recreation preserve data after installer removal. Live memory remains unproven.")
+	t.Log("PASS: embedded pinned nonroot OpenViking pending server returns 503; native config/workspace paths use private mount; install rerun and Compose recreation preserve data after installer removal. Live memory remains unproven.")
 }

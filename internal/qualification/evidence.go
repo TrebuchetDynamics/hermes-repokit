@@ -11,8 +11,6 @@ const (
 	ProfileDescriptions Operation = "profile-descriptions"
 	Toolsets            Operation = "toolsets"
 	OpenViking          Operation = "openviking"
-	Nerve               Operation = "nerve"
-	Laya                Operation = "laya"
 	SameCardReview      Operation = "same-card-review"
 	NativeChat          Operation = "native-chat"
 	Setup               Operation = "setup"
@@ -68,7 +66,7 @@ func Evaluate(selectedRevision string, operation Operation, evidence Evidence) V
 
 func validOperation(operation Operation) bool {
 	switch operation {
-	case Image, ProfileDescriptions, Toolsets, OpenViking, Nerve, Laya, SameCardReview, NativeChat, Setup, Profiles, Plugins, Kanban, OfficialExecShim, ReadOnlyProbes:
+	case Image, ProfileDescriptions, Toolsets, OpenViking, SameCardReview, NativeChat, Setup, Profiles, Plugins, Kanban, OfficialExecShim, ReadOnlyProbes:
 		return true
 	default:
 		return false

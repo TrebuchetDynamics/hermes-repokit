@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"io"
 	"os"
@@ -31,10 +33,22 @@ func (r *foundationRunner) Run(ctx context.Context, program string, args ...stri
 	}
 	call := strings.Join(args, " ")
 	switch {
+	case strings.Contains(call, "container ls") && strings.Contains(call, "label=com.docker.compose.service=openviking"):
+		return process.Result{}
 	case call == "context show":
 		return process.Result{Output: r.context}
 	case strings.Contains(call, "context inspect"):
 		return process.Result{Output: "unix:///var/run/docker.sock"}
+	case strings.Contains(call, "image inspect"):
+		if args[len(args)-1] == qualification.FoundationImage {
+			return process.Result{Output: `["sha256:` + strings.Repeat("e", 64) + `"]`}
+		}
+		o, ok := compose.DevelopmentSelected(r.id)
+		if !ok {
+			return process.Result{Err: fmt.Errorf("no derived recipe")}
+		}
+		data, _ := json.Marshal(map[string]any{"id": "sha256:" + strings.Repeat("d", 64), "os": "linux", "arch": "amd64", "recipe": development.Fingerprint(*o.Development), "base": qualification.FoundationImage, "layers": []string{"sha256:" + strings.Repeat("e", 64), "sha256:" + strings.Repeat("f", 64)}})
+		return process.Result{Output: string(data)}
 	case strings.Contains(call, "container ls"):
 		r.lists++
 		if r.onList != nil {
@@ -73,14 +87,14 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	a, r := foundationApp(t)
 	code, out, diag := invoke(t, a, "plan")
 	var plan Plan
-	if code != 0 || json.Unmarshal([]byte(out), &plan) != nil || len(plan.Plugins) != 1 || len(plan.Unsupported) != 0 {
+	if code != 0 || json.Unmarshal([]byte(out), &plan) != nil || len(plan.Plugins) != 0 || len(plan.Unsupported) != 0 {
 		t.Fatalf("plan: %d %s %s", code, out, diag)
 	}
 	code, out, diag = invoke(t, a, "install")
 	if code != 0 {
 		t.Fatalf("install: %d %s", code, diag)
 	}
-	if !strings.Contains(out, "--context 'local-test'") || !strings.Contains(out, "up -d hermes") {
+	if !strings.Contains(out, "--context 'local-test'") || !strings.Contains(out, "up -d --build hermes") {
 		t.Fatalf("missing standalone handoff: %s", out)
 	}
 	for _, name := range []string{"compose.yaml", "config.yaml", "bin/hermes-test-project"} {
@@ -95,10 +109,10 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "openviking") || !strings.Contains(string(data), "  laya:") {
+	if !strings.Contains(string(data), "REPOKIT_OPENVIKING: \"1\"") || strings.Contains(string(data), "\n  openviking:") || strings.Contains(string(data), "  laya:") {
 		t.Fatal("unexpected sidecar selection")
 	}
-	r.runtime = fmt.Sprintf(`{"status":"running","image":%q,"project":%q,"workspace":%q,"home":%q}`, qualification.FoundationImage, r.id.Project, r.id.Root, filepath.Join(r.id.Root, ".hermes"))
+	r.runtime = developmentRuntimeFixture(r.id)
 	if code, _, _ = invoke(t, a, "verify"); code == 0 {
 		t.Fatal("uninitialized native Kanban passed verify")
 	}
@@ -114,7 +128,7 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, p := range probes {
-		if (p.Component == "openviking" || p.Component == "nerve-laya") && p.Status == verify.Healthy {
+		if (p.Component == "openviking") && p.Status == verify.Healthy {
 			t.Fatalf("unqualified integration: %+v", p)
 		}
 	}
@@ -178,7 +192,7 @@ func TestFoundationRefusesStateExposedToGit(t *testing.T) {
 			if code, _, diag := invoke(t, a, "install"); code != 0 {
 				t.Fatal(diag)
 			}
-			r.runtime = fmt.Sprintf(`{"status":"running","image":%q,"project":%q,"workspace":%q,"home":%q}`, qualification.FoundationImage, r.id.Project, r.id.Root, filepath.Join(r.id.Root, ".hermes"))
+			r.runtime = developmentRuntimeFixture(r.id)
 			ignore := filepath.Join(r.id.Root, ".hermes/.gitignore")
 			switch exposure {
 			case "removed-ignore":
@@ -212,7 +226,7 @@ func TestEngineeringProfilesCanBeSelectedBeforeSidecars(t *testing.T) {
 	a, r := foundationApp(t)
 	code, out, diag := invoke(t, a, "plan", "--engineering")
 	var plan Plan
-	if code != 0 || json.Unmarshal([]byte(out), &plan) != nil || len(plan.Unsupported) > 0 || len(plan.Profiles) != 6 || !strings.Contains(plan.NerveLaya, "pending") {
+	if code != 0 || json.Unmarshal([]byte(out), &plan) != nil || len(plan.Unsupported) > 0 || len(plan.Profiles) != 6 {
 		t.Fatalf("engineering plan: %d %s %s", code, out, diag)
 	}
 	if code, out, diag = invoke(t, a, "install", "--engineering"); code != 0 {
@@ -227,7 +241,7 @@ func TestEngineeringProfilesCanBeSelectedBeforeSidecars(t *testing.T) {
 }
 
 func (r *foundationRunner) RunInput(_ context.Context, _ io.Reader, _ string, _ ...string) process.Result {
-	return process.Result{Err: os.WriteFile(filepath.Join(r.id.Root, ".hermes/kanban.db"), []byte("native board fixture"), 0600)}
+	return process.Result{Output: `REPOKIT_TEAM={"status":"pending-setup","drift":[]}`, Err: os.WriteFile(filepath.Join(r.id.Root, ".hermes/kanban.db"), []byte("native board fixture"), 0600)}
 }
 
 func TestExistingPlanDisclosesNativeInitialization(t *testing.T) {
@@ -273,11 +287,11 @@ func TestVerifyDoesNotCertifyUnqualifiedIntegrations(t *testing.T) {
 	}
 	pending := map[string]bool{}
 	for _, p := range probes {
-		if p.Component == "openviking" || p.Component == "nerve" || p.Component == "laya" || p.Component == "memory" || p.Component == "review" {
+		if p.Component == "openviking" || p.Component == "memory" || p.Component == "review" {
 			pending[p.Component] = p.Status != verify.Healthy
 		}
 	}
-	if !pending["openviking"] || !pending["nerve"] || !pending["laya"] || !pending["memory"] || !pending["review"] {
+	if !pending["openviking"] || !pending["memory"] || !pending["review"] {
 		t.Fatal("missing explicit integration gates")
 	}
 }

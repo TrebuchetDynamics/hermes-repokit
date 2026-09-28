@@ -15,7 +15,7 @@ func TestNativeConfigSharedIdentity(t *testing.T) {
 		t.Fatal(cfg)
 	}
 	ov := cfg["openviking"].(map[string]any)
-	if ov["endpoint"] != "http://openviking:1933" || ov["account"] != "repokit" || ov["user"] != "repo-0123456789abcdef" {
+	if ov["endpoint"] != "http://127.0.0.1:1933" || ov["account"] != "repokit" || ov["user"] != "repo-0123456789abcdef" {
 		t.Fatal(ov)
 	}
 	encoded, _ := json.Marshal(cfg)

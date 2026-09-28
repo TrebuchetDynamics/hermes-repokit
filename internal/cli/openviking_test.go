@@ -34,8 +34,8 @@ func TestInstallScaffoldsPrivateOpenVikingWithoutModelOrCredentials(t *testing.T
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "  openviking:") {
-		t.Fatal("normal installation omitted memory service")
+	if strings.Contains(string(data), "  openviking:") || !strings.Contains(string(data), "REPOKIT_OPENVIKING: \"1\"") {
+		t.Fatal("normal installation must embed memory inside Hermes")
 	}
 	dir := filepath.Join(a.Directory, ".hermes/openviking")
 	info, err := os.Stat(dir)

@@ -1,0 +1,7 @@
+name: repokit_maintenance
+version: 0.1.0
+description: "Bounded model adapter to native graceful gateway restart and read-only successor verification."
+author: Hermes RepoKit
+kind: standalone
+platforms:
+  - linux
