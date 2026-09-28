@@ -64,6 +64,10 @@ versions differ. Do not assume `--version` or release binaries exist.
 - Install safely exposes the generated launcher at `~/.local/bin/hermes-<repo>`
   through a symlink, preserving conflicts and reporting missing PATH. It creates
   no shell aliases and edits no shell startup files. See [host command handling](references/installation.md#automatic-host-command).
+- On SELinux-enabled Linux hosts, `install` requests Docker's private `Z`
+  relabeling for the `<repo>` and `<repo>/.hermes` bind mounts. Treat this as
+  normal installation compatibility; never disable SELinux, change global policy,
+  or hand-edit generated Compose. See [SELinux bind mounts](references/installation.md#selinux-bind-mounts).
 - Use generated pins, build inputs and Docker context. An explicitly selected
   isolated Docker acceptance daemon is test infrastructure, not another production runtime.
 - Coding readiness requires the target repository's toolchain inside `/workspace`;

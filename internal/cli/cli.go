@@ -13,6 +13,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/selinux"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
@@ -32,6 +33,8 @@ type App struct {
 	Runner          verify.Runner
 	Stdin           io.Reader
 	Initializer     native.InputRunner
+	// HostSELinux overrides host detection in tests; empty detects the live host.
+	HostSELinux selinux.State
 }
 
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -162,6 +165,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		probes = append(probes, verify.DefaultKanban(context.Background(), id, a.Runner)...)
 		probes = append(probes, verify.OpenViking(context.Background(), id, a.Runner)...)
 		probes = append(probes, verify.RuntimeIntegrations(context.Background(), id, a.Runner)...)
+		probes = append(probes, verify.HostSecurity(context.Background(), id, a.Runner)...)
 		if err := json.NewEncoder(stdout).Encode(probes); err != nil {
 			return 1
 		}
@@ -186,6 +190,12 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	return 2
 }
 
+type HostSecurity struct {
+	SELinux        selinux.State `json:"selinux"`
+	RelabelMode    string        `json:"relabel_mode"`
+	BindRelabeling string        `json:"bind_relabeling"`
+}
+
 type Plan struct {
 	Development                  development.Requirements `json:"development_requirements"`
 	DockerTests                  bool                     `json:"docker_tests_opt_in"`
@@ -194,11 +204,20 @@ type Plan struct {
 	ExistingState                bool                     `json:"existing_state"`
 	Collisions                   []string                 `json:"collisions"`
 	CandidateImages              map[string]string        `json:"candidate_images_not_release_qualified"`
+	HostSecurity                 HostSecurity             `json:"host_security"`
 	Profiles, Plugins            []string
 	ProposedMemoryConfig         map[string]any `json:"proposed_memory_config_not_activated"`
 	Kanban                       map[string]any `json:"kanban"`
 	OpenViking                   string
 	ProposedChanges, Unsupported []string
+}
+
+// selinuxState resolves the host SELinux state, allowing tests to override it.
+func (a App) selinuxState() selinux.State {
+	if a.HostSELinux != "" {
+		return a.HostSELinux
+	}
+	return selinux.Detect()
 }
 
 func (a App) plan(id target.Identity, engineering bool) Plan {
@@ -208,6 +227,13 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 	if _, err := development.Detect(id.Root); err != nil {
 		p.Unsupported = append(p.Unsupported, "repository toolchain manifests cannot be safely inspected")
 	}
+	state := a.selinuxState()
+	decision := "disabled"
+	if state.Enabled() {
+		decision = "enabled"
+		p.ProposedChanges = append(p.ProposedChanges, "apply private SELinux Z relabeling to repository bind mounts; SELinux policy and global host labels unchanged")
+	}
+	p.HostSecurity = HostSecurity{SELinux: state, RelabelMode: state.RelabelMode(), BindRelabeling: decision}
 	p.DockerTests = a.DockerTests
 	p.ProposedChanges = append(p.ProposedChanges, "build pinned Hermes development image; project compiler readiness is verified separately")
 	if a.DockerTests {

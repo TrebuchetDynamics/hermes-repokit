@@ -51,9 +51,29 @@ func Resolve(path string) (Identity, error) {
 	return Identity{root, name, container, fmt.Sprintf("repokit-%x", sum[:12]), filepath.Join(root, ".hermes", "compose.yaml"), filepath.Join(root, ".hermes", "bin", container)}, nil
 }
 
+// broadMountRoots are host paths whose recursive mount or SELinux relabel
+// would touch unrelated system or user data rather than one repository.
+var broadMountRoots = map[string]bool{"/": true, "/home": true, "/root": true, "/usr": true, "/etc": true, "/var": true, "/opt": true, "/boot": true, "/srv": true}
+
+// mountRootSafe refuses to publish or relabel a bind source that is not a
+// narrowly scoped repository path.
+func mountRootSafe(root string) error {
+	clean := filepath.Clean(root)
+	if broadMountRoots[clean] {
+		return fmt.Errorf("refusing to mount or relabel broad host path %s", clean)
+	}
+	if home, err := os.UserHomeDir(); err == nil && filepath.Clean(home) == clean {
+		return fmt.Errorf("refusing to mount or relabel the user home directory")
+	}
+	return nil
+}
+
 // Inspect reads metadata only. Docker and Git checks belong to the caller.
 func Inspect(id Identity, pathEnv string) []string {
 	var issues []string
+	if err := mountRootSafe(id.Root); err != nil {
+		issues = append(issues, err.Error())
+	}
 	info, err := os.Lstat(id.Root)
 	if err != nil {
 		return []string{"cannot inspect target"}

@@ -38,7 +38,7 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		fmt.Fprintln(stderr, "installation refused: verify that the previous OpenViking sidecar is stopped through its original Compose file before embedding memory; preserve .hermes/openviking data")
 		return 1
 	}
-	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, Development: &report.Development, DockerTests: report.DockerTests, UID: os.Getuid(), GID: os.Getgid()})
+	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, Development: &report.Development, DockerTests: report.DockerTests, UID: os.Getuid(), GID: os.Getgid(), SELinux: a.selinuxState()})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -76,6 +76,16 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 			return 1
 		}
 		previous = append(previous, install.StackUpgrade{Compose: old, PrepareMemory: memory == ""})
+	}
+	if a.selinuxState().Enabled() {
+		// Recognize a previously generated development runtime without SELinux
+		// relabeling so an existing deployment upgrades in place.
+		old, e := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, Development: &report.Development, DockerTests: report.DockerTests, UID: os.Getuid(), GID: os.Getgid()})
+		if e != nil {
+			fmt.Fprintln(stderr, e)
+			return 1
+		}
+		previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-selinux.yaml"})
 	}
 	if report.DockerTests {
 		old, e := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, Development: &report.Development, UID: os.Getuid(), GID: os.Getgid()})
@@ -124,6 +134,12 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 			fmt.Fprintf(stderr, "Warning: %s is not on PATH as an absolute directory; use %s directly or add that directory to your shell environment.\n", filepath.Dir(command), command)
 		}
 	}
+	state := a.selinuxState()
+	relabel := "disabled"
+	if state.Enabled() {
+		relabel = "enabled (private Z)"
+	}
+	fmt.Fprintf(stdout, "Host security: SELinux %s; bind relabeling %s.\n", state, relabel)
 	if code := a.initialize(id, report.DockerContext, false, stdout, stderr); code != 0 {
 		return code
 	}

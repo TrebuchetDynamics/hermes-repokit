@@ -73,7 +73,10 @@ launcher, config, pinned development image, private `openviking/` data and a
 OpenViking runs inside under the native s6 supervisor on loopback with no published
 host port and can extract memory automatically. Credentials stay in private setup,
 and optional `install --docker-tests` adds an isolated acceptance daemon without
-mounting the host Docker socket. See
+mounting the host Docker socket. On SELinux-enabled Linux hosts it requests
+Docker's private `Z` relabeling for the repository and `.hermes` mounts as normal
+installation compatibility; SELinux policy and unrelated host paths are never
+changed. See
 [development runtime](docs/qualification/development-runtime.md).
 
 Existing repository Compose files and services stay in place. RepoKit uses its

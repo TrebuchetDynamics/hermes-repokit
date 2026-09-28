@@ -170,6 +170,28 @@ extras and authorization. Use RepoKit reconciliation or native Hermes configurat
 do not hand-toggle platform tool checkboxes to manufacture parity. Refresh sessions
 after reconciliation, and verify an originating-channel task/result separately.
 
+## SELinux bind mounts
+
+On SELinux-enabled Linux hosts RepoKit detects the state during `plan`/`install`
+and generates Docker's private `Z` relabeling for the two repository-owned bind
+mounts, `<repo>` → `/workspace` and `<repo>/.hermes` → `/opt/data`. `verify`
+reports the host state plus in-container `/workspace` and `/opt/data` access. This
+is normal installation compatibility: an authorized `install` applies it without a
+separate approval prompt.
+
+`Z` is correct for the one-container topology and relabels only those two sources.
+RepoKit refuses broad sources (`/`, `/home`, `/usr`, `/etc`, the user home) rather
+than relabeling them. On hosts without SELinux the option is omitted and the
+generated Compose is unchanged. If a running container's repository mount is
+denied, `verify` reports the access probe as degraded.
+
+Never disable SELinux (`setenforce 0`), change global policy, install custom policy
+modules, relabel unrelated host paths, or hand-edit `.hermes/compose.yaml` to work
+around a denial; ask the owner before any of those. For an existing deployment
+whose generated Compose lacks the relabel option, detect the drift, regenerate
+through `install`, and recreate the Hermes container; preserve repository source,
+`.hermes` state, credentials, profiles, Kanban and OpenViking data.
+
 ## Automatic host command
 
 An installation request includes safe host-command exposure. Current `install`

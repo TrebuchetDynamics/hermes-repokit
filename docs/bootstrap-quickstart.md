@@ -122,6 +122,35 @@ PATH command collisions still refuse installation during preflight. Fix the
 reported host condition and rerun `install` to retry link creation. RepoKit
 never creates shell aliases or edits `.bashrc`, `.zshrc`, or PATH automatically.
 
+## SELinux hosts
+
+On SELinux-enabled Linux hosts RepoKit requests Docker's private bind relabeling
+(`selinux: Z`) for the two repository-owned mounts, `<repo>` and `<repo>/.hermes`.
+`plan` and `install` report the detected state; `verify` reports the state and
+proves access from inside the runtime. SELinux itself, global policy and
+unrelated host paths are never changed.
+
+```text
+Host security:
+  SELinux:           enforcing
+  bind relabeling:   enabled (private Z)
+  /workspace access: healthy
+  /opt/data access:  healthy
+```
+
+`Z` is private to the single RepoKit container and relabels only those two
+bind sources. RepoKit refuses broad sources such as `/`, `/home`, `/usr`, `/etc`
+or the user's home directory rather than relabeling them. On hosts without
+SELinux the option is omitted and the generated Compose is unchanged. A running
+container whose repository mount is denied is reported as `access` degraded, not
+healthy.
+
+If `verify` reports relabeling pending, rerun `install` to regenerate the
+repo-local mounts and recreate Hermes with the printed Compose command. Do not
+run `setenforce 0`, change global SELinux policy, install custom policy modules,
+or edit `.hermes/compose.yaml` by hand; none of those are required for ordinary
+target-repository bind mounts.
+
 ## Ordinary runtime management
 
 With interfering Compose selectors unset, use the same local Docker context

@@ -7,6 +7,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/dockertest"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/selinux"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"regexp"
 	"strings"
@@ -17,6 +18,9 @@ type Options struct {
 	UID, GID                     int
 	Development                  *development.Requirements
 	DockerTests                  bool
+	// SELinux selects private Docker bind relabeling for RepoKit-owned mounts.
+	// The zero value disables relabeling, preserving historical preimages.
+	SELinux selinux.State
 }
 
 var identity = regexp.MustCompile(`^[a-z0-9][a-z0-9-]+$`)
@@ -62,18 +66,23 @@ services:
 	if o.Development != nil && o.OpenVikingImage != "" {
 		s.WriteString("      REPOKIT_OPENVIKING: \"1\"\n")
 	}
-	s.WriteString(`    volumes:
-      - type: bind
+	relabel := ""
+	if mode := o.SELinux.RelabelMode(); mode != "" {
+		relabel = "          selinux: " + mode + "\n"
+	}
+	s.WriteString("    volumes:\n")
+	fmt.Fprintf(&s, `      - type: bind
         source: ".."
         target: /workspace
         bind:
           create_host_path: false
-      - type: bind
+%s`, relabel)
+	fmt.Fprintf(&s, `      - type: bind
         source: "."
         target: /opt/data
         bind:
           create_host_path: false
-`)
+%s`, relabel)
 	if o.DockerTests {
 		s.WriteString(dockertest.Mounts())
 	}
@@ -100,7 +109,7 @@ services:
         target: /app/.openviking
         bind:
           create_host_path: false
-`, o.OpenVikingImage, fmt.Sprintf("%d:%d", o.UID, o.GID))
+%s`, o.OpenVikingImage, fmt.Sprintf("%d:%d", o.UID, o.GID), relabel)
 	}
 	if o.DockerTests {
 		extra, err := dockertest.EmitServices(o.UID, o.GID)

@@ -94,13 +94,16 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 			if !compose.DevelopmentRecipeMatches(id, *o.Development) {
 				artifact = Probe{"compose", Degraded, "development build recipe differs; owner state preserved"}
 			}
+			if o.SELinux.RelabelMode() != detectSELinux().RelabelMode() {
+				artifact = Probe{"compose", Degraded, "repository bind mounts need SELinux relabel reconciliation; rerun install"}
+			}
 		}
 	}
 	if artifact.Status == Unknown {
-		expected, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()})
+		expected, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid(), SELinux: detectSELinux()})
 		if err == nil && matchesCompose(id, expected) {
 			artifact = Probe{"compose", Healthy, "generated Hermes-only Compose matches this repository"}
-		} else if expected, err = compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, UID: os.Getuid(), GID: os.Getgid()}); err == nil && matchesCompose(id, expected) {
+		} else if expected, err = compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, UID: os.Getuid(), GID: os.Getgid(), SELinux: detectSELinux()}); err == nil && matchesCompose(id, expected) {
 			artifact = Probe{"compose", Healthy, "generated Hermes/OpenViking Compose matches this repository"}
 		}
 	}
