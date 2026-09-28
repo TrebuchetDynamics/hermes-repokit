@@ -25,22 +25,27 @@ type Artifact struct {
 // state or spawn a native initializer. Future native subprocesses must hold
 // an explicitly inherited installer lock across their whole lifetime.
 func Publish(id target.Identity, files map[string]Artifact, prepare func() error) (bool, error) {
-	return publish(id, files, prepare, nil, nil)
+	return publish(id, files, prepare, nil, nil, true)
 }
 
 // PublishChecked rechecks external read-only inventory while holding the same
 // publication lock, including on no-op reruns. The check must not mutate state.
 func PublishChecked(id target.Identity, files map[string]Artifact, check func() error) (bool, error) {
-	return publish(id, files, nil, check, nil)
+	return publish(id, files, nil, check, nil, true)
 }
 
 // PublishOpenVikingChecked additionally accepts exactly the former generated
 // Hermes-only Compose as an upgrade preimage. Native configuration is preserved.
 func PublishOpenVikingChecked(id target.Identity, files map[string]Artifact, previousCompose []byte, check func() error) (bool, error) {
-	return publish(id, files, nil, check, previousCompose)
+	return publish(id, files, nil, check, previousCompose, true)
 }
 
-func publish(id target.Identity, files map[string]Artifact, prepare, check func() error, previousCompose []byte) (bool, error) {
+// PublishLayaChecked adds only the selected sidecar to recognized OpenViking Compose.
+func PublishLayaChecked(id target.Identity, files map[string]Artifact, previousCompose []byte, check func() error) (bool, error) {
+	return publish(id, files, nil, check, previousCompose, false)
+}
+
+func publish(id target.Identity, files map[string]Artifact, prepare, check func() error, previousCompose []byte, prepareMemory bool) (bool, error) {
 	for name, a := range files {
 		if !fs.ValidPath(name) || name == "." || strings.Contains(name, "\\") || a.Mode.Perm()&0077 != 0 || !a.Mode.IsRegular() {
 			return false, fmt.Errorf("unsafe generated artifact")
@@ -93,7 +98,7 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 			b, e := root.ReadFile(".hermes/" + name)
 			if e != nil || !bytes.Equal(b, files[name].Data) {
 				if e == nil && name == "compose.yaml" && len(previousCompose) > 0 && bytes.Equal(b, previousCompose) {
-					return addOpenViking(root, id, rootInfo, lockInfo, previousCompose, files[name].Data)
+					return addSidecar(root, id, rootInfo, lockInfo, previousCompose, files[name].Data, prepareMemory)
 				}
 				return false, fmt.Errorf("existing native deployment differs or is incomplete; refusing automatic adoption")
 			}

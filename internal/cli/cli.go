@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
@@ -27,6 +28,7 @@ func Commands() []string { return append([]string(nil), commands[:]...) }
 
 type App struct {
 	Directory, Path string
+	LayaImage       string
 	Runner          verify.Runner
 	Stdin           io.Reader
 	Initializer     native.InputRunner
@@ -53,6 +55,9 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	flags.Usage = func() {}
 	engineering := false
 	memorySetup := false
+	if args[0] == "plan" || args[0] == "install" {
+		flags.StringVar(&a.LayaImage, "laya-image", "", "qualified local Laya image ID")
+	}
 	if args[0] != "setup" {
 		flags.BoolVar(&engineering, "engineering", false, "legacy alias; generic team is the default")
 	} else {
@@ -75,6 +80,9 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
+	}
+	if a.LayaImage == "" {
+		a.LayaImage = compose.SelectedLaya(id)
 	}
 	if a.Runner == nil {
 		a.Runner = process.Runner{}
@@ -207,6 +215,15 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 			}
 		}
 	}
+	if a.LayaImage != "" {
+		p.CandidateImages["laya"] = a.LayaImage
+		p.Plugins = []string{"nerve@" + supervision.NerveRevision}
+		p.NerveLaya = "selected local image; native supervision setup and acceptance pending"
+		p.ProposedChanges = append(p.ProposedChanges, "add selected Laya image; ordinary Compose owns startup; native Nerve activation remains pending")
+		if err := supervision.CheckImage(ctx, p.DockerContext, a.LayaImage, a.Runner); err != nil {
+			p.Unsupported = append(p.Unsupported, err.Error())
+		}
+	}
 	return p
 }
 func recognized(command string) bool {
@@ -220,5 +237,6 @@ func recognized(command string) bool {
 func usage(w io.Writer) {
 	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify> [--engineering] [--help]")
 	fmt.Fprintln(w, "       hermes-repokit setup --memory")
+	fmt.Fprintln(w, "       hermes-repokit <plan|install> --laya-image sha256:IMAGE_ID")
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }

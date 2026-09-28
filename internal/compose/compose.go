@@ -10,8 +10,8 @@ import (
 )
 
 type Options struct {
-	HermesImage, OpenVikingImage string
-	UID, GID                     int
+	HermesImage, OpenVikingImage, LayaImage string
+	UID, GID                                int
 }
 
 var identity = regexp.MustCompile(`^[a-z0-9][a-z0-9-]+$`)
@@ -22,6 +22,9 @@ func Render(id target.Identity, o Options) ([]byte, error) {
 	}
 	if o.OpenVikingImage != "" && !qualification.ImmutableImage(o.OpenVikingImage) {
 		return nil, fmt.Errorf("OpenViking requires immutable image digest")
+	}
+	if o.LayaImage != "" && !LocalImageID(o.LayaImage) {
+		return nil, fmt.Errorf("Laya requires a qualified local content image ID")
 	}
 	var s strings.Builder
 	fmt.Fprintf(&s, `# Native state is authoritative. Ordinary Docker Compose owns this deployment.
@@ -73,6 +76,24 @@ services:
         bind:
           create_host_path: false
 `, o.OpenVikingImage, fmt.Sprintf("%d:%d", o.UID, o.GID))
+	}
+	if o.LayaImage != "" {
+		fmt.Fprintf(&s, `  laya:
+    image: %q
+    pull_policy: never
+    network_mode: service:hermes
+    depends_on:
+      hermes:
+        condition: service_started
+        restart: true
+    restart: unless-stopped
+    user: %q
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m
+    cpus: 4
+    mem_limit: 6g
+`, o.LayaImage, fmt.Sprintf("%d:%d", o.UID, o.GID))
 	}
 	return []byte(s.String()), nil
 }

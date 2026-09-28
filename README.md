@@ -39,7 +39,8 @@ roster is now the default. Newly cloned profiles receive distinct SOULs and fres
 curated memory. Existing user changes and unknown profiles are preserved.
 Installation also scaffolds the pinned official OpenViking sidecar. Its private
 model/auth configuration and live memory qualification remain pending;
-Nerve/Laya deployment remains separate integration work.
+Laya has an explicit local-image scaffold; native Nerve installation and
+all-role activation remain pending. See the [packaging guide](packaging/laya/README.md).
 No PATH link or shell configuration change is automatic.
 
 Without a PATH link, the standalone command is
@@ -94,7 +95,7 @@ gates are implemented; it does not validate credentials. An edited Compose/launc
 | --- | --- |
 | Hermes | Official immutable image tested for Compose startup, native exec, profiles, Kanban initialization and restart persistence. Authenticated chat/setup remain pending. |
 | Superpowers | Upstream `obra/superpowers`; exact candidate SHA received 229 CAUTION findings. Installation is blocked pending explicit approval of the [scanner report](docs/qualification/superpowers-8ca22dba-scan.txt). |
-| Nerve/Laya | Upstream plugin and its supported sidecar only. Pinned local CPU inference, native plugin consumption and offline recreation passed in a disposable fixture; installer sidecar deployment and all-role supervision remain pending. See [evidence](docs/qualification/generic-team-laya.md). |
+| Nerve/Laya | Upstream plugin and its supported sidecar only. Pinned local CPU inference, native plugin consumption and offline recreation passed in a disposable fixture; a self-contained image recipe and explicit installer sidecar selection are available; all-role supervision and combined recreation acceptance remain pending. See [evidence](docs/qualification/generic-team-laya.md). |
 | OpenViking | Pinned official sidecar, private persistent directory, native `setup --memory` handoff and shared connection linking. Pending-mode/recreation qualified; embedding/VLM setup, live write/recall and isolation remain pending. See [wiring evidence](docs/qualification/openviking-wiring.md). |
 | Same-card review | Native Hermes plus Nerve first. Distinct executor/reviewer actors must be proved before release; no speculative policy plugin. |
 

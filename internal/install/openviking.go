@@ -9,9 +9,9 @@ import (
 	"os"
 )
 
-// addOpenViking executes under the publication lock, with an exact public
+// addSidecar executes under the publication lock, with an exact public
 // Compose preimage. It never opens or rewrites native configuration/credentials.
-func addOpenViking(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInfo, previous, next []byte) (bool, error) {
+func addSidecar(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInfo, previous, next []byte, prepareMemory bool) (bool, error) {
 	state, err := root.OpenRoot(".hermes")
 	if err != nil {
 		return false, err
@@ -25,36 +25,42 @@ func addOpenViking(root *os.Root, id target.Identity, rootInfo, lockInfo fs.File
 	if err != nil {
 		return false, err
 	}
-	// A partial preparation is resumable only while the directory contains no
-	// native service data. Unknown existing data must never be adopted.
-	entries, err := fs.ReadDir(state.FS(), "openviking")
-	if err != nil && !os.IsNotExist(err) {
-		return false, err
-	}
-	if err == nil {
-		backup, e := state.ReadFile("compose.hermes-only.yaml")
-		if e != nil || !bytes.Equal(backup, previous) {
-			return false, fmt.Errorf("unexplained OpenViking directory exists; owner state preserved")
+	backupName := "compose.before-laya.yaml"
+	if prepareMemory {
+		backupName = "compose.hermes-only.yaml"
+		// A partial preparation is resumable only while the directory contains no
+		// native service data. Unknown existing data must never be adopted.
+		entries, err := fs.ReadDir(state.FS(), "openviking")
+		if err != nil && !os.IsNotExist(err) {
+			return false, err
 		}
-	}
-	for _, entry := range entries {
-		if entry.Name() != ".gitignore" {
-			return false, fmt.Errorf("unrecognized OpenViking data exists; preserve it before selecting the service")
+		if err == nil {
+			backup, e := state.ReadFile(backupName)
+			if e != nil || !bytes.Equal(backup, previous) {
+				return false, fmt.Errorf("unexplained OpenViking directory exists; owner state preserved")
+			}
 		}
-		b, e := state.ReadFile("openviking/.gitignore")
-		if e != nil || !bytes.Equal(b, []byte("*\n")) {
-			return false, fmt.Errorf("OpenViking directory ownership is ambiguous")
+		for _, entry := range entries {
+			if entry.Name() != ".gitignore" {
+				return false, fmt.Errorf("unrecognized OpenViking data exists; preserve it before selecting the service")
+			}
+			b, e := state.ReadFile("openviking/.gitignore")
+			if e != nil || !bytes.Equal(b, []byte("*\n")) {
+				return false, fmt.Errorf("OpenViking directory ownership is ambiguous")
+			}
 		}
-	}
-	// Preserve the old public Compose before any replacement. Interrupted attempts
-	// may leave this exact backup; conflicting backup content is owner state.
-	if err := createOrMatch(state, "compose.hermes-only.yaml", previous); err != nil {
-		return false, err
-	}
-	if err := state.Mkdir("openviking", 0700); err != nil && !os.IsExist(err) {
-		return false, err
-	}
-	if err := createOrMatch(state, "openviking/.gitignore", []byte("*\n")); err != nil {
+		// Preserve the old public Compose before any replacement. Interrupted attempts
+		// may leave this exact backup; conflicting backup content is owner state.
+		if err := createOrMatch(state, backupName, previous); err != nil {
+			return false, err
+		}
+		if err := state.Mkdir("openviking", 0700); err != nil && !os.IsExist(err) {
+			return false, err
+		}
+		if err := createOrMatch(state, "openviking/.gitignore", []byte("*\n")); err != nil {
+			return false, err
+		}
+	} else if err := createOrMatch(state, backupName, previous); err != nil {
 		return false, err
 	}
 	temp := ".compose-stage-" + rand.Text()

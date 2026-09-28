@@ -110,8 +110,9 @@ noninteractive success and native staging side effects were addressed with
 regression checks. See the [current matrix](qualification/generic-team.md).
 
 Actual local typed Laya and native Nerve consumption passed in a separate
-disposable offline fixture. Production sidecar packaging/wiring and six-profile
-supervision remain unfinished. OpenViking needs real embedding/extraction
+disposable offline fixture. A self-contained pinned sidecar recipe and explicit `--laya-image` Compose
+selection now exist. Native Nerve admission/activation across six profiles and
+combined deployment recreation remain unfinished. OpenViking needs real embedding/extraction
 configuration before live recall/isolation/persistence qualification. Full team
 acceptance and release-qualification self-dogfood remain pending. OpenViking
 scaffolding now exists; its live integration acceptance is still open.

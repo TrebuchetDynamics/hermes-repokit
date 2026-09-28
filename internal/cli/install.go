@@ -30,7 +30,7 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		fmt.Fprintln(stderr, "target collisions:", strings.Join(report.Collisions, "; "))
 		return 1
 	}
-	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, UID: os.Getuid(), GID: os.Getgid()})
+	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, LayaImage: a.LayaImage, UID: os.Getuid(), GID: os.Getgid()})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -46,13 +46,22 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		"bin/" + id.Container:   {Data: script, Mode: 0700},
 		"openviking/.gitignore": {Data: []byte("*\n"), Mode: 0600},
 	}
-	previousCompose, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()})
+	previousOptions := compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()}
+	publish := install.PublishOpenVikingChecked
+	if a.LayaImage != "" {
+		previousOptions.OpenVikingImage = projectmemory.Image
+		publish = install.PublishLayaChecked
+	}
+	previousCompose, err := compose.Render(id, previousOptions)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	created, err := install.PublishOpenVikingChecked(id, artifacts, previousCompose, func() error {
+	created, err := publish(id, artifacts, previousCompose, func() error {
 		current := a.plan(id, false)
+		if len(current.Unsupported) > 0 {
+			return fmt.Errorf("selected integration became unqualified")
+		}
 		if len(current.Collisions) > 0 {
 			return fmt.Errorf("target changed: %s", strings.Join(current.Collisions, "; "))
 		}
@@ -80,6 +89,11 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 	fmt.Fprintln(stdout, launcher.StartCommand(id.Compose, report.DockerContext))
 	fmt.Fprintln(stdout, "Start OpenViking with ordinary Compose (unconfigured service remains pending):")
 	fmt.Fprintln(stdout, launcher.StartMemoryCommand(id.Compose, report.DockerContext))
+	if a.LayaImage != "" {
+		fmt.Fprintln(stdout, "Start/recreate Hermes and Laya together with ordinary Compose:")
+		fmt.Fprintln(stdout, strings.TrimSuffix(launcher.StartCommand(id.Compose, report.DockerContext), " up -d hermes)")+" up -d --force-recreate hermes laya)")
+		fmt.Fprintln(stdout, "Laya packaging is selected; native Nerve installation and activation are not implemented yet.")
+	}
 	fmt.Fprintln(stdout, "After private default setup, run hermes-repokit setup --memory in your terminal.")
 	fmt.Fprintln(stdout, "After starting Hermes, run setup to configure default and provision the generic team. Rerun install to reconcile existing generated profiles.")
 	return 0
