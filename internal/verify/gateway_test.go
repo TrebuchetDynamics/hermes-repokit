@@ -3,6 +3,7 @@ package verify
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"strings"
 	"testing"
 
@@ -16,6 +17,16 @@ type gatewayRunner struct {
 
 func (r *gatewayRunner) Run(ctx context.Context, p string, args ...string) process.Result {
 	if strings.Contains(strings.Join(args, " "), "One-shot generation diagnostics") {
+		return process.Result{Output: r.output}
+	}
+	return r.integrationRunner.Run(ctx, p, args...)
+}
+
+// RunInput exercises the stdin delivery used when the one-shot script exceeds
+// the per-argument exec limit.
+func (r *gatewayRunner) RunInput(ctx context.Context, input io.Reader, p string, args ...string) process.Result {
+	data, _ := io.ReadAll(input)
+	if strings.Contains(string(data), "One-shot generation diagnostics") {
 		return process.Result{Output: r.output}
 	}
 	return r.integrationRunner.Run(ctx, p, args...)

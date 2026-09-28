@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"regexp"
+	"strings"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/gateway"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
@@ -19,7 +22,18 @@ func Gateway(ctx context.Context, id target.Identity, r Runner) []Probe {
 	if err != nil {
 		return append(result, dispatchProbes(dispatchObservation{})...)
 	}
-	output := r.Run(ctx, "docker", "--context", dc, "exec", "--user", "hermes", "--workdir", "/", container, "/opt/hermes/.venv/bin/python", "-I", "-B", "-c", gateway.Script(id, false))
+	script := gateway.Script(id, false)
+	var output process.Result
+	if ir, ok := r.(interface {
+		RunInput(context.Context, io.Reader, string, ...string) process.Result
+	}); ok {
+		// Native SOUL contracts make the one-shot script larger than the kernel's
+		// per-argument exec limit, so stream it on stdin exactly as the native
+		// convergence path does rather than passing it through -c.
+		output = ir.RunInput(ctx, strings.NewReader(script), "docker", "--context", dc, "exec", "-i", "--user", "hermes", "--workdir", "/", container, "/opt/hermes/.venv/bin/python", "-I", "-B", "-")
+	} else {
+		output = r.Run(ctx, "docker", "--context", dc, "exec", "--user", "hermes", "--workdir", "/", container, "/opt/hermes/.venv/bin/python", "-I", "-B", "-c", script)
+	}
 	var observed struct {
 		Gateway                  string
 		Dispatch                 dispatchObservation `json:"dispatch"`
