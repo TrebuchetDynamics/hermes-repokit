@@ -9,11 +9,20 @@
   <img src="https://img.shields.io/badge/status-pre--v1-D08A2E?style=flat-square" alt="Status: pre-v1">
 </p>
 
-**Hermes RepoKit** turns a repository into a self-contained Hermes development
-environment: one Docker container, six coordinated native profiles, a shared
-Kanban board and embedded OpenViking memory. It generates ordinary Docker Compose,
-private `.hermes` state and a standalone `hermes-<repo>` launcher — and the
-installed runtime does not need RepoKit.
+**Hermes RepoKit** prepares a repository for native Hermes work without becoming
+part of the runtime. It handles the delicate host/bootstrap work—safe private
+state, ownership and symlink checks, deterministic Compose, mounts and
+installation—then hands control to Hermes for profiles, models, channels, Kanban
+and agent execution, and to embedded OpenViking for memory. The result is one
+repository-specific container, six native profiles, a shared board and private
+memory state. After bootstrap, ordinary Compose and the generated launcher work
+without RepoKit installed.
+
+It is for repository owners who want a persistent, role-based team to work on
+code or other repository artifacts while keeping deployment state isolated from
+the application's own Compose stack. Go is the bootstrap implementation choice;
+the generated runtime is a pinned Hermes development image, not a Go service or
+a RepoKit daemon.
 
 > **Status · pre-v1.** The six-role team, shared memory and gateway activation are
 > implemented and tested offline; live model work, memory recall and independent
@@ -29,9 +38,10 @@ cd my-project
 hermes-repokit plan      # inspect; writes nothing
 hermes-repokit install   # publish Compose, launcher, host command and private state
 # run the printed Compose build/start command
+hermes-repokit install   # initialize native Kanban after the runtime is running
 hermes-repokit setup     # private provider, team, memory and activation
 hermes-repokit verify    # read-only health and gate report
-hermes-my-project        # native chat as default, when ~/.local/bin is on PATH
+hermes-my-project        # native Hermes CLI as default, when ~/.local/bin is on PATH
 ```
 
 `setup` runs in your private terminal and never captures credentials; `--team` or
@@ -59,6 +69,12 @@ It does not create shell aliases or edit shell startup files; see the
 Steward prefers a task-scoped skill before creating a specialist, retirement
 preserves history, and deletion needs explicit approval. See the
 [team model](docs/team-model.md).
+
+Profiles are persistent identities, not necessarily running workers. The native
+gateway dispatcher is off on a fresh install; successful setup enables the
+configured single default dispatcher only after readiness checks and a real
+no-write researcher canary. RepoKit does not run as a supervisor or mediate
+ongoing agent work.
 
 ## What it leaves behind
 
@@ -123,6 +139,22 @@ admission gate.
 install, resume, verify and use RepoKit. Copy the folder into your agent's skills
 directory — `~/.agents/skills/` for Codex, Pi and OpenCode, or `~/.claude/skills/`
 for Claude Code. Installing it does not start a deployment.
+
+## Troubleshooting and deeper guides
+
+- Setup needs the generated Hermes service running; use the exact Compose command
+  printed by `install` and rerun `install` for native Kanban initialization.
+- Missing `hermes-<repo>` on `PATH`? Use `.hermes/bin/hermes-<repo>` directly;
+  RepoKit does not edit shell startup files. See [host command and recovery](docs/bootstrap-quickstart.md#host-command).
+- A pending/degraded memory service is separate from core team readiness. Resume
+  with `setup --memory`; see [bootstrap and memory setup](docs/bootstrap-quickstart.md#openviking-configuration).
+- `verify` is passive and cannot qualify model work, memory recall or review.
+  See [qualification boundaries](docs/bootstrap-quickstart.md#qualification-boundaries)
+  and the [remaining release gates](TODO.md).
+
+For contributors, see [build details](docs/build.md), [development runtime](docs/qualification/development-runtime.md),
+[team behavior](docs/team-model.md), [implementation status](docs/implementation-progress.md)
+and [remaining work](TODO.md).
 
 ## Development
 
