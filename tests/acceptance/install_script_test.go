@@ -111,7 +111,7 @@ func TestInstallScriptPublishesWorkingCLIAndRerunsSafely(t *testing.T) {
 	}
 }
 
-func TestInstallScriptBlocksGeneratedLauncher(t *testing.T) {
+func TestInstallScriptPreservesGeneratedLauncher(t *testing.T) {
 	home := t.TempDir()
 	bin := filepath.Join(home, ".local", "bin")
 	if err := os.MkdirAll(bin, 0755); err != nil {
@@ -130,8 +130,8 @@ func TestInstallScriptBlocksGeneratedLauncher(t *testing.T) {
 		t.Fatal(err)
 	}
 	out, err := installScript(t, home, os.Getenv("PATH"))
-	if err == nil {
-		t.Fatalf("generated launcher was overwritten: %s", out)
+	if err != nil {
+		t.Fatalf("generated launcher should be preserved without failing the install: %v\n%s", err, out)
 	}
 	if !strings.Contains(out, "generated repository launcher") || !strings.Contains(out, "mv -- ") {
 		t.Fatalf("missing launcher relocation guidance: %s", out)
@@ -140,7 +140,7 @@ func TestInstallScriptBlocksGeneratedLauncher(t *testing.T) {
 		t.Fatalf("launcher symlink changed: %v %q", e, got)
 	}
 	if _, e := os.Lstat(filepath.Join(bin, "repokit")); e != nil {
-		t.Fatalf("alias was not installed alongside the blocked name: %v", e)
+		t.Fatalf("alias was not installed alongside the preserved name: %v", e)
 	}
 }
 

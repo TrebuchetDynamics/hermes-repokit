@@ -127,6 +127,7 @@ owns_bootstrap() {
 }
 
 blocked=
+preserved=
 publish_command() {
     name=$1
     if [ -e "./$name" ] || [ -L "./$name" ]; then
@@ -149,10 +150,10 @@ publish_command() {
             target=$(readlink -- "./$name" 2>/dev/null || :)
             case $target in
                 */.hermes/bin/*)
-                    warn "Blocked: $bin/$name is a generated repository launcher -> $target"
+                    warn "$bin/$name is a generated repository launcher -> $target; preserved"
                     note "Relocate it to install the bootstrap under this name, then rerun install.sh:"
                     note "  mv -- $bin/$name $bin/$name.launcher"
-                    blocked=1
+                    preserved=1
                     return 0
                     ;;
             esac
@@ -178,6 +179,7 @@ done
 run_command=
 for name in hermes-repokit repokit; do
     [ -f "$bin/$name" ] || continue
+    owns_bootstrap "$bin/$name" || continue
     case :${PATH:-}: in
         *:"$bin":*)
             resolved=$(command -v "$name" 2>/dev/null || :)
@@ -194,9 +196,12 @@ for name in hermes-repokit repokit; do
             ;;
     esac
 done
-[ -n "$run_command" ] || run_command=$bin/hermes-repokit
+[ -n "$run_command" ] || fail 'no bootstrap command is installed; relocate the generated launcher and rerun install.sh'
 
 printf '\n%s\n' "${c_green}${c_bold}RepoKit bootstrap installed.${c_reset}"
+if [ -n "$preserved" ]; then
+    note "A generated hermes-<repo> launcher kept its name; the bootstrap is available as ${run_command##*/}."
+fi
 title 'Next steps'
 note 'Run these from the repository you want to prepare:'
 printf '  %s plan\n' "$run_command"
