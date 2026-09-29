@@ -266,7 +266,9 @@ func TestDockerFoundation(t *testing.T) {
 			if p.Status != want {
 				t.Fatalf("credential-free boundary: %+v; want %s", p, want)
 			}
-			if p.Component == "CORE_READY" && !strings.Contains(p.Detail, "no automatic executor/reviewer loop observed yet") {
+			// The status (unqualified) carries the meaning; the detail wording
+			// names the team roster and must not pin it.
+			if p.Component == "CORE_READY" && (!strings.HasPrefix(p.Detail, "configured and running;") || !strings.Contains(p.Detail, "observed yet")) {
 				t.Fatalf("core must be configured and running but unproven: %+v", p)
 			}
 			continue
