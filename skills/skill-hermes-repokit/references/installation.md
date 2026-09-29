@@ -1,208 +1,187 @@
-# Install, resume or migrate RepoKit
+# Install, resume, upgrade or migrate RepoKit
 
-## Establish the target and preserve it
+Work through these steps in order and stop at the first refusal; a refusal is
+evidence to report, not an obstacle to route around.
 
-Resolve the user-specified path or `git rev-parse --show-toplevel`; change to
-that root before every RepoKit command. Inspect repository instructions and:
+## 1. Establish the target and its baseline
+
+Resolve the user-specified path or `git rev-parse --show-toplevel`, and change
+to that root before every RepoKit command. Read the repository's own agent
+instructions, then record:
 
 ```sh
-git status --short --untracked-files=all
 git branch --show-current
 git rev-parse HEAD
+git status --short --untracked-files=all
 git status --porcelain=v1 -z --untracked-files=all | sha256sum
 ```
 
-Retain the baseline outside tracked source. For dirty files, record content
-hashes as well: an unchanged status listing alone cannot prove preservation.
-Do not reset, stash, clean, commit, or discard existing work for installation.
+Keep the baseline outside tracked source. For dirty files also record content
+hashes: an unchanged status listing alone cannot prove preservation.
 
-Check Docker/Compose availability and the selected local context. Inspect
-existing `.hermes` ownership, tracked private-state paths, generated routing,
-and matching container mounts without dumping credential files or Docker env.
-An existing valid deployment is a resume, not a second installation.
+Check `docker compose version` and the active Docker context. Inspect existing
+`.hermes/` ownership, generated routing and matching container mounts without
+dumping credential files or container environment. An existing valid deployment
+is a **resume**, not a second installation.
 
-## Legacy topology migration
+## 2. Obtain the bootstrap CLI
 
-Inventory the generated topology, version, captured Docker context and persistent
-mounts before mutating an older Laya sidecar deployment. Preserve owner
-profiles, credentials, sessions, board and memory. Use the selected RepoKit
-revision's documented reconciliation path to generate replacement configuration;
-there is no assumed `migrate` command.
-
-Do not manually delete legacy containers before replacement configuration exists.
-If the supported path requires quiescing a legacy writer before publication,
-use its original Compose/native lifecycle within the authorized migration scope;
-stopping a writer is not permission to delete its data or containers. Never run two
-writers against the same database. Backups, replacement routing and
-rollback/recovery must be concrete before any separately authorized destructive step.
-
-An installer refusal is evidence that this topology is not safely reconciled by
-that version. Preserve it and report the exact unsupported preimage or owner drift.
-Request the bounded missing source migration or owner decision, rather than
-hand-editing Compose, renaming state or deleting the old deployment to force adoption.
-
-## Obtain the bootstrap executable
-
-Reuse a known RepoKit executable after checking its provenance and `--help`.
-Otherwise use a verified local RepoKit source checkout. If none exists, clone
-`https://github.com/TrebuchetDynamics/hermes-repokit.git` into a separate temporary
-source directory, honor a requested revision, and record the checked-out commit.
-Do not clone RepoKit over the target or update an existing checkout implicitly.
-
-Build from that source root using its declared Go toolchain (`go.mod`; the
-checked contract requires Go 1.26+). Use a fresh temporary directory for the
-binary so an unrelated `/tmp/hermes-repokit` is not overwritten:
+Reuse an installed `repokit` if `command -v repokit` resolves and `repokit --help`
+lists `plan|install|setup|verify`. Otherwise install it (Linux, Go 1.26+, curl):
 
 ```sh
-# Run in the verified RepoKit SOURCE checkout.
-set -e
-repokit_build_dir=$(mktemp -d "${TMPDIR:-/tmp}/repokit-bootstrap.XXXXXX")
-CGO_ENABLED=0 go build -o "$repokit_build_dir/hermes-repokit" ./cmd/hermes-repokit
-"$repokit_build_dir/hermes-repokit" --help
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/main/install.sh | sh
 ```
 
-The bootstrap is pure Go; ordinary installation does not need a host C compiler.
-Contributor validation (`go test ./...`, `go test -race ./...`, vet and formatting)
-belongs to source changes, not every installation from a verified revision.
-If developing RepoKit, run the applicable checks and report any unavailable race
-toolchain separately; use a suitable development environment for that check.
-Do not demand a host compiler installation or declare installation blocked merely
-because the race detector cannot build.
+The script downloads and builds the current `main` source with `CGO_ENABLED=0`
+(no C compiler needed) and publishes `~/.local/bin/hermes-repokit` plus the
+`repokit` alias. It updates a bootstrap it installed earlier and preserves any
+other existing command, including a generated `hermes-repokit` launcher. Read its
+output: it warns when `~/.local/bin` is missing from PATH or another command
+shadows the name, and prints the absolute command to use instead.
 
-Carry that absolute binary path into subsequent commands and the private setup
-handoff. Do not assume shell variables survive tool calls or exist in the
-owner's terminal. Go is needed for source builds, not the generated runtime.
-Missing Go/Docker or unsupported platforms are concrete prerequisites; do not
-silently install host packages. The generated development image targets
-Linux amd64; a different platform needs qualification, not guessed substitutions.
+To pin a revision, or when the owner already has a RepoKit source checkout, run
+`./install.sh` from that verified checkout (it builds that tree) and record its
+commit. Never clone RepoKit over the target or update an owner checkout
+implicitly. Contributor checks (`go test ./...`, race, vet) belong to RepoKit
+source changes, not to installation.
 
-## Plan, publish, and start
+Missing Go, Docker or an unsupported platform are prerequisites to report; do not
+install host packages silently. The development image targets Linux amd64.
 
-From the **target root**, run the acquired binary's `plan`. Inspect its target,
-container, project, launcher, Docker context, collisions, and unsupported items.
-Refuse foreign/symlinked state, unknown generated-file edits, name collisions,
-or unresolved ownership. Existing root Compose files belong to the project and
-must coexist with RepoKit's `.hermes/compose.yaml` and separate project namespace.
-Do not rename, merge, edit or start them as part of RepoKit installation. Use the
-printed explicit file/context command; never an unqualified `docker compose up`.
-If an older RepoKit revision rejects a root Compose file, use a compatible revision
-within the authorized source-selection scope instead of modifying the owner's stack.
+In later commands and handoffs, use the absolute path if `repokit` is not on
+PATH; shell variables do not survive between tool calls or into the owner's terminal.
 
-If safe, run `install`. It publishes `.hermes/compose.yaml`, native defaults,
-`.hermes/bin/hermes-<repo>` and
-the pinned development-image recipe. It preserves recognized prior state and refuses
-ambiguous changes. It does not start services.
+## 3. Plan
 
-Fresh config trusts `/workspace` for native repository skills, and managed profile
-reconciliation carries that trust across the team. Preserve explicit discovery
-opt-outs, disabled skills and other trusted roots; native scanning remains active.
+```sh
+repokit plan        # JSON report; writes nothing
+```
 
-Run the **exact all-service Compose build/start command printed by install**,
-including context, absolute file, `--env-file /dev/null`, and selector cleanup.
-This may download/build the pinned development image. Inspect the same project's
-`compose ps`, then rerun `install` for native Kanban initialization and existing
-team reconciliation. Do not handwrite a competing Compose deployment, change
-the operator's memory provider or create a RepoKit runtime daemon.
+Check the target identity, container/launcher name, Docker context, detected
+development requirements, SELinux state, `existing_state` and `collisions`.
+Refuse on foreign or symlinked state, unknown edits to generated files, name
+collisions or unresolved ownership. The owner's root Compose files stay as they
+are — never rename, merge, edit or start them.
 
-## Private setup and resumption
+Container and launcher name: `hermes-` plus the normalized repository name,
+unless it already starts with `hermes-` (`my-project` → `hermes-my-project`,
+`hermes-repokit` stays `hermes-repokit`). Collisions refuse; there are no
+automatic suffixes.
 
-Give the owner one concrete command, with actual quoted absolute paths:
-`cd '<target-root>' && '<bootstrap-binary>' setup`.
-The owner runs it in their private terminal; request only a completion signal,
-not transcripts, screenshots, tokens, or keys. Keep the binary available until
-bootstrap is complete. Do not use a captured PTY to conduct private setup.
+## 4. Install and start
 
-Plain `setup` is the private full-configuration entry point. Resume team reconciliation
-with `setup --team`. Preserve existing profiles, memories,
-credentials, and owner choices on every rerun.
+```sh
+repokit install
+```
 
-The intended core-only path is team reconciliation from an already configured default.
-Memory is user-managed; RepoKit does not configure or verify a provider, so core
-setup does not depend on a memory stage.
+This publishes `.hermes/compose.yaml`, native defaults, `.hermes/bin/hermes-<repo>`,
+the pinned development-image recipe and the `~/.local/bin/hermes-<repo>` link. It
+preserves recognized prior state, refuses ambiguous changes and starts nothing.
+Dispatch stays off.
 
-Core setup reconciles the seven profiles, then sets the native dispatch policy and
-restarts the gateway. It does not prove a worker ran: use the explicit
-`verify --dispatch-check` (no-write researcher card, `metadata.first_line` must
-equal the README's first line) or real reviewed work.
-Only then report automatic execution/review operational. Active/finalizing workers defer setup;
-queued work is preserved. Optional plugins remain owner-managed through native
-admission. Respect scanner refusal and preserve existing plugin choices.
+Run the **exact build/start command `install` printed** — context, absolute
+Compose file, `--env-file /dev/null` and selector cleanup included. The first
+build downloads and builds the pinned image and can take several minutes. Then
+confirm with that project's `compose ps` and rerun:
 
-## Readiness and version gaps
+```sh
+repokit install     # native Kanban initialization and team reconciliation
+```
 
-Memory is user-managed and independent of core capability. It does not by itself
-disqualify observed core engineering readiness. Keep working team execution
-available; do not change providers, disable dispatch or demand memory credentials
-merely to clear a warning.
+Do not hand-write a competing Compose deployment or run an unqualified
+`docker compose up`.
 
-Check the selected revision's actual setup order and activation checks. A version
-that blocks dispatch activation when memory fails does not implement this contract.
-Report dispatch as blocked by that implementation/version and memory separately.
-It needs a source-level decoupling or a compatible revision, not a manual config
-bypass, one-shot dispatch or a fabricated `CORE_READY`. An operating request alone
-does not authorize that source change. Avoid rerunning a coupled setup against an
-otherwise working gateway solely to repair optional memory; it may suspend dispatch.
+Optional: for a repository whose tests need Docker, use `plan --docker-tests` /
+`install --docker-tests` and run both printed commands (image rebuild, then the
+`--profile docker-tests` daemon). This adds a privileged, project-scoped test
+daemon without the host Docker socket; tasks call `repokit-docker-test` from
+`/workspace`.
 
-After setup, run `verify` and classify each component. A current result of
-`review: unqualified` keeps its exit status nonzero even when other components
-are healthy. Inspect the component output rather than using the exit code as the
-entire readiness decision. `CORE_READY` requires evidenced core/team, dispatch,
-toolchain and configured-channel readiness; memory is user-managed and is not
-part of these labels. They do not prove full live acceptance.
+## 5. Private setup (owner's terminal)
 
-Configured human-facing channels must route to `default` and have the same core
-development, Kanban and memory capabilities as CLI, retaining channel-specific
-extras and authorization. Use RepoKit reconciliation or native Hermes configuration;
-do not hand-toggle platform tool checkboxes to manufacture parity. Refresh sessions
-after reconciliation, and verify an originating-channel task/result separately.
+Hand the owner one concrete command with real, quoted absolute paths:
+
+```sh
+cd '/abs/path/to/target' && repokit setup
+```
+
+Ask only for a completion signal — never transcripts, screenshots, tokens or
+keys. Plain `setup` needs a real interactive terminal. It configures the default
+provider/model, reconciles the seven profiles, writes the native dispatch policy
+(`review_dispatch=true`, `max_in_progress=1`, `auto_decompose=false`, the
+seven-profile allowlist, `dispatch_in_gateway=true` last) and restarts the gateway
+once.
+
+If native setup was already done through `hermes-<repo> setup`, or setup was
+interrupted, `repokit setup --team` reconciles the team from the saved default
+model without rerunning the wizard. Every rerun preserves profiles, credentials,
+sessions and owner choices; profile edits are reported as drift, not overwritten.
+
+Setup refuses while a card is running, never starts a stopped gateway, and leaves
+an already-matching or owner-changed policy untouched. An unmodified six-profile
+release is upgraded in place by `setup --team`: it adds `tester`, updates the
+managed SOULs and widens the allowlist with one restart.
+
+## 6. Verify
+
+```sh
+repokit verify                    # observational
+repokit verify --dispatch-check   # explicit and paid: one no-write researcher card
+```
+
+Classify every component from the JSON, not just the exit code (see
+[readiness report](usage.md#readiness-report)). The dispatch check requires the
+running gateway to claim the card within 150 seconds without manual dispatch and
+a completed researcher run whose `metadata.first_line` equals the README's first
+line; a failing card is preserved for inspection. Run it only when the owner
+accepts the model cost.
+
+Then check the host command in a fresh shell from another directory:
+`command -v hermes-<repo>`, `hermes-<repo> kanban list`, `hermes-<repo> profile list`.
+Bare chat is usable only after private setup succeeds.
+
+## Host command
+
+`install` links `~/.local/bin/hermes-<repo>` → `<repo>/.hermes/bin/hermes-<repo>`.
+It creates missing `.local`/`bin` directories when safe, reuses matching links and
+never replaces unrelated entries (including dangling symlinks). Home and
+destination directories must be owner-owned and not group/other writable;
+redirected `.local`/`bin` are refused.
+
+A PATH gap still gets the link, plus a warning and the absolute command. Existing
+PATH collisions fail preflight; preserve them and retry `install` after the owner
+resolves them. Never create aliases or edit shell rc files or PATH. If an alias or
+function shadows the command (`type -a hermes-<repo>`), preserve it and use the
+absolute launcher.
 
 ## SELinux bind mounts
 
-On SELinux-enabled Linux hosts RepoKit detects the state during `plan`/`install`
-and generates Docker's private `Z` relabeling for the two repository-owned bind
-mounts, `<repo>` → `/workspace` and `<repo>/.hermes` → `/opt/data`. `verify`
-reports the host state plus in-container `/workspace` and `/opt/data` access. This
-is normal installation compatibility: an authorized `install` applies it without a
-separate approval prompt.
+On SELinux-enabled hosts `plan`/`install` detect the state and add Docker's
+private `Z` relabeling to exactly two mounts, `<repo>` → `/workspace` and
+`<repo>/.hermes` → `/opt/data`. Broad sources (`/`, `/home`, `/usr`, `/etc`, the
+user home) are refused rather than relabeled. `verify` reports the host state and
+in-container access.
 
-`Z` is correct for the one-container topology and relabels only those two sources.
-RepoKit refuses broad sources (`/`, `/home`, `/usr`, `/etc`, the user home) rather
-than relabeling them. On hosts without SELinux the option is omitted and the
-generated Compose is unchanged. If a running container's repository mount is
-denied, `verify` reports the access probe as degraded.
+If an older deployment lacks relabeling, rerun `install` and recreate the Hermes
+service with the printed command; all state is preserved. Never run
+`setenforce 0`, change global policy, add policy modules, relabel unrelated paths
+or hand-edit the Compose file.
 
-Never disable SELinux (`setenforce 0`), change global policy, install custom policy
-modules, relabel unrelated host paths, or hand-edit `.hermes/compose.yaml` to work
-around a denial; ask the owner before any of those. For an existing deployment
-whose generated Compose lacks the relabel option, detect the drift, regenerate
-through `install`, and recreate the Hermes container; preserve repository source,
-`.hermes` state, credentials, profiles, Kanban and memory data.
+## Upgrades and legacy migration
 
-## Automatic host command
+`install` recognizes exact earlier generated deployments and upgrades them in
+place, keeping backups such as `compose.before-names.yaml` or
+`compose.before-core.yaml`. Recreate the service with the printed command, then
+rerun `install` (and `setup --team` when the team changed). Edited launchers,
+recipes, backups and conflicting names are preserved and refused.
 
-An installation request includes safe host-command exposure. Current `install`
-creates `~/.local/bin/<plan-launcher-name>` as a symlink to the absolute generated
-launcher after publishing it. Missing `.local`/`bin` directories are created when
-safe; matching links are reused. Unrelated entries, including dangling symlinks,
-are never replaced. The home and destination directories must be owned and not
-group/other writable; redirected `.local`/`bin` directories are refused.
+The historical Hermes/Laya local-build stack is recognized too. Take a native
+backup, quiesce work, then stop its legacy services through their **original**
+Compose lifecycle before `install`; stopping a writer is not permission to delete
+its containers or data, and two writers must never share a database. RepoKit
+itself never stops or deletes legacy containers.
 
-Inspect installer output separately from runtime readiness. A directory missing
-from PATH still receives the link, with an explicit warning and absolute command.
-Unusable host directories or destination conflicts leave the local launcher
-available and produce a warning. Existing PATH collisions fail preflight. Preserve
-conflicts and use the reported absolute launcher; retry through `install` after
-the owner resolves the condition. Do not require separate approval for ordinary
-automatic link publication within an authorized installation.
-
-Never create Bash aliases or edit shell rc files or PATH automatically. Check
-`command -v` and `type -a` if an existing alias/function shadows the command;
-preserve those owner definitions. Older revisions may only generate the local
-launcher: report that version gap instead of claiming a host command exists.
-
-Test command resolution in a fresh user shell, then `--help`, `kanban list`,
-and `plugins list` from another directory. Bare chat requires successful private
-model setup before it can be called usable. The link alone proves no chat or
-integration acceptance.
-
-Source contract: use the selected RepoKit checkout's `README.md` and `docs/bootstrap-quickstart.md`; match the installed CLI revision.
+Unrecognized or edited legacy topology refuses adoption. Report the exact
+preimage and the missing migration or owner decision. Do not hand-edit Compose,
+rename state, delete the old deployment or invent a `migrate` command.

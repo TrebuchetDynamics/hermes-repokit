@@ -1,4 +1,4 @@
 interface:
   display_name: "Hermes RepoKit"
-  short_description: "Install, migrate and operate repository teams"
-  default_prompt: "Use $skill-hermes-repokit to assess this repository's Hermes setup, resume the authorized work, and report core, development, channel and memory readiness separately."
+  short_description: "Install, verify and operate a repository's Hermes team"
+  default_prompt: "Use $skill-hermes-repokit to assess this repository's Hermes RepoKit deployment: record a baseline, install or resume only what is authorized, hand private setup to me, and report core team, dispatch, development runtime, channels and user-managed memory separately with evidence."

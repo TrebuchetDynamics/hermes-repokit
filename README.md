@@ -161,10 +161,45 @@ admission gate.
 
 ## Agent skill
 
-[skill-hermes-repokit](skills/skill-hermes-repokit/SKILL.md) teaches an agent to
-install, resume, verify and use RepoKit. Copy the folder into your agent's skills
-directory — `~/.agents/skills/` for Codex, Pi and OpenCode, or `~/.claude/skills/`
-for Claude Code. Installing it does not start a deployment.
+[skill-hermes-repokit](skills/skill-hermes-repokit/SKILL.md) teaches a coding
+agent to install, resume, verify and operate RepoKit safely: it keeps the target
+and source apart, records a Git baseline, uses only the commands `install`
+prints, leaves credentials to your private terminal and reports each component
+separately. Installing the skill does not start a deployment.
+
+Install it for your agent (the skill is the `skills/skill-hermes-repokit` folder):
+
+```sh
+# Claude Code
+mkdir -p ~/.claude/skills && curl -fsSL https://github.com/TrebuchetDynamics/hermes-repokit/archive/refs/heads/main.tar.gz \
+  | tar -xz -C ~/.claude/skills --strip-components=2 hermes-repokit-main/skills/skill-hermes-repokit
+
+# Codex, Pi and OpenCode
+mkdir -p ~/.agents/skills && curl -fsSL https://github.com/TrebuchetDynamics/hermes-repokit/archive/refs/heads/main.tar.gz \
+  | tar -xz -C ~/.agents/skills --strip-components=2 hermes-repokit-main/skills/skill-hermes-repokit
+```
+
+Rerun the same command to update it. Then, from the repository you want to
+prepare, give your agent a prompt like this:
+
+```text
+Install the Hermes RepoKit agent skill if it is not already available: download
+https://github.com/TrebuchetDynamics/hermes-repokit/archive/refs/heads/main.tar.gz
+and extract only skills/skill-hermes-repokit into your skills directory
+(~/.claude/skills for Claude Code, ~/.agents/skills for Codex, Pi or OpenCode).
+Load the skill, then use it to set up Hermes RepoKit for this repository:
+record a Git baseline, install the repokit CLI if missing, run plan and install,
+start the runtime with the exact Compose command install prints, and rerun
+install. Stop there and give me the exact `repokit setup` command to run in my
+own terminal — never ask for or handle my credentials. After I confirm, run
+repokit verify and report bootstrap, host command, team, dispatch, development
+runtime and channels separately. Don't run --dispatch-check, commit, push or
+delete anything without asking me.
+```
+
+For an existing deployment, a shorter prompt is enough: *"Use the
+skill-hermes-repokit skill to check this repository's Hermes deployment and tell
+me what is not ready."*
 
 ## Troubleshooting and deeper guides
 

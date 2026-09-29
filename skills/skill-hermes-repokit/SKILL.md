@@ -1,134 +1,127 @@
 ---
 name: skill-hermes-repokit
-description: Use when installing, resuming, verifying, migrating, or operating Hermes RepoKit in a repository, including the generated launcher, seven-profile team, Kanban dispatch, user-managed memory, channel parity, and repository development runtime. Not for unrelated Hermes installations or developing RepoKit features.
+description: Use when installing, resuming, verifying, upgrading, migrating or operating Hermes RepoKit in a repository — the repokit bootstrap CLI, the generated hermes-<repo> launcher, the seven-profile team, Kanban dispatch, the development runtime and channel parity. Not for unrelated Hermes installations, memory-provider setup, or developing RepoKit itself.
 ---
 
 # Hermes RepoKit in repositories
 
-RepoKit is a short-lived Go bootstrapper. Its commands are `plan`, `install`,
-`setup`, and `verify`. Ordinary Docker Compose and the generated native Hermes
-launcher own runtime usage after bootstrap; RepoKit can then be removed.
+RepoKit is a short-lived Go bootstrapper with four commands: `plan`, `install`,
+`setup` and `verify`. It prepares one Docker Compose Hermes container per
+repository, then gets out of the way: after bootstrap, the generated
+`hermes-<repo>` launcher and ordinary Compose own the runtime, and RepoKit can be
+removed.
 
-## Readiness model
-
-Report capabilities independently; container health is not component readiness:
-
-- **Core team:** Hermes, seven profiles, shared Kanban, routing and dispatcher.
-- **Development runtime:** repository mounted at `/workspace` with its required toolchain.
-- **Memory:** user-managed and outside RepoKit's readiness model; never configured or verified by this workflow.
-- **Channels:** CLI and configured human-facing adapters route to `default`.
-
-`verify` prints `CORE_READY` first and reports memory as user-managed. Core is
-`healthy` only when configuration, runtime, toolchain, dispatch policy, gateway and
-channel tools are healthy and native card history shows same-card executor→tester→reviewer
-completion; `unqualified` means configured but the loop is not yet observed.
-Passive verify never proves memory. End-to-end channel delivery still needs
-behavioral evidence.
-
-Core readiness must not depend on memory availability. An observed working
-project may be `CORE_READY` with memory degraded or pending. If the selected
-version still blocks dispatch on memory, report the implementation gap and actual
-dispatch failure; do not claim readiness or bypass activation. See [version and
-failure handling](references/installation.md#readiness-and-version-gaps).
+**RepoKit prepares; Hermes operates; Docker contains; Kanban coordinates;
+memory stays user-managed; Git stays under owner control.**
 
 ## Route the request
 
-- Install, resume setup or migrate: read [installation](references/installation.md).
-- Chat, profiles, Kanban, memory, service recovery, or acceptance checks:
-  read [usage](references/usage.md).
-- Status-only requests stay observational. Reading or installing this skill
-  does not authorize deploying Hermes. An explicit installation request authorizes
-  ordinary non-destructive bootstrap and generated-service startup for that target
-  repository. Secret-bearing setup, destructive cleanup, legacy-state deletion,
-  commit and push remain separately scoped.
+| Request | Read |
+| --- | --- |
+| Install, resume setup, upgrade or migrate a deployment | [installation](references/installation.md) |
+| Chat, profiles, Kanban, recovery, acceptance checks | [usage](references/usage.md) |
+| "Is it working?" / status only | Stay observational: `repokit verify` plus [usage](references/usage.md#readiness-report) |
 
-Use the user's chosen repository, otherwise resolve the current Git root.
-Keep the **target repository** separate from the **RepoKit source checkout**.
-Run bootstrap commands from the target root: this CLI uses its current directory
-as the target and has no repository-path argument. Record Git branch, HEAD,
-dirty/untracked paths, and a status hash before mutation. Preserve owner work.
+Reading or installing this skill does not authorize deploying Hermes. An explicit
+installation request authorizes ordinary non-destructive bootstrap and starting
+the generated service for that one target repository. Private credential setup,
+destructive cleanup, legacy-state deletion, source changes to RepoKit, commit and
+push are each separately scoped.
 
-Read the target's instructions and the selected RepoKit revision's README and
-bootstrap quickstart. Confirm the installed CLI with `--help` and use matching documentation when
-versions differ. Do not assume `--version` or release binaries exist.
+## Ground rules
+
+1. **Target vs. source.** The target repository is the one being prepared; a
+   RepoKit source checkout is separate. Every RepoKit command runs from the
+   **target root** — the CLI uses its current directory and has no path argument.
+   Use the user's chosen repository, otherwise `git rev-parse --show-toplevel`.
+2. **Baseline first.** Record branch, HEAD, dirty/untracked paths and a status
+   hash before any mutation. Never reset, stash, clean, commit or discard owner work.
+3. **Check the CLI you have.** Run `repokit --help` and follow the documentation
+   of that revision (`README.md`, `docs/bootstrap-quickstart.md`). There is no
+   `--version`, no release binary and no `migrate`, `chat`, `start`, `run` or
+   `stop` subcommand — do not invent them.
+4. **Docker scope.** Touch only the target's own Compose project, through the
+   exact command `install` printed (explicit context, absolute file,
+   `--env-file /dev/null`). Never `docker kill`, `rm` or `prune` by name pattern,
+   never `down -v`, and never touch other repositories' `hermes-*` containers.
+   When other agents share the host, announce Docker test runs first.
+5. **Secrets stay private.** `setup` runs in the owner's own terminal. Never
+   capture credentials, drive the wizard through a PTY, borrow unrelated host
+   auth, or pick providers/models on the owner's behalf.
+6. **No bypasses.** Do not hand-edit `.hermes/compose.yaml`, managed SOULs,
+   platform tool checkboxes or other `.hermes` state to make a check pass. Durable
+   fixes belong in RepoKit source or native Hermes configuration.
+7. **Memory is user-managed.** RepoKit neither configures nor verifies a memory
+   provider, and memory never gates core readiness. Do not set one up as part of
+   this workflow; report it as operator-owned.
+
+## Command names
+
+| Intent | Command |
+| --- | --- |
+| Inspect a repository (writes nothing) | `repokit plan` |
+| Publish Compose, launcher, host link; later init Kanban | `repokit install` |
+| Private provider setup and team activation | `repokit setup` |
+| Resume/reconcile the team without the wizard | `repokit setup --team` |
+| Observe readiness | `repokit verify` |
+| Paid proof of automatic dispatch (one no-write card) | `repokit verify --dispatch-check` |
+| Add an isolated Docker test daemon | `repokit plan --docker-tests`, `repokit install --docker-tests` |
+| Native default chat | `hermes-<repo>` (no arguments) |
+| Other native Hermes commands | `hermes-<repo> kanban list`, `profile list`, `gateway status`, … |
+| Start/stop/recreate services | Ordinary Compose with the launcher's captured routing |
+
+`repokit` and `hermes-repokit` are the same bootstrap binary. Prefer `repokit`:
+in a repository whose name normalizes to `repokit`, the generated launcher owns
+`hermes-repokit`. `hermes-<repo> setup` is **native** Hermes setup only; it does
+not reconcile the team. `--engineering` is a legacy no-op alias.
+
+## Lifecycle at a glance
+
+```text
+repokit plan                         inspect: names, context, collisions
+repokit install                      publish .hermes/, launcher, ~/.local/bin link (dispatch off)
+<printed compose build/start>        start the one hermes-<repo> container
+repokit install                      native Kanban init + team reconciliation
+repokit setup        (owner, private) provider/model → seven profiles → dispatch policy → gateway restart
+repokit verify                       CORE_READY report
+repokit verify --dispatch-check      (explicit, paid) gateway claims a researcher card
+real task                            executor → tester → reviewer on the same card
+```
 
 ## Deployment contract
 
-- Normal production topology is exactly one RepoKit runtime container per
-  repository: `hermes-<repo>`, using the normalized name printed by `plan`.
-  Memory is user-managed and runs outside the RepoKit contract.
-- Repository root mounts at `/workspace`; private `<repo>/.hermes` mounts at
-  `/opt/data`, with `HERMES_HOME=/opt/data`. Preserve this generated layout.
-- Existing repository Compose files and services coexist with RepoKit's explicit
-  `.hermes/compose.yaml` and separate project namespace; preserve the owner's stack.
-  Source builds of the bootstrap use `CGO_ENABLED=0` and need no host C compiler.
-- Install safely exposes the generated launcher at `~/.local/bin/hermes-<repo>`
-  through a symlink, preserving conflicts and reporting missing PATH. It creates
-  no shell aliases and edits no shell startup files. See [host command handling](references/installation.md#automatic-host-command).
-- On SELinux-enabled Linux hosts, `install` requests Docker's private `Z`
-  relabeling for the `<repo>` and `<repo>/.hermes` bind mounts. Treat this as
-  normal installation compatibility; never disable SELinux, change global policy,
-  or hand-edit generated Compose. See [SELinux bind mounts](references/installation.md#selinux-bind-mounts).
-- Use generated pins, build inputs and Docker context. An explicitly selected
-  isolated Docker acceptance daemon is test infrastructure, not another production runtime.
-- Coding readiness requires the target repository's toolchain inside `/workspace`;
-  terminal/file tools alone are insufficient.
-- Permanent profiles: `default`, `researcher`, `planner`, `executor`, `tester`,
-  `reviewer`, `steward`. Default coordinates; steward manages team evolution.
-- Configured human-facing channels such as Telegram route to `default` and retain
-  core repository-development, Kanban and memory capabilities expected from CLI.
-  Setup owns parity; do not require manual per-channel Kanban enablement. Memory
-  capability can remain available while its service is reported degraded.
-- Kanban is canonical. Setup enables native dispatch on `default` through
-  `hermes config set` and one gateway restart after the team reconciles. It never
-  runs a worker itself. Memory readiness never blocks core team execution.
+- One container per repository, `hermes-<repo>` as printed by `plan`. Repository
+  at `/workspace`; private `<repo>/.hermes` at `/opt/data` (`HERMES_HOME`).
+- The owner's own Compose files and services coexist untouched; RepoKit uses
+  `.hermes/compose.yaml` and its own project namespace.
+- `install` links `~/.local/bin/hermes-<repo>` to the generated launcher,
+  preserving conflicts and warning about a missing PATH entry. It never creates
+  aliases or edits shell startup files.
+- On SELinux hosts `install` adds private `Z` relabeling for the two repository
+  mounts. Never disable SELinux or change global policy.
+- Coding readiness needs the target's toolchain inside `/workspace` (the pinned
+  development image); terminal/file tools alone are not enough.
+- Seven permanent profiles: `default` (coordinator, the user's entry point),
+  `researcher`, `planner`, `executor`, `tester`, `reviewer`, `steward` (team
+  lifecycle). Configured channels such as Telegram route to `default` with the
+  same core development and Kanban tools as the CLI.
+- Kanban is canonical. Setup enables the single native gateway dispatcher
+  (automatic review, concurrency one, no auto-decomposition) with
+  `hermes config set` and one gateway restart. It refuses while a card is running
+  and preserves an owner-changed policy. RepoKit never runs a worker itself.
 
-```text
-install → dispatch off
-setup → team reconciled → native dispatch policy set → gateway restarted
-verify --dispatch-check (explicit, paid) → gateway claims no-write researcher card
-real task → executor → same-card tester → reviewer → verify shows review evidence
-```
+## Readiness
 
-Setup refuses while a card is running and preserves an owner-changed dispatch
-policy. Concurrency stays one and automatic decomposition stays off.
+`verify` prints a JSON array: `CORE_READY` first, then `MEMORY` (always
+`inactive`, user-managed), then one probe per component. `CORE_READY` is:
 
-## Repair and migration boundaries
+- `healthy` — configuration, runtime, toolchain, dispatch policy, gateway and
+  channel tools are healthy **and** native card history shows same-card
+  executor→tester→reviewer completion.
+- `unqualified` — configured, but that review loop has not been observed yet.
+- `degraded` — a core component is broken; the only nonzero exit.
 
-Durable fixes belong in RepoKit source or native Hermes configuration. Do not
-hand-edit generated Compose, managed SOULs, platform tool checkboxes or live
-`.hermes` state merely to make acceptance pass. A source fix requires development
-scope; this operating skill does not implicitly authorize a product rewrite.
-
-Preserve owner state on legacy topology detection and use the current RepoKit
-reconciliation path. Do not manually delete legacy containers before replacement
-configuration is generated. If that topology is unsupported, report the exact
-gap and required migration work; never invent a migration command or teardown.
-
-## Distinguish bootstrap from native usage
-
-| Intent | Interface |
-| --- | --- |
-| Inspect/publish repository deployment | `hermes-repokit plan` / `install` |
-| Private default and team setup | `hermes-repokit setup` |
-| Resume team provisioning | `hermes-repokit setup --team` |
-| Observe installation | `hermes-repokit verify` |
-| Open native default chat | Generated `hermes-<repo>` with no arguments |
-| Native Hermes setup only | `hermes-<repo> setup` |
-| Native operations | `hermes-<repo> kanban list`, `plugins list`, `profile list` |
-| Start/restart services | Ordinary Compose using captured routing |
-
-Private setup belongs in the owner's terminal. Never capture credentials,
-borrow unrelated host authentication, or invent provider/model choices.
-Existing state, scanner refusal, identity collisions, or owner drift must be
-resolved on their evidence; do not erase state or force admission to proceed.
-
-Report bootstrap, host launcher, default chat, profiles, Kanban, memory and
-acceptance separately with evidence and the next action.
-Healthy services do not prove live model work, shared recall, reviewer
-independence, or removal-first acceptance. Independent review requires execution
-history with different implementation and approval actors; `done` alone is
-insufficient. Leave Git delivery to an explicit commit/push request.
-
-RepoKit prepares; Hermes operates; Docker contains; Kanban coordinates;
-memory stays user-managed; Git remains under owner control.
+Container health is not readiness, and passive `verify` proves no model work,
+channel delivery, reviewer independence or removal-first acceptance. Report
+bootstrap, host command, default chat, profiles, dispatch, toolchain, channels
+and memory (user-managed) separately, each with evidence and the next action.
