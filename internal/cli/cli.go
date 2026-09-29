@@ -278,6 +278,7 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 		p.ProposedChanges = append(p.ProposedChanges, "reconcile the seven native team profiles after default setup; preserve user drift and unknown profiles; integrations remain pending")
 	}
 	p.ProposedChanges = append(p.ProposedChanges, "create or reuse ~/.local/bin/"+id.Container+" as a symlink to the generated launcher when safe; preserve conflicts and report missing PATH")
+	p.ProposedChanges = append(p.ProposedChanges, "add "+lockExcludeEntry+" to the local, never-committed .git/info/exclude unless already ignored, so the installer lock stays out of git status")
 	if compose.LegacyLayaBuildSelected(id) {
 		p.ProposedChanges = append(p.ProposedChanges, "recognized legacy Hermes/OpenViking/Laya build stack: stop the legacy OpenViking writer using original Compose, then install backs up compose.before-core.yaml and generates the core runtime; all service data preserved")
 	}
