@@ -13,7 +13,7 @@ def dispatch_failure_diagnostic(error):
     # Never format exception messages, source text, locals or arbitrary frames.
     stages={'dispatch_main','check_activation','switch_gateway','dispatcher_canary',
             'dispatch_fence','startup_since','log_cursor','create_dispatch_canary',
-            'retry_dispatch_canary','suspend_failed_activation'}
+            'retry_dispatch_canary','suspend_failed_activation','release_dispatch'}
     kind='Exception'
     for cls in (RuntimeError,ValueError,OSError,subprocess.TimeoutExpired,subprocess.CalledProcessError):
         if isinstance(error,cls):
@@ -97,18 +97,20 @@ def startup_since(root, cursor):
         return startup_settings(stream.read(1048577).decode('utf-8',errors='replace'))
 
 
-def switch_gateway(root, roles, repo_id, enable):
+def switch_gateway(root, roles, repo_id, enable, *, canary_only=False):
     with dispatch_fence(root):
         before=observe_gateway(root)
         if not idle_gateway(before): raise RuntimeError('gateway not healthy and idle')
         config=mapping(root/'config.yaml')
-        if not manual_policy(config) and not operational_policy(config):
+        if not manual_policy(config) and not operational_policy(config) and not canary_policy(config):
             raise RuntimeError('dispatch policy drift preserved')
         required=set(before.get('adapters', []))
         if not required: raise RuntimeError('no healthy default adapters')
         cursor=log_cursor(root)
         if enable:
-            for key,value in dispatch_policy('default').items():
+            policy=dispatch_policy('default')
+            if canary_only: policy['dispatch_profiles']=['researcher']
+            for key,value in policy.items():
                 if key != 'dispatch_in_gateway':
                     native_command('-p','default','config','set','kanban.'+key,value if isinstance(value,str) else json.dumps(value))
             native_command('-p','default','config','set','kanban.dispatch_interval_seconds','60')
@@ -141,7 +143,9 @@ def switch_gateway(root, roles, repo_id, enable):
         except Exception:
             if enable:
                 # All native claim fences remain held during failure recovery.
-                # Preserve a dispatch-off next boot even when restart itself fails.
+                # Fence hot-read claims before releasing locks, even if the
+                # replacement process cannot prove its boot-only settings.
+                native_command('-p','default','config','set','kanban.dispatch_profiles','[]')
                 native_command('-p','default','config','set','kanban.dispatch_in_gateway','false')
                 native_command('-p','default','gateway','restart')
             raise
@@ -211,7 +215,7 @@ V2_CANARY_BODY = ('Read /workspace/README.md without modifying files. Use the fi
                'Complete with that title in your summary and structured metadata '
                '{"title": "the title or NO_MARKDOWN_TITLE", "changed_files": []}.')
 
-CANARY_BODY = ('Read /workspace/README.md without modifying files. Ignore Markdown fenced code blocks '
+V3_CANARY_BODY = ('Read /workspace/README.md without modifying files. Ignore Markdown fenced code blocks '
                '(backticks or tildes, at least three; a closing fence must use the same character and '
                'at least the opening length). Use the first nonempty heading outside those blocks on a line '
                'starting with "# ", removing that prefix and surrounding whitespace. If README.md is missing '
@@ -220,32 +224,28 @@ CANARY_BODY = ('Read /workspace/README.md without modifying files. Ignore Markdo
                '{"title": "the title or NO_MARKDOWN_TITLE", "changed_files": []}.')
 
 
-def canary_title(path):
+CANARY_BODY = ('Use read_file to read line 1 of /workspace/README.md. Do not modify any files. '
+               'Copy the first physical line exactly, excluding only its newline; preserve spaces, '
+               'Markdown markers and HTML. Do not choose a heading or interpret the content. '
+               'For an empty file or blank first line use an empty string. Only if the file does not '
+               'exist use README_MISSING; permission or tool failures must block the task. '
+               'Complete with a nonempty summary and structured metadata '
+               '{"first_line": "the exact first line", "changed_files": []}.')
+
+
+def canary_first_line(path):
     try:
-        lines=read_file(path).decode().splitlines()
+        line=read_file(path).partition(b'\n')[0].removesuffix(b'\r')
     except FileNotFoundError:
-        return 'NO_MARKDOWN_TITLE'
-    # Other read errors remain failures: missing content never licenses following
-    # a symlink, bypassing the bounded reader, or ignoring denied access.
-    fence=None
-    for line in lines:
-        if fence is not None:
-            if re.fullmatch(r' {0,3}'+re.escape(fence[0])+'{'+str(len(fence))+r',}[ \t]*',line):
-                fence=None
-            continue
-        opening=re.match(r' {0,3}(`{3,}|~{3,})(.*)$',line)
-        if opening and (opening[1][0]!='`' or '`' not in opening[2]):
-            fence=opening[1]
-            continue
-        if line.startswith('# ') and line[2:].strip():
-            return line[2:].strip()
-    return 'NO_MARKDOWN_TITLE'
+        return 'README_MISSING'
+    if len(line)>4096: raise RuntimeError('canary first line exceeds bounded evidence size')
+    return line.decode('utf-8')
 
 
 def canary_task_matches(task):
     if not isinstance(task,dict): return False
     body=CANARY_BODY
-    if task.get('status') in ('done','blocked') and task.get('body') in (LEGACY_CANARY_BODY,V2_CANARY_BODY):
+    if task.get('status') in ('done','blocked') and task.get('body') in (LEGACY_CANARY_BODY,V2_CANARY_BODY,V3_CANARY_BODY):
         body=task['body']  # Exact terminal history only; never resume old work.
     contract = dict(title='RepoKit dispatcher canary', assignee='researcher',
                     workspace_kind='dir', workspace_path='/workspace', created_by='default',
@@ -257,7 +257,7 @@ def canary_task_matches(task):
                 'workflow_template_id','current_step_key','result')))
 
 
-def create_dispatch_canary(key='repokit-dispatcher-canary-v3'):
+def create_dispatch_canary(key='repokit-dispatcher-canary-v4'):
     task=native_command('-p','default','kanban','create','RepoKit dispatcher canary',
         '--assignee','researcher','--workspace','dir:/workspace',
         '--created-by','default','--idempotency-key',key,
@@ -287,26 +287,29 @@ def retry_dispatch_canary(root, task):
         if task['status']=='done':
             metadata=(runs[-1].get('metadata') or {}) if runs else {}
             if isinstance(metadata,str): metadata=json.loads(metadata)
-            previous_title=metadata.get('title') if isinstance(metadata,dict) else None
-            # A historical heading may differ from today's README. Only the new
-            # run can prove the current title; this old record is never changed.
-            if not isinstance(previous_title,str) or not previous_title.strip() or not canary_complete(record,previous_title):
+            field='first_line' if current.get('body')==CANARY_BODY else 'title'
+            previous_title=metadata.get(field) if isinstance(metadata,dict) else None
+            # Preserve terminal evidence without comparing it to today's README.
+            if not isinstance(previous_title,str) or not canary_complete(record,previous_title,field):
                 raise RuntimeError('prior canary evidence differs')
         elif (task['status']!='blocked' or not runs or any(
                 r.get('profile')!='researcher' or r.get('ended_at') is None
                 or r.get('status') not in ('failed','blocked','reclaimed') for r in runs)):
             raise RuntimeError('failed canary ownership or quiescence unverified')
         key=hashlib.sha256(task['id'].encode()).hexdigest()
-        return create_dispatch_canary('repokit-dispatcher-canary-v3-retry-'+key)
+        return create_dispatch_canary('repokit-dispatcher-canary-v4-retry-'+key)
 
 
 def dispatcher_canary(root, payload):
     digest=generation(root,list(TEAM),payload['repo_id'])
     observed=observe_gateway(root)
     marker=load_marker(root)
-    if dispatch_observation(root,mapping(root/'config.yaml'),observed,classify(digest,observed,marker),marker)['live']!='enabled':
-        raise RuntimeError('dispatcher not live')
-    title=canary_title(Path('/workspace/README.md'))
+    config=mapping(root/'config.yaml')
+    pid=(observed.get('identity') or {}).get('pid')
+    if (not canary_policy(config) or not pid or
+            dispatch_live(True,classify(digest,observed,marker),owns_dispatch_lock(root,pid),marker,(root/'ESTOP').exists())!='enabled'):
+        raise RuntimeError('researcher-only dispatcher not live')
+    title=canary_first_line(Path('/workspace/README.md'))
     # Reuse unfinished native work. Preserve a terminal prior attempt after an
     # interrupted setup and demand a new run from this replacement gateway.
     task=create_dispatch_canary()
@@ -334,7 +337,7 @@ def dispatcher_canary(root, payload):
                     raw=Path('/proc',str(worker),'stat').read_text()
                     gateway_spawn |= int(raw[raw.rfind(')')+2:].split()[1])==gateway_pid
                 except (OSError,ValueError,IndexError): pass
-        if canary_complete(record,title) and saw_running and gateway_spawn:
+        if canary_complete(record,title,'first_line') and saw_running and gateway_spawn:
             current=observe_gateway(root)
             if current.get('identity') != observed['identity']: raise RuntimeError('gateway changed during canary')
             native_command('-p','default','kanban','archive',task_id)
@@ -348,6 +351,43 @@ def dispatcher_canary(root, payload):
             raise RuntimeError('gateway did not claim canary within two intervals')
         time.sleep(0.5)
     raise RuntimeError('canary timed out; native card preserved for inspection')
+
+
+def release_dispatch(root, roles, repo_id):
+    # Native completion precedes process exit. Wait for the proven worker to
+    # finish, then fence claims while publishing the full operational policy.
+    for _ in range(60):
+        if not boards_quiescent(root,allow_queued=True,worker_alive=native_worker_alive):
+            time.sleep(1)
+            continue
+        with dispatch_fence(root):
+            observed=observe_gateway(root)
+            marker=load_marker(root)
+            digest=generation(root,roles,repo_id)
+            evidence=(marker or {}).get('canary') or {}
+            if (not idle_gateway(observed) or classify(digest,observed,marker)!='current'
+                    or not canary_policy(mapping(root/'config.yaml'))
+                    or evidence.get('profile')!='researcher' or evidence.get('done') is not True
+                    or evidence.get('gateway_spawn') is not True
+                    or not owns_dispatch_lock(root,observed['identity']['pid'])
+                    or (root/'ESTOP').exists()):
+                raise RuntimeError('canary release evidence unavailable or changed')
+            # This allowlist is hot-read by the pinned native claim predicate.
+            # Boot-only dispatch settings remain unchanged: no second restart.
+            try:
+                native_command('-p','default','config','set','kanban.dispatch_profiles',json.dumps(list(TEAM)))
+                if not operational_policy(mapping(root/'config.yaml')):
+                    raise RuntimeError('operational policy not restored')
+                marker['generation']=generation(root,roles,repo_id)
+                publish_marker(root,marker)
+            except Exception:
+                # Keep the native claim fences held through rollback: a failed
+                # receipt must not expose the full team between ticks.
+                native_command('-p','default','config','set','kanban.dispatch_profiles','[]')
+                native_command('-p','default','config','set','kanban.dispatch_in_gateway','false')
+                raise
+            return
+    raise RuntimeError('canary worker did not finish before release')
 
 
 def suspend_failed_activation(root, roles, repo_id):
@@ -373,7 +413,7 @@ def dispatch_main(payload):
                 observed=observe_gateway(root)
                 stopped=observed.get('state')=='not-running'
                 if stopped:
-                    if not operational_policy(config): raise RuntimeError('owner dispatch policy drift')
+                    if not operational_policy(config) and not canary_policy(config): raise RuntimeError('owner dispatch policy drift')
                     native_command('-p','default','config','set','kanban.dispatch_in_gateway','false')
             if not stopped: switch_gateway(root,roles,payload['repo_id'],False)
         elif config.get('kanban',{}).get('dispatch_in_gateway') is not False:
@@ -399,13 +439,17 @@ def dispatch_main(payload):
         print('REPOKIT_GATEWAY=current')
         return
     if observed.get('state') == 'not-running':
+        with dispatch_fence(root):
+            # Never start a saved operational allowlist before this boot is proven.
+            native_command('-p','default','config','set','kanban.dispatch_in_gateway','false')
         native_command('-p','default','gateway','start')
         for _ in range(60):
             if idle_gateway(observe_gateway(root)): break
             time.sleep(1)
-    switch_gateway(root,roles,payload['repo_id'],True)
     try:
+        switch_gateway(root,roles,payload['repo_id'],True,canary_only=True)
         dispatcher_canary(root,payload)
+        release_dispatch(root,roles,payload['repo_id'])
     except Exception:
         suspend_failed_activation(root,roles,payload['repo_id'])
         raise

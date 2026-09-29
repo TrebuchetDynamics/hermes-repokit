@@ -138,6 +138,99 @@ class NativeSwitchTest(unittest.TestCase):
         scope['owns_dispatch_lock']=lambda root,pid: self.phase>0
         scope['time']=types.SimpleNamespace(sleep=lambda _:None)
         scope['native_worker_alive']=lambda pid,started:pid==42
+    def test_activation_gates_executor_until_researcher_canary_passes(self):
+        self.scope['Path']=lambda *parts:self.root if parts==('/opt/data',) else Path(*parts)
+        self.scope['check_activation']=lambda *_:None
+        def canary(root,payload):
+            policy=json.loads((root/'config.yaml').read_text())['kanban']
+            self.assertEqual(policy['dispatch_profiles'],['researcher'])
+            self.assertTrue(policy['dispatch_in_gateway'])
+            marker=self.scope['load_marker'](root)
+            marker['canary']={'task_id':'probe','profile':'researcher','gateway_spawn':True,'done':True}
+            self.scope['publish_marker'](root,marker)
+        self.scope['dispatcher_canary']=canary
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.scope['dispatch_main']({'roles':[{'name':n} for n in self.scope['TEAM']], 'repo_id':'repo','action':'activate'})
+        config=json.loads((self.root/'config.yaml').read_text())
+        self.assertTrue(self.scope['operational_policy'](config))
+        marker=self.scope['load_marker'](self.root)
+        self.assertTrue(marker['canary']['done'])
+        self.assertEqual(marker['generation'],self.scope['generation'](self.root,list(self.scope['TEAM']),'repo'))
+        self.assertEqual(sum(c[2:]==('gateway','restart') for c in self.calls),1)
+
+    def test_failed_probe_does_not_release_the_full_team(self):
+        self.scope['Path']=lambda *parts:self.root if parts==('/opt/data',) else Path(*parts)
+        self.scope['check_activation']=lambda *_:None
+        def canary(root,payload):
+            self.assertEqual(json.loads((root/'config.yaml').read_text())['kanban']['dispatch_profiles'],['researcher'])
+            raise RuntimeError('probe failed')
+        self.scope['dispatcher_canary']=canary
+        with self.assertRaisesRegex(RuntimeError,'probe failed'):
+            self.scope['dispatch_main']({'roles':[{'name':n} for n in self.scope['TEAM']], 'repo_id':'repo','action':'activate'})
+        policy=json.loads((self.root/'config.yaml').read_text())['kanban']
+        self.assertFalse(policy['dispatch_in_gateway'])
+        self.assertEqual(policy['dispatch_profiles'],[])
+        self.assertFalse(any(c[4:]==('kanban.dispatch_profiles',json.dumps(list(self.scope['TEAM']))) for c in self.calls))
+
+    def test_release_refuses_missing_canary_paused_or_changed_gateway(self):
+        self.scope['switch_gateway'](self.root,list(self.scope['TEAM']),'repo',True,canary_only=True)
+        for variant in ('missing','paused','generation','identity'):
+            with self.subTest(variant=variant):
+                marker=self.scope['load_marker'](self.root)
+                marker['canary']={'task_id':'probe','profile':'researcher','gateway_spawn':True,'done':True}
+                marker['generation']=self.scope['generation'](self.root,list(self.scope['TEAM']),'repo')
+                marker['identity']={'pid':11}
+                if variant=='missing': marker.pop('canary')
+                if variant=='generation': marker['generation']='old'
+                if variant=='identity': marker['identity']={'pid':999}
+                if variant=='paused': (self.root/'ESTOP').touch()
+                self.scope['publish_marker'](self.root,marker)
+                self.calls.clear()
+                with self.assertRaisesRegex(RuntimeError,'release evidence'):
+                    self.scope['release_dispatch'](self.root,list(self.scope['TEAM']),'repo')
+                self.assertEqual(self.calls,[])
+                (self.root/'ESTOP').unlink(missing_ok=True)
+
+    def test_receipt_failure_rolls_back_before_release_fence_opens(self):
+        self.scope['switch_gateway'](self.root,list(self.scope['TEAM']),'repo',True,canary_only=True)
+        marker=self.scope['load_marker'](self.root)
+        marker['canary']={'task_id':'probe','profile':'researcher','gateway_spawn':True,'done':True}
+        self.scope['publish_marker'](self.root,marker)
+        fence=self.scope['dispatch_fence']
+        @contextlib.contextmanager
+        def checked(root):
+            with fence(root):
+                try: yield
+                finally:
+                    policy=json.loads((root/'config.yaml').read_text())['kanban']
+                    self.assertEqual(policy['dispatch_profiles'],[])
+                    self.assertFalse(policy['dispatch_in_gateway'])
+        self.scope['dispatch_fence']=checked
+        def failed(*_): raise OSError('receipt unavailable')
+        self.scope['publish_marker']=failed
+        with self.assertRaisesRegex(OSError,'receipt unavailable'):
+            self.scope['release_dispatch'](self.root,list(self.scope['TEAM']),'repo')
+
+    def test_failed_initial_switch_also_fences_claims(self):
+        self.scope['Path']=lambda *parts:self.root if parts==('/opt/data',) else Path(*parts)
+        self.scope['check_activation']=lambda *_:None
+        self.scope['startup_since']=lambda *_:None
+        with self.assertRaises(RuntimeError):
+            self.scope['dispatch_main']({'roles':[{'name':n} for n in self.scope['TEAM']], 'repo_id':'repo','action':'activate'})
+        policy=json.loads((self.root/'config.yaml').read_text())['kanban']
+        self.assertFalse(policy['dispatch_in_gateway'])
+        self.assertEqual(policy['dispatch_profiles'],[])
+
+    def test_release_waits_for_live_terminal_worker_without_mutating_policy(self):
+        self.scope['switch_gateway'](self.root,list(self.scope['TEAM']),'repo',True,canary_only=True)
+        with self.scope['sqlite3'].connect(self.root/'kanban.db') as db:
+            db.execute("INSERT INTO task_runs VALUES (42,'native-fingerprint')")
+        self.calls.clear()
+        with self.assertRaisesRegex(RuntimeError,'worker did not finish'):
+            self.scope['release_dispatch'](self.root,list(self.scope['TEAM']),'repo')
+        self.assertEqual(self.calls,[])
+        self.assertEqual(json.loads((self.root/'config.yaml').read_text())['kanban']['dispatch_profiles'],['researcher'])
+
     def test_ready_queue_survives_activation_and_specialists_remain_off(self):
         self.scope['switch_gateway'](self.root,list(self.scope['TEAM']),'repo',True)
         config=json.loads((self.root/'config.yaml').read_text())
@@ -194,55 +287,58 @@ class NativeSwitchTest(unittest.TestCase):
         self.assertFalse(any(c[2:]==('gateway','restart') for c in self.calls))
 
     def test_canary_observes_native_run_pid_and_archives_without_dispatch_command(self):
-        self.assert_canary_result('# RepoKit\n', 'RepoKit')
+        self.assert_canary_result('# RepoKit\n', '# RepoKit')
 
     def test_missing_readme_canary_still_requires_successful_worker_evidence(self):
-        self.assert_canary_result(None, 'NO_MARKDOWN_TITLE')
+        self.assert_canary_result(None, 'README_MISSING')
 
-    def test_setext_readme_canary_uses_explicit_no_markdown_title(self):
-        self.assert_canary_result('RepoKit\n=======\n', 'NO_MARKDOWN_TITLE')
+    def test_setext_readme_canary_copies_the_first_line(self):
+        self.assert_canary_result('RepoKit\n=======\n', 'RepoKit')
 
-    def test_html_readme_canary_uses_explicit_no_markdown_title(self):
-        self.assert_canary_result('<h1>RepoKit</h1>\n<p>Repository</p>\n', 'NO_MARKDOWN_TITLE')
+    def test_html_readme_canary_copies_markup_without_interpretation(self):
+        self.assert_canary_result('<h1>RepoKit</h1>\n<p>Repository</p>\n', '<h1>RepoKit</h1>')
 
-    def test_canary_skips_empty_atx_heading(self):
-        self.assert_canary_result('# \n# RepoKit\n', 'RepoKit')
+    def test_blank_first_line_is_valid_evidence_not_a_missing_value(self):
+        self.assert_canary_result('\n# Later\n', '', {'first_line':'','changed_files':[]})
 
-    def test_canary_ignores_readme_shell_comments_inside_fences(self):
-        self.assert_canary_result('<h1>RepoKit</h1>\n\n```sh\n# run the printed Compose build/start command\nhermes setup\n```\n', 'NO_MARKDOWN_TITLE')
+    def test_canary_preserves_first_line_whitespace(self):
+        self.assert_canary_result('# \n# RepoKit\n', '# ')
 
-    def test_canary_finds_visible_heading_after_fenced_shell_comment(self):
-        self.assert_canary_result('```bash\n# shell comment\n```\n# Visible title\n', 'Visible title')
+    def test_canary_never_substitutes_a_later_shell_comment(self):
+        self.assert_canary_result('<h1>RepoKit</h1>\n\n```sh\n# run the printed Compose build/start command\nhermes setup\n```\n', '<h1>RepoKit</h1>')
 
-    def test_canary_fences_require_matching_character_and_sufficient_close_length(self):
-        cases=(
-            ('  ~~~~sh\n# hidden\n~~~\n# still hidden\n```\n# also hidden\n  ~~~~~  \n# Visible\n','Visible'),
-            ('````sh\n# hidden\n```\n# still hidden\n~~~~\n# also hidden\n`````\n# Visible\n','Visible'),
-            ('~~~sh\n# unclosed hidden\n','NO_MARKDOWN_TITLE'),
-        )
+    def test_canary_copies_a_fence_if_it_is_the_first_line(self):
+        self.assert_canary_result('```bash\n# shell comment\n```\n# Visible title\n', '```bash')
+
+    def test_first_line_is_literal_bounded_and_handles_empty_or_crlf_files(self):
+        cases=(('', ''), ('\n# Later\n',''), ('  literal  \r\nnext','  literal  '),
+               ('plain text without newline','plain text without newline'))
         readme=self.root/'README.md'
         for content,expected in cases:
             with self.subTest(content=content):
                 readme.write_text(content)
-                self.assertEqual(self.scope['canary_title'](readme),expected)
+                self.assertEqual(self.scope['canary_first_line'](readme),expected)
+        readme.write_text('x'*4097)
+        with self.assertRaisesRegex(RuntimeError,'bounded evidence'):
+            self.scope['canary_first_line'](readme)
 
-    def test_fallback_canary_rejects_wrong_title_or_changed_files(self):
-        for metadata in ({'title':'invented','changed_files':[]},
-                         {'title':'NO_MARKDOWN_TITLE','changed_files':['README.md']}):
+    def test_canary_rejects_wrong_line_or_changed_files(self):
+        for metadata in ({'first_line':'invented','changed_files':[]},
+                         {'first_line':'README_MISSING','changed_files':['README.md']}):
             with self.subTest(metadata=metadata):
-                self.assert_canary_result(None, 'NO_MARKDOWN_TITLE', metadata, reject=True)
+                self.assert_canary_result(None, 'README_MISSING', metadata, reject=True)
 
-    def test_readme_safety_errors_are_not_mistaken_for_missing_title(self):
-        self.assertTrue(callable(self.scope.get('canary_title')))
+    def test_readme_safety_errors_are_not_mistaken_for_missing_file(self):
+        self.assertTrue(callable(self.scope.get('canary_first_line')))
         readme=self.root/'README.md'
         readme.symlink_to(self.root/'absent')
-        with self.assertRaises(OSError): self.scope['canary_title'](readme)
+        with self.assertRaises(OSError): self.scope['canary_first_line'](readme)
         readme.unlink()
         readme.write_bytes(b'x'*262145)
-        with self.assertRaises(ValueError): self.scope['canary_title'](readme)
+        with self.assertRaises(ValueError): self.scope['canary_first_line'](readme)
         readme.write_text('# RepoKit\n')
         with patch.object(self.scope['os'],'open',side_effect=PermissionError('fixture denied')):
-            with self.assertRaises(PermissionError): self.scope['canary_title'](readme)
+            with self.assertRaises(PermissionError): self.scope['canary_first_line'](readme)
 
     def test_legacy_canary_body_is_accepted_only_for_terminal_history(self):
         task={'title':'RepoKit dispatcher canary','assignee':'researcher',
@@ -272,18 +368,18 @@ class NativeSwitchTest(unittest.TestCase):
             self.assertTrue(self.scope['canary_task_matches'](dict(task,status=status)))
 
     def assert_canary_result(self, content, expected, metadata=None, reject=False):
-        self.scope['switch_gateway'](self.root,list(self.scope['TEAM']),'repo',True)
+        self.scope['switch_gateway'](self.root,list(self.scope['TEAM']),'repo',True,canary_only=True)
         native=self.scope['native_command']; records=[]
         run={'profile':'researcher','status':'running','worker_pid':123,'outcome':None,'ended_at':None}
-        done=dict(run,status='done',outcome='completed',ended_at=12,summary=expected,
-                  metadata=metadata if metadata is not None else {'title':expected,'changed_files':[]})
+        done=dict(run,status='done',outcome='completed',ended_at=12,summary='Read complete: '+expected,
+                  metadata=metadata if metadata is not None else {'first_line':expected,'changed_files':[]})
         pending=[{'task':{'status':'running'},'runs':[run]}, {'task':{'status':'done'},'runs':[done]}]
         def command(*args,**kwargs):
             records.append(args)
             if args[2:4]==('kanban','create'):
-                self.assertEqual(args[args.index('--idempotency-key')+1],'repokit-dispatcher-canary-v3')
+                self.assertEqual(args[args.index('--idempotency-key')+1],'repokit-dispatcher-canary-v4')
                 self.assertEqual(args[args.index('--completion-contract')+1],'local-only')
-                self.assertIn('NO_MARKDOWN_TITLE',args[args.index('--body')+1])
+                self.assertIn('first_line',args[args.index('--body')+1])
                 return {'id':'t-canary','title':'RepoKit dispatcher canary','assignee':'researcher',
                         'workspace_kind':'dir','workspace_path':'/workspace','created_by':'default','status':'ready',
                         'body':args[args.index('--body')+1],
@@ -343,7 +439,7 @@ class NativeSwitchTest(unittest.TestCase):
         self.assert_canary_retry_chain(32)
 
     def assert_canary_retry_chain(self, predecessor_count):
-        self.scope['switch_gateway'](self.root,list(self.scope['TEAM']),'repo',True)
+        self.scope['switch_gateway'](self.root,list(self.scope['TEAM']),'repo',True,canary_only=True)
         task={'id':'old','title':'RepoKit dispatcher canary','assignee':'researcher',
               'workspace_kind':'dir','workspace_path':'/workspace','created_by':'default','status':'blocked',
               'body':'Read the repository README title. Do not modify files. Complete with the title in your summary '
@@ -356,7 +452,7 @@ class NativeSwitchTest(unittest.TestCase):
         failed={'task':dict(task),'parents':[],'children':[],'comments':[],
                 'runs':[{'profile':'researcher','status':'failed','outcome':'failed','ended_at':10}]}
         run={'profile':'researcher','status':'running','worker_pid':123,'outcome':None,'ended_at':None}
-        done=dict(run,status='done',outcome='completed',ended_at=12,summary='RepoKit',metadata={'title':'RepoKit','changed_files':[]})
+        done=dict(run,status='done',outcome='completed',ended_at=12,summary='RepoKit',metadata={'first_line':'# RepoKit','changed_files':[]})
         pending=[{'task':{'status':'running'},'runs':[run]}, {'task':{'status':'done'},'runs':[done]}]
         def command(*args,**kwargs):
             records.append(args)

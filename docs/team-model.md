@@ -220,8 +220,9 @@ progress; it never uses one-shot dispatch to bypass incomplete activation.
 
 Activation checks replacement-process identity, native singleton-lock ownership,
 startup settings and a real gateway-spawned researcher canary. The canary is a
-no-write README-title task and is archived only after structured successful
-researcher evidence. This does not establish Telegram delivery or independent
+no-write task that returns the exact first physical README line in structured
+metadata. Setup admits only researcher until that evidence passes and the worker
+exits, then releases the full profile allowlist. This does not establish Telegram delivery or independent
 review acceptance. See [setup and recovery](bootstrap-quickstart.md).
 
 Successful setup stages finish with one native gateway convergence operation.

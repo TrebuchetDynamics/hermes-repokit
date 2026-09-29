@@ -60,10 +60,13 @@ After the gates pass, the default gateway alone runs automatic execution and rev
 all six permanent profiles. Specialists keep gateway dispatch off. Setup uses
 native gateway start/restart, checks the replacement process, its singleton lock
 and startup concurrency, and creates a no-write researcher canary. The gateway
-must claim it, run researcher and complete with the README title and no changed
-files; when `README.md` is absent or has no nonempty `# ` heading, it must instead
-report `NO_MARKDOWN_TITLE`. Successful canaries are archived natively. A failure preserves native
-history and does not report readiness. No one-shot dispatch is used.
+initially admits only researcher. It must claim the card and complete with the
+exact first physical README line in `metadata.first_line` and no changed files.
+An empty file or blank first line yields an empty string; only a missing README
+yields `README_MISSING`. Successful canaries are archived natively. After the
+worker exits and the gateway evidence is rechecked, setup releases the six-profile
+allowlist. Failure preserves native history and does not report readiness.
+No one-shot dispatch is used.
 
 An unchanged operational `install` rerun rechecks activation gates and reuses the
 current gateway/canary evidence; it does not restart or purchase another canary.

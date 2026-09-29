@@ -11,11 +11,19 @@ def dispatch_policy(role):
                 dispatch_profiles=list(TEAM))
 
 
-def operational_policy(config):
+def matches_dispatch_policy(config, expected):
     policy = config.get('kanban') or {}
     return (isinstance(policy, dict) and type(policy.get('max_in_progress')) is int
             and all(type(policy.get(k)) is type(v) and policy[k] == v
-                    for k, v in dispatch_policy('default').items()))
+                    for k, v in expected.items()))
+
+
+def operational_policy(config):
+    return matches_dispatch_policy(config, dispatch_policy('default'))
+
+
+def canary_policy(config):
+    return matches_dispatch_policy(config, dict(dispatch_policy('default'), dispatch_profiles=['researcher']))
 
 
 def dispatch_live(configured, generation_state, owns_lock, marker, paused):
@@ -84,7 +92,7 @@ def dispatch_observation(root, config, observed, generation_state, marker):
                 and (marker or {}).get('canary',{}).get('done') is True}
 
 
-def canary_complete(record, title):
+def canary_complete(record, title, field='title'):
     if record.get('task', {}).get('status') != 'done': return False
     runs = record.get('runs') or []
     if not runs: return False
@@ -96,7 +104,7 @@ def canary_complete(record, title):
         except ValueError: return False
     return (run.get('profile') == 'researcher' and run.get('status') == 'done'
             and run.get('outcome') == 'completed' and run.get('ended_at') is not None
-            and isinstance(metadata, dict) and metadata.get('title') == title
+            and isinstance(metadata, dict) and isinstance(metadata.get(field), str) and metadata[field] == title
             and metadata.get('changed_files') == [] and bool(run.get('summary')))
 
 

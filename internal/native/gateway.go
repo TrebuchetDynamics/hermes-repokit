@@ -18,7 +18,7 @@ import (
 //go:embed dispatch.py
 var dispatchScript string
 
-var dispatchFailurePattern = regexp.MustCompile(`^(RuntimeError|ValueError|OSError|TimeoutExpired|CalledProcessError|Exception)\|((dispatch_main|check_activation|switch_gateway|dispatcher_canary|dispatch_fence|startup_since|log_cursor|create_dispatch_canary|retry_dispatch_canary|suspend_failed_activation):[1-9][0-9]{0,5}(>(dispatch_main|check_activation|switch_gateway|dispatcher_canary|dispatch_fence|startup_since|log_cursor|create_dispatch_canary|retry_dispatch_canary|suspend_failed_activation):[1-9][0-9]{0,5}){0,7}|unknown:0)$`)
+var dispatchFailurePattern = regexp.MustCompile(`^(RuntimeError|ValueError|OSError|TimeoutExpired|CalledProcessError|Exception)\|((dispatch_main|check_activation|switch_gateway|dispatcher_canary|dispatch_fence|startup_since|log_cursor|create_dispatch_canary|retry_dispatch_canary|suspend_failed_activation|release_dispatch):[1-9][0-9]{0,5}(>(dispatch_main|check_activation|switch_gateway|dispatcher_canary|dispatch_fence|startup_since|log_cursor|create_dispatch_canary|retry_dispatch_canary|suspend_failed_activation|release_dispatch):[1-9][0-9]{0,5}){0,7}|unknown:0)$`)
 
 type dispatchFailure struct{ diagnostic string }
 
