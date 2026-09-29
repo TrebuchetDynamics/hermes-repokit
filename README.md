@@ -94,6 +94,12 @@ same-card review remain separate acceptance gates.
 responses, and never runs models, dispatches tasks or writes memory. Memory `active`
 means the six bindings authenticate, not that recall or extraction works.
 
+`verify --memory-check` currently returns a structured `unsupported` report and
+exit code 1 **before runtime access or writes**. It does not run a canary: the
+pinned provider lacks a qualified isolated lifecycle with complete cleanup.
+Write, extraction, both recall checks and cleanup remain individually
+`unqualified`. See [memory self-check safety](docs/qualification/memory-self-check.md).
+
 | Area | Remaining evidence |
 | --- | --- |
 | Embedded memory | Live write/recall, restart persistence and cross-repository denial |

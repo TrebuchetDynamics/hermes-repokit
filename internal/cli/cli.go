@@ -59,6 +59,10 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	engineering := false
 	memorySetup := false
 	teamSetup := false
+	memoryCheck := false
+	if args[0] == "verify" {
+		flags.BoolVar(&memoryCheck, "memory-check", false, "report memory self-check qualification; unsupported lifecycles block before execution")
+	}
 	if args[0] == "plan" || args[0] == "install" {
 		flags.BoolVar(&a.DockerTests, "docker-tests", false, "publish opt-in privileged isolated Docker acceptance service; never the host socket")
 	}
@@ -80,6 +84,14 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		if arg == "--" {
 			return usageError(stderr)
 		}
+	}
+	if memoryCheck {
+		// No provider lifecycle is qualified yet. Block before even resolving
+		// runtime state: provider initialization can commit unrelated sessions.
+		if err := json.NewEncoder(stdout).Encode(verify.MemoryCheckPreflight()); err != nil {
+			return 1
+		}
+		return 1
 	}
 	id, err := target.Resolve(a.Directory)
 	if err != nil {
@@ -308,6 +320,7 @@ func recognized(command string) bool {
 func usage(w io.Writer) {
 	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify> [--engineering] [--help]")
 	fmt.Fprintln(w, "       hermes-repokit setup [--team|--memory]")
+	fmt.Fprintln(w, "       hermes-repokit verify [--memory-check] (self-check currently unsupported; no memory writes)")
 	fmt.Fprintln(w, "       hermes-repokit <plan|install> [--docker-tests]")
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }
