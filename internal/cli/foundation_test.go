@@ -33,8 +33,6 @@ func (r *foundationRunner) Run(ctx context.Context, program string, args ...stri
 	}
 	call := strings.Join(args, " ")
 	switch {
-	case strings.Contains(call, "container ls") && strings.Contains(call, "label=com.docker.compose.service=openviking"):
-		return process.Result{}
 	case call == "context show":
 		return process.Result{Output: r.context}
 	case strings.Contains(call, "context inspect"):
@@ -114,8 +112,8 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "REPOKIT_OPENVIKING: \"1\"") || strings.Contains(string(data), "\n  openviking:") || strings.Contains(string(data), "  laya:") {
-		t.Fatal("unexpected sidecar selection")
+	if strings.Contains(strings.ToLower(string(data)), "openviking") || strings.Contains(string(data), "  laya:") {
+		t.Fatal("RepoKit must not deploy OpenViking or sidecars")
 	}
 	r.runtime = developmentRuntimeFixture(r.id)
 	if code, _, _ = invoke(t, a, "verify"); code == 0 {
@@ -131,11 +129,6 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	var probes []verify.Probe
 	if err := json.Unmarshal([]byte(out), &probes); err != nil {
 		t.Fatal(err)
-	}
-	for _, p := range probes {
-		if (p.Component == "openviking") && p.Status == verify.Healthy {
-			t.Fatalf("unqualified integration: %+v", p)
-		}
 	}
 	config := filepath.Join(a.Directory, ".hermes/config.yaml")
 	edited := []byte("# native owner edit\nkanban:\n  dispatch_in_gateway: false\n")
@@ -281,8 +274,8 @@ func TestGenericTeamIsDefaultPlan(t *testing.T) {
 	if p.Kanban["orchestrator_profile"] != "default" || p.Kanban["max_in_progress"] != float64(1) {
 		t.Fatalf("defaults %v", p.Kanban)
 	}
-	if p.ProposedMemoryConfig["provider"] != "openviking" {
-		t.Fatal("shared memory proposal absent")
+	if strings.Contains(strings.ToLower(out), "openviking") || strings.Contains(out, "memory_config") {
+		t.Fatalf("RepoKit plan must not configure Hermes memory providers: %s", out)
 	}
 }
 
@@ -296,11 +289,14 @@ func TestVerifyDoesNotCertifyUnqualifiedIntegrations(t *testing.T) {
 	pending := map[string]bool{}
 	for _, p := range probes {
 		switch p.Component {
-		case "openviking", "memory", "review:evidence", "CORE_READY", "MEMORY_READY", "FULL_READY":
+		case "review:evidence", "CORE_TEAM", "DISPATCH":
 			pending[p.Component] = p.Status != verify.Healthy
 		}
+		if p.Component == "memory" || p.Component == "MEMORY" || strings.Contains(strings.ToLower(p.Component), "openviking") || strings.HasSuffix(p.Component, "_READY") {
+			t.Fatalf("verify reports a Hermes feature or retired gate: %s", p.Component)
+		}
 	}
-	if !pending["openviking"] || !pending["memory"] || !pending["review:evidence"] || !pending["CORE_READY"] || !pending["MEMORY_READY"] || !pending["FULL_READY"] {
+	if !pending["review:evidence"] || !pending["CORE_TEAM"] || !pending["DISPATCH"] {
 		t.Fatal("missing explicit integration gates")
 	}
 }

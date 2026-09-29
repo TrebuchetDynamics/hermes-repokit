@@ -256,9 +256,8 @@ func TestDockerFoundation(t *testing.T) {
 	for _, p := range probes {
 		seen[p.Component] = true
 		expected := map[string]verify.Status{
-			"CORE_READY":              verify.Unqualified, // no reviewed work yet
-			"MEMORY_READY":            verify.Inactive,
-			"FULL_READY":              verify.Unqualified,
+			"CORE_TEAM":               verify.Healthy,
+			"DISPATCH":                verify.Unqualified, // no reviewed work yet
 			"review:evidence":         verify.Unqualified,
 			"development_environment": verify.Unqualified,
 		}
@@ -266,16 +265,13 @@ func TestDockerFoundation(t *testing.T) {
 			if p.Status != want {
 				t.Fatalf("credential-free boundary: %+v; want %s", p, want)
 			}
-			if p.Component == "CORE_READY" && !strings.Contains(p.Detail, "no automatic executor/reviewer loop observed yet") {
-				t.Fatalf("core must be configured and running but unproven: %+v", p)
+			if p.Component == "DISPATCH" && !strings.Contains(p.Detail, "no automatic executor/reviewer loop observed yet") {
+				t.Fatalf("dispatch must be configured and running but unproven: %+v", p)
 			}
 			continue
 		}
-		if strings.HasPrefix(p.Component, "openviking") || p.Component == "memory" {
-			if (p.Status == verify.Healthy || p.Status == verify.Active) && p.Component != "openviking-container" {
-				t.Fatal("integration falsely certified")
-			}
-			continue
+		if strings.Contains(strings.ToLower(p.Component), "memory") || strings.Contains(strings.ToLower(p.Component), "openviking") {
+			t.Fatalf("verify reports a Hermes feature: %+v", p)
 		}
 		if p.Status != verify.Healthy {
 			t.Fatalf("scaffold probe: %+v", p)

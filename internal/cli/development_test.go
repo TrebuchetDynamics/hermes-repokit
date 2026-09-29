@@ -76,7 +76,7 @@ func TestEnablingDockerTestsDefersUntilExistingRuntimeRecreated(t *testing.T) {
 }
 
 func TestLegacyDevelopmentDockerOptInMigrationChain(t *testing.T) {
-	a, _ := legacyMemoryFixture(t)
+	a, _ := hermesOnlyFixture(t)
 	if c, _, d := invoke(t, a, "install"); c != 0 {
 		t.Fatal(d)
 	}

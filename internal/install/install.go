@@ -34,17 +34,10 @@ func PublishChecked(id target.Identity, files map[string]Artifact, check func() 
 	return publish(id, files, nil, check, nil)
 }
 
-// PublishOpenVikingChecked additionally accepts exactly the former generated
-// Hermes-only Compose as an upgrade preimage. Native configuration is preserved.
-func PublishOpenVikingChecked(id target.Identity, files map[string]Artifact, previousCompose []byte, check func() error) (bool, error) {
-	return publish(id, files, nil, check, []StackUpgrade{{Compose: previousCompose, PrepareMemory: true}})
-}
-
 // StackUpgrade identifies an exact prior generated Compose document.
 type StackUpgrade struct {
-	Compose       []byte
-	PrepareMemory bool
-	BackupName    string
+	Compose    []byte
+	BackupName string
 	// PreviousRecipe contains exact development-image filenames and bytes.
 	PreviousRecipe map[string][]byte
 	// PreviousLauncher is the exact earlier executable basename. Its bytes must
@@ -131,7 +124,7 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 				if err != nil || !info.Mode().IsRegular() {
 					return false, fmt.Errorf("required native configuration missing or unusable")
 				}
-				return upgradeCompose(root, id, rootInfo, lockInfo, prior.Compose, files, prior.PrepareMemory, prior.BackupName, prior.PreviousRecipe, prior.PreviousLauncher)
+				return upgradeCompose(root, id, rootInfo, lockInfo, prior.Compose, files, prior.BackupName, prior.PreviousRecipe, prior.PreviousLauncher)
 			}
 		}
 		for _, name := range []string{"compose.yaml", "config.yaml", "bin/" + id.Container} {
@@ -145,12 +138,6 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 			b, e := root.ReadFile(".hermes/" + name)
 			if e != nil || !bytes.Equal(b, files[name].Data) {
 				return false, fmt.Errorf("existing native deployment differs or is incomplete; refusing automatic adoption")
-			}
-		}
-		if _, selected := files["openviking/.gitignore"]; selected {
-			info, err := root.Lstat(".hermes/openviking")
-			if err != nil || !info.IsDir() {
-				return false, fmt.Errorf("OpenViking data directory absent; preserve native state and inspect before repair")
 			}
 		}
 		if err := checkDevelopmentArtifacts(root, ".hermes/", files); err != nil {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/selinux"
 )
@@ -38,9 +37,9 @@ func priorRecipeFixture(t *testing.T, goTool bool) map[string][]byte {
 func TestPriorDevelopmentRecipeUpgrade(t *testing.T) {
 	for _, goTool := range []bool{false, true} {
 		for _, dockerTests := range []bool{false, true} {
-			for _, memory := range []string{"", projectmemory.Image} {
+			{
 				for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
-					t.Run(fmt.Sprintf("go=%v/docker=%v/memory=%v/selinux=%v", goTool, dockerTests, memory != "", state), func(t *testing.T) {
+					t.Run(fmt.Sprintf("go=%v/docker=%v/selinux=%v", goTool, dockerTests, state), func(t *testing.T) {
 						a, r := foundationApp(t)
 						a.HostSELinux = state
 						if goTool {
@@ -52,7 +51,7 @@ func TestPriorDevelopmentRecipeUpgrade(t *testing.T) {
 							t.Fatal(d)
 						}
 						req := development.Requirements{Go: goTool}
-						old, err := compose.Render(r.id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: memory, Development: &req, DockerTests: dockerTests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state})
+						old, err := compose.Render(r.id, compose.Options{HermesImage: qualification.FoundationImage, Development: &req, DockerTests: dockerTests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state})
 						if err != nil {
 							t.Fatal(err)
 						}
@@ -73,13 +72,16 @@ func TestPriorDevelopmentRecipeUpgrade(t *testing.T) {
 						}
 						native := []byte("# owner native configuration\n")
 						write("config.yaml", native)
-						write("openviking/native-data", []byte("owner database"))
 						if c, _, d := invoke(t, a, "install"); c != 0 {
 							t.Fatal(d)
 						}
 						selected, ok := compose.DevelopmentInstallSelected(r.id)
 						if !ok || selected.DockerTests != dockerTests || selected.Development.Go != goTool {
 							t.Fatal("selection lost", selected)
+						}
+						upgraded, _ := os.ReadFile(filepath.Join(a.Directory, ".hermes/compose.yaml"))
+						if bytes.Contains(bytes.ToLower(upgraded), []byte("openviking")) {
+							t.Fatal("upgrade kept a RepoKit-owned OpenViking")
 						}
 						current, _ := development.Recipe(req)
 						for name, want := range current {
@@ -88,7 +90,7 @@ func TestPriorDevelopmentRecipeUpgrade(t *testing.T) {
 								t.Fatalf("recipe %s not upgraded", name)
 							}
 						}
-						for name, want := range map[string][]byte{"compose.before-path.yaml": old, "config.yaml": native, "openviking/native-data": []byte("owner database")} {
+						for name, want := range map[string][]byte{"compose.before-path.yaml": old, "config.yaml": native} {
 							got, _ := os.ReadFile(filepath.Join(a.Directory, ".hermes", name))
 							if !bytes.Equal(got, want) {
 								t.Fatalf("lost %s", name)

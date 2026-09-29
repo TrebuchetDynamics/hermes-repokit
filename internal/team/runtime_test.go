@@ -59,6 +59,19 @@ func TestSixRoleGenerationIsFrozen(t *testing.T) {
 	}
 }
 
+// RepoKit prepares the environment; Hermes owns its memory providers. The
+// frozen six-role generation above still describes embedded memory.
+func TestCurrentSoulsLeaveMemoryProvidersToHermes(t *testing.T) {
+	for _, role := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {
+		if strings.Contains(role.Soul, "OpenViking") || strings.Contains(role.Soul, "1933") {
+			t.Fatalf("%s still describes a memory provider", role.Name)
+		}
+		if !strings.Contains(role.Soul, "Memory providers and other optional integrations are native Hermes\nfeatures") {
+			t.Fatalf("%s lacks the Hermes-owned features contract", role.Name)
+		}
+	}
+}
+
 func TestTesterMigrationIsByNameNotPosition(t *testing.T) {
 	id := target.Identity{Name: "atlas", Project: "repokit-123"}
 	six := map[string]Role{}

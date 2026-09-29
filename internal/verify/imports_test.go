@@ -74,7 +74,7 @@ func TestImportCollisionBlocksCoreReadiness(t *testing.T) {
 		PythonImports(importFixture(t, "tools/__init__.py"))}
 	got := Readiness(probes)
 	if got[0].Status != Degraded || !strings.Contains(got[0].Detail, "python-imports") || CoreUsable(got) {
-		t.Fatalf("CORE_READY must not be healthy with a worker import collision: %+v", got[0])
+		t.Fatalf("CORE_TEAM must not be healthy with a worker import collision: %+v", got[0])
 	}
 }
 

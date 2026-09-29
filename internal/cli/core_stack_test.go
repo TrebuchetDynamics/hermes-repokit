@@ -33,7 +33,7 @@ func TestCoreStackHasNoOwnedSupervision(t *testing.T) {
 		t.Fatal(diag)
 	}
 	state := filepath.Join(a.Directory, ".hermes")
-	for _, name := range []string{"laya", "laya-image"} {
+	for _, name := range []string{"laya", "laya-image", "openviking"} {
 		if _, err := os.Stat(filepath.Join(state, name)); !os.IsNotExist(err) {
 			t.Fatalf("generated removed component %s", name)
 		}
@@ -42,7 +42,8 @@ func TestCoreStackHasNoOwnedSupervision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "  laya:") || strings.Contains(string(data), "  openviking:") || !strings.Contains(string(data), "REPOKIT_OPENVIKING: \"1\"") {
+	// Exactly one Hermes container per repository; Hermes owns its features.
+	if strings.Contains(string(data), "  laya:") || strings.Contains(strings.ToLower(string(data)), "openviking") {
 		t.Fatal("core topology differs", string(data))
 	}
 }

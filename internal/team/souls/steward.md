@@ -33,10 +33,8 @@ explicitly intended. Set its own routing description and intended skills/toolset
 Preserve the working provider/model baseline and necessary credentials through
 native clone semantics; do not manually copy authentication stores.
 
-Configure the same repository OpenViking endpoint/account/user as the permanent
-team, with no per-profile peer by default. Keep built-in memory enabled.
-Verify every effective connection source, including environment and linked
-OpenViking config, so an inherited peer does not silently split shared memory.
+Keep built-in memory enabled and the memory configuration native clone
+semantics provide; memory providers are configured through native Hermes.
 
 Verify native profile resolution, description, identity, capabilities, shared
 memory before handing the profile back to default.

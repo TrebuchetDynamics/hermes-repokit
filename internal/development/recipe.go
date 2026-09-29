@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	assets "github.com/TrebuchetDynamics/hermes-repokit/packaging/development"
 	dockertest "github.com/TrebuchetDynamics/hermes-repokit/packaging/docker-test"
@@ -66,16 +65,8 @@ func recipeInputs(req Requirements) map[string][]byte {
 	if req.Go {
 		goSteps = goInstall
 	}
-	content := strings.NewReplacer("{{HERMES_IMAGE}}", qualification.FoundationImage, "{{OPENVIKING_IMAGE}}", projectmemory.Image, "{{GO_INSTALL}}", goSteps).Replace(string(template))
-	files := map[string][]byte{"Dockerfile": []byte(content), "repokit-docker-test": helper, ".dockerignore": []byte("*\n!Dockerfile\n!repokit-docker-test\n!repokit-openviking\n!openviking-run\n!openviking-finish\n")}
-	for _, name := range []string{"repokit-openviking", "openviking-run", "openviking-finish"} {
-		data, err := assets.Assets.ReadFile(name)
-		if err != nil {
-			panic("missing embedded memory asset")
-		}
-		files[name] = data
-	}
-	return files
+	content := strings.NewReplacer("{{HERMES_IMAGE}}", qualification.FoundationImage, "{{GO_INSTALL}}", goSteps).Replace(string(template))
+	return map[string][]byte{"Dockerfile": []byte(content), "repokit-docker-test": helper, ".dockerignore": []byte("*\n!Dockerfile\n!repokit-docker-test\n")}
 }
 
 // Fingerprint identifies the complete recipe including the isolated-test helper.

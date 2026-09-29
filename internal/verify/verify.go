@@ -9,7 +9,6 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
@@ -111,8 +110,6 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 		expected, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid(), SELinux: detectSELinux()})
 		if err == nil && matchesCompose(id, expected) {
 			artifact = Probe{"compose", Healthy, "generated Hermes-only Compose matches this repository"}
-		} else if expected, err = compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, UID: os.Getuid(), GID: os.Getgid(), SELinux: detectSELinux()}); err == nil && matchesCompose(id, expected) {
-			artifact = Probe{"compose", Healthy, "generated Hermes/OpenViking Compose matches this repository"}
 		}
 	}
 	board := Probe{"kanban", PendingSetup, "native board absent; after Compose start rerun install"}
@@ -200,15 +197,14 @@ func Profiles(id target.Identity) []Probe {
 	return probes
 }
 
-// coreComponents must all be healthy for CORE_READY. Optional features (memory,
-// Docker acceptance) and descriptive rollups are deliberately excluded.
-func coreComponent(name string) bool {
+// coreTeamComponent must be healthy for CORE_TEAM: the container, native
+// state, seven profiles, toolchain and Kanban board.
+func coreTeamComponent(name string) bool {
 	switch name {
-	case "compose", "hermes", "config", "launcher", "kanban", "filesystem", "git", "gateway",
-		"kanban:dispatch", "kanban:notifications", "channels", "selinux", "access", "python-imports":
+	case "compose", "hermes", "config", "launcher", "kanban", "filesystem", "git", "selinux", "access", "python-imports":
 		return true
 	}
-	for _, prefix := range []string{"profile:", "development:", "channel:"} {
+	for _, prefix := range []string{"profile:", "development:"} {
 		if strings.HasPrefix(name, prefix) {
 			return true
 		}
@@ -216,45 +212,60 @@ func coreComponent(name string) bool {
 	return false
 }
 
-// Readiness summarizes observations into CORE_READY, MEMORY_READY and
-// FULL_READY. Healthy means configured, running AND behavior observed; core
-// configured and running without observed reviewed work is Unqualified.
+// dispatchComponent must be healthy for DISPATCH: the default gateway, its
+// automatic Kanban dispatch/notification policy and configured channels.
+func dispatchComponent(name string) bool {
+	switch name {
+	case "gateway", "kanban:dispatch", "kanban:notifications", "channels":
+		return true
+	}
+	return strings.HasPrefix(name, "channel:")
+}
+
+// Readiness summarizes RepoKit/Hermes environment state into CORE_TEAM and
+// DISPATCH. Optional Hermes features, such as memory providers, belong to
+// Hermes and are not RepoKit readiness. DISPATCH is healthy only once a
+// same-card independent review has been observed; configured but unexercised
+// is Unqualified.
 func Readiness(probes []Probe) []Probe {
-	var failing []string
-	review, memory := Unknown, Unknown
+	var teamFailing, dispatchFailing []string
+	review := Unknown
 	for _, p := range probes {
-		if coreComponent(p.Component) && p.Status != Healthy {
-			failing = append(failing, p.Component)
+		if coreTeamComponent(p.Component) && p.Status != Healthy {
+			teamFailing = append(teamFailing, p.Component)
+		}
+		if dispatchComponent(p.Component) && p.Status != Healthy {
+			dispatchFailing = append(dispatchFailing, p.Component)
 		}
 		if p.Component == "review:evidence" {
 			review = p.Status
 		}
-		if p.Component == "memory" {
-			memory = p.Status
-		}
 	}
-	sort.Strings(failing)
-	core := Probe{"CORE_READY", Healthy, "Hermes, seven profiles, toolchain, Kanban, dispatch policy and gateway observed; same-card tester and reviewer acceptance observed"}
-	if len(failing) > 0 {
-		core = Probe{"CORE_READY", Degraded, "not ready: " + strings.Join(failing, ", ")}
+	sort.Strings(teamFailing)
+	sort.Strings(dispatchFailing)
+	team := Probe{"CORE_TEAM", Healthy, "Hermes, seven profiles, toolchain and Kanban observed"}
+	if len(teamFailing) > 0 {
+		team = Probe{"CORE_TEAM", Degraded, "not ready: " + strings.Join(teamFailing, ", ")}
+	}
+	dispatch := Probe{"DISPATCH", Healthy, "gateway and automatic dispatch policy observed; same-card tester and reviewer acceptance observed"}
+	if len(dispatchFailing) > 0 {
+		dispatch = Probe{"DISPATCH", Degraded, "not ready: " + strings.Join(dispatchFailing, ", ")}
 	} else if review != Healthy {
-		core = Probe{"CORE_READY", Unqualified, "configured and running; no automatic executor/tester/reviewer loop observed yet"}
+		dispatch = Probe{"DISPATCH", Unqualified, "configured and running; no automatic executor/tester/reviewer loop observed yet"}
 	}
-	mem := Probe{"MEMORY_READY", Unqualified, "passive verify cannot prove memory behavior; run verify --memory-check"}
-	if memory == Inactive {
-		mem = Probe{"MEMORY_READY", Inactive, "shared OpenViking memory not configured; core work does not depend on it"}
-	}
-	full := Probe{"FULL_READY", Unqualified, "requires CORE_READY and MEMORY_READY both proved"}
-	if core.Status == Degraded {
-		full.Status = Degraded
-	}
-	return []Probe{core, mem, full}
+	return []Probe{team, dispatch}
 }
 
-// CoreUsable is verify's exit criterion: nothing core is broken or missing,
-// even if the loop has not yet been exercised.
+// CoreUsable is verify's exit criterion: neither the core team nor dispatch is
+// broken or missing, even if the loop has not yet been exercised.
 func CoreUsable(readiness []Probe) bool {
-	return len(readiness) > 0 && readiness[0].Component == "CORE_READY" && readiness[0].Status != Degraded
+	usable := 0
+	for _, p := range readiness {
+		if (p.Component == "CORE_TEAM" || p.Component == "DISPATCH") && p.Status != Degraded {
+			usable++
+		}
+	}
+	return usable == 2
 }
 
 // managedHistory reports whether soul is an earlier RepoKit-managed generation

@@ -100,18 +100,27 @@ func TestGatewayAndReviewEvidenceFromPublicCLI(t *testing.T) {
 }
 
 func TestReadinessSeparatesConfiguredFromProved(t *testing.T) {
-	healthy := []Probe{{"compose", Healthy, ""}, {"gateway", Healthy, ""}, {"kanban:dispatch", Healthy, ""}, {"development:go", Healthy, ""}, {"docker_acceptance", Inactive, ""}, {"memory", Inactive, ""}}
+	healthy := []Probe{{"compose", Healthy, ""}, {"gateway", Healthy, ""}, {"kanban:dispatch", Healthy, ""}, {"development:go", Healthy, ""}, {"docker_acceptance", Inactive, ""}}
 	got := Readiness(append(healthy, Probe{"review:evidence", Unqualified, ""}))
-	if got[0].Status != Unqualified || got[1].Status != Inactive || got[2].Status != Unqualified || !CoreUsable(got) {
-		t.Fatalf("configured core must be usable but unproved: %+v", got)
+	if got[0].Component != "CORE_TEAM" || got[0].Status != Healthy || got[1].Component != "DISPATCH" || got[1].Status != Unqualified || len(got) != 2 || !CoreUsable(got) {
+		t.Fatalf("configured core must be usable but dispatch unproved: %+v", got)
 	}
 	got = Readiness(append(healthy, Probe{"review:evidence", Healthy, ""}))
-	if got[0].Status != Healthy || got[2].Status == Healthy {
-		t.Fatalf("FULL_READY must need proved memory: %+v", got)
+	if got[0].Status != Healthy || got[1].Status != Healthy {
+		t.Fatalf("observed review must prove dispatch: %+v", got)
 	}
 	got = Readiness(append(healthy, Probe{"channel:telegram", Degraded, ""}, Probe{"review:evidence", Healthy, ""}))
-	if got[0].Status != Degraded || !strings.Contains(got[0].Detail, "channel:telegram") || CoreUsable(got) {
-		t.Fatalf("broken channel must block core: %+v", got)
+	if got[0].Status != Healthy || got[1].Status != Degraded || !strings.Contains(got[1].Detail, "channel:telegram") || CoreUsable(got) {
+		t.Fatalf("broken channel must block dispatch, not the core team: %+v", got)
+	}
+}
+
+// Memory providers are Hermes features: RepoKit readiness never reports or
+// depends on them.
+func TestReadinessIgnoresHermesMemoryProviders(t *testing.T) {
+	got := Readiness([]Probe{{"compose", Healthy, ""}, {"gateway", Healthy, ""}, {"kanban:dispatch", Healthy, ""}, {"review:evidence", Healthy, ""}, {"memory", Degraded, "x"}})
+	if len(got) != 2 || got[0].Status != Healthy || got[1].Status != Healthy || !CoreUsable(got) {
+		t.Fatalf("memory affected RepoKit readiness: %+v", got)
 	}
 }
 

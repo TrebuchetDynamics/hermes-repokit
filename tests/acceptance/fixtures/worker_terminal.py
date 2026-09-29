@@ -17,7 +17,7 @@ with tempfile.TemporaryDirectory(prefix='repokit-worker-') as tmp:
         try:
             # Both initial and reused snapshots must retain the image commands.
             for _ in range(2):
-                result = env.execute('command -v hermes && hermes --version && command -v go && go version && command -v gofmt && command -v repokit-openviking')
+                result = env.execute('command -v hermes && hermes --version && command -v go && go version && command -v gofmt')
                 assert result['returncode'] == 0, (profile, result)
                 assert 'go1.26.6' in result['output'], (profile, result)
             work = home / 'project'

@@ -3,5 +3,5 @@ package development
 
 import "embed"
 
-//go:embed Dockerfile repokit-openviking openviking-run openviking-finish
+//go:embed Dockerfile
 var Assets embed.FS

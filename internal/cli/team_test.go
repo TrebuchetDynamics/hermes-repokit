@@ -14,7 +14,7 @@ func TestTeamResumeWithoutPrivateWizard(t *testing.T) {
 	input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10, team: `REPOKIT_TEAM={"status":"configured","drift":[]}`}
 	a.Initializer = input
 	a.Stdin = strings.NewReader("")
-	if code, out, diag := invoke(t, a, "setup", "--team"); code != 0 || input.pid != 11 || !strings.Contains(diag, "Optional memory") {
+	if code, out, diag := invoke(t, a, "setup", "--team"); code != 0 || input.pid != 11 || strings.Contains(out+diag, "memory") {
 		t.Fatalf("team-only resume: code=%d calls=%d out=%s diag=%s", code, input.calls, out, diag)
 	}
 	input.team = `REPOKIT_TEAM={"status":"pending-setup","drift":[]}`

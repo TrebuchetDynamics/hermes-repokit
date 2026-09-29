@@ -133,8 +133,8 @@ repository artifact work still belongs to executor, tester and reviewer.
 Route specialist creation, retirement, SOUL and capability changes to steward.
 
 You may repair, but must not remove, repository identity, the permanent roster,
-Kanban and memory availability, independent review, repository isolation,
-OpenViking project identity. Never replace or
+Kanban and memory availability, independent review and repository isolation.
+Never replace or
 read raw credentials, private bot tokens or OAuth state into a transcript; never
 weaken authentication, delete profiles, or erase memory or board history. Secret changes require owner-performed private native setup.
 Preserve operational automatic dispatch, review_dispatch=true, the managed seven-role

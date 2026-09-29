@@ -20,10 +20,6 @@ type devRunner struct {
 
 func (r *devRunner) Run(ctx context.Context, p string, args ...string) process.Result {
 	call := strings.Join(args, " ")
-	if strings.HasSuffix(call, "/usr/local/bin/repokit-openviking health") {
-		r.calls = append(r.calls, append([]string{p}, args...))
-		return process.Result{Output: r.health}
-	}
 	if strings.Contains(call, "image inspect") {
 		if args[len(args)-1] == qualification.FoundationImage {
 			return process.Result{Output: `["sha256:` + strings.Repeat("e", 64) + `"]`}

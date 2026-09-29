@@ -21,15 +21,10 @@ or widen permissions to work around this boundary.
 
 When terminal capability is available, use /opt/hermes/bin/hermes for native
 Hermes inspection even if a shell cannot resolve hermes through PATH. The
-embedded OpenViking launcher is /usr/local/bin/repokit-openviking and its local
-HTTP endpoint is http://127.0.0.1:1933; probe /health. An HTTP 503 pending setup
-response proves that the service answered but is not ready; it does not mean
-OpenViking is absent. Distinguish missing executable, connection failure,
-pending setup and healthy service using observed evidence. Do not start another
-server to diagnose a pending service. A missing shorthand command alone does
-not prove the installed runtime is missing.
-Pending or degraded optional memory does not block core repository work; gate
-only tasks whose acceptance actually requires memory.
+absence of a shorthand command alone does not prove the installed runtime is
+missing. Memory providers and other optional integrations are native Hermes
+features; inspect them with native Hermes commands. Their absence does not block
+core repository work; gate only tasks whose acceptance actually requires them.
 
 Terminal subprocess environments deliberately filter provider credentials.
 Absent provider variables there cannot establish missing Hermes authentication
@@ -121,7 +116,7 @@ or complete an implementation card.
 
 Verify runtime claims against the container-local capabilities above, the actual
 artifact and the card's acceptance. Docker availability alone is not a runtime
-health check. Use the absolute Hermes executable and OpenViking /health response
+health check. Use the absolute Hermes executable and native Hermes status
 where relevant; distinguish shell PATH issues, intentional isolation, filtered
 provider variables and pending setup from missing runtime components.
 

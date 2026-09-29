@@ -2,7 +2,6 @@ package verify
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -67,47 +66,4 @@ func integrationFixture(t *testing.T) (target.Identity, *integrationRunner) {
 		config: `{"memory":"active"}`, health: "healthy\n",
 	}
 	return id, r
-}
-
-func TestRuntimeIntegrationsKeepReadinessAndAcceptanceIndependent(t *testing.T) {
-	id, r := integrationFixture(t)
-	probes := RuntimeIntegrations(context.Background(), id, r)
-	if len(probes) != 1 || probes[0].Status == Active || probes[0].Status == Healthy {
-		t.Fatalf("passive checks certified memory or review: %+v", probes)
-	}
-	for _, call := range r.calls {
-		joined := strings.Join(call, " ")
-		if strings.Contains(joined, " -c ") {
-			t.Fatalf("custom Python probe executed: %s", joined)
-		}
-	}
-}
-
-func TestRuntimeIntegrationsRefuseExecOnIdentityMismatch(t *testing.T) {
-	for _, field := range []string{"image", "project", "workspace", "home", "service", "status", "id", "unexpectedMounts"} {
-		t.Run(field, func(t *testing.T) {
-			id, r := integrationFixture(t)
-			var state map[string]string
-			json.Unmarshal([]byte(r.hermes), &state)
-			state[field] = "different"
-			data, _ := json.Marshal(state)
-			r.hermes = string(data)
-			RuntimeIntegrations(context.Background(), id, r)
-			for _, call := range r.calls {
-				if strings.Contains(strings.Join(call, " "), " exec ") {
-					t.Fatalf("exec after %s mismatch", field)
-				}
-			}
-		})
-	}
-}
-
-func TestRuntimeIntegrationsDoNotExecuteCustomPython(t *testing.T) {
-	id, r := integrationFixture(t)
-	RuntimeIntegrations(context.Background(), id, r)
-	for _, call := range r.calls {
-		if strings.Contains(strings.Join(call, " "), " -c ") {
-			t.Fatal("custom Python verification executed")
-		}
-	}
 }

@@ -6,10 +6,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
+
+var containerID = regexp.MustCompile(`^[a-f0-9]{12,64}$`)
 
 const integrationInspect = `{"id":{{json .Id}},"status":{{json .State.Status}},"image":{{json .Config.Image}},"imageID":{{json .Image}},"mounts":{{json .Mounts}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"workspace":{{range .Mounts}}{{if eq .Destination "/workspace"}}{{json .Source}}{{end}}{{end}},"home":{{range .Mounts}}{{if eq .Destination "/opt/data"}}{{json .Source}}{{end}}{{end}},"unexpectedMounts":"{{range .Mounts}}{{if or (ne .Type "bind") (and (ne .Destination "/workspace") (ne .Destination "/opt/data"))}}x{{end}}{{end}}"}`
 
@@ -30,21 +33,4 @@ func integrationRuntime(ctx context.Context, id target.Identity, r Runner) (stri
 		return "", "", fmt.Errorf("pinned running Hermes identity and mounts unavailable")
 	}
 	return dc, s.ID, nil
-}
-
-// RuntimeIntegrations reports only what the pinned runtime and public service
-// checks establish. Configured memory identity and recall behavior require an
-// authenticated user-level operation, so passive verification does not certify
-// them from files or service health.
-func RuntimeIntegrations(ctx context.Context, id target.Identity, r Runner) []Probe {
-	memory := Probe{"memory", Unknown, "native memory identity and effective profile configuration unavailable"}
-	if _, _, err := integrationRuntime(ctx, id, r); err == nil {
-		memory = Probe{"memory", Unqualified, "pinned runtime observed; all-profile user identity, recall, extraction and persistence unqualified"}
-		for _, p := range OpenViking(ctx, id, r) {
-			if p.Component == "openviking-config" && p.Status == PendingSetup {
-				memory = Probe{"memory", Inactive, "native OpenViking configuration absent; run setup --memory"}
-			}
-		}
-	}
-	return []Probe{memory}
 }

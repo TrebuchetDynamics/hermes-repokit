@@ -21,7 +21,7 @@ import (
 // This separately authorized privileged fixture proves the generated DinD
 // topology, shared scratch bind mounts and baked helper. Compiling it is only a
 // source check; no live qualification is claimed until this explicit gate runs.
-// OpenViking remains unconfigured; this uses no provider credentials/model calls.
+// Shared memory stays unconfigured; this uses no provider credentials/model calls.
 func TestDockerIsolatedAcceptanceDaemon(t *testing.T) {
 	if os.Getenv("REPOKIT_DOCKER_TESTS") != "1" || os.Getenv("REPOKIT_DIND_TESTS") != "1" {
 		t.Skip("requires REPOKIT_DOCKER_TESTS=1 and REPOKIT_DIND_TESTS=1 to authorize privileged disposable DinD")
