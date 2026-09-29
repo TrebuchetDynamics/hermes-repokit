@@ -79,13 +79,14 @@ not reconcile the team. `--engineering` is a legacy no-op alias.
 
 ```text
 repokit plan                         inspect: names, context, collisions
-repokit install                      publish .hermes/, launcher, ~/.local/bin link (dispatch off)
-<printed compose build/start>        start the one hermes-<repo> container
-repokit install                      native Kanban init + team reconciliation
-repokit setup        (owner, private) provider/model → seven profiles → dispatch policy → gateway restart
+repokit install                      publish .hermes/, launcher, ~/.local/bin link; build + start
+                                     hermes-<repo>; native Kanban init (dispatch off)
+repokit setup        (owner, private) provider/model → seven profiles → dispatch policy → gateway start
 repokit verify                       CORE_READY report
 repokit verify --dispatch-check      (explicit, paid) gateway claims a researcher card
 real task                            executor → tester → reviewer on the same card
+repokit stop | start                 stop / start the deployment; all state kept
+repokit remove       (owner, typed)  delete the deployment and .hermes
 ```
 
 ## Deployment contract
