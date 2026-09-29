@@ -32,7 +32,8 @@ a RepoKit daemon.
 > **Status · pre-v1.** Live dogfood proved the core loop: a Telegram request to
 > `default` was executed by `executor`, approved by `reviewer` on the same card and
 > reported back to the same chat, and the team kept working after `docker restart`.
-> Memory recall and a brand-new-repository install remain open. See
+> The same loop passed on a fresh clone of an unrelated Go repository. Memory
+> recall remains open. See
 > [remaining gates](#running-and-remaining-gates).
 
 ## Quickstart
@@ -130,7 +131,7 @@ Write, extraction, both recall checks and cleanup remain individually
 | Area | Remaining evidence |
 | --- | --- |
 | Embedded memory | Live write/recall, restart persistence and cross-repository denial |
-| Team work | Reviewer request-changes correction cycle; fresh-repository bootstrap |
+| Team work | Reviewer request-changes correction cycle |
 | Runtime independence | Removal-first acceptance with real work and memory |
 | Optional plugins | Native scanner admission and owner configuration |
 
