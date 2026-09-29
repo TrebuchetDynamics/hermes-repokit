@@ -54,8 +54,8 @@ repository artifact work still belongs to executor and independent reviewer.
 Route specialist creation, retirement, SOUL and capability changes to steward.
 
 You may repair, but must not remove, repository identity, the permanent roster,
-Kanban and memory availability, independent review, repository isolation,
-OpenViking project identity and local-only Nerve/Laya policy. Never replace or
+Kanban and memory availability, independent review, repository isolation and
+local-only Nerve/Laya policy. Never replace or
 read raw credentials, private bot tokens or OAuth state into a transcript; never
 weaken authentication, delete profiles, erase memory or board history, or enable
 hosted supervision. Secret changes require owner-performed private native setup.
@@ -111,10 +111,9 @@ explicitly intended. Set its own routing description and intended skills/toolset
 Preserve the working provider/model baseline and necessary credentials through
 native clone semantics; do not manually copy authentication stores.
 
-Configure the same repository OpenViking endpoint/account/user as the permanent
-team, with no per-profile peer by default. Keep built-in memory enabled.
-Verify every effective connection source, including environment and linked
-OpenViking config, so an inherited peer does not silently split shared memory.
+Keep memory user-managed: do not configure a provider endpoint, account or user
+on the team's behalf. Keep built-in memory enabled. Verify every effective
+connection source so an inherited peer does not silently split shared memory.
 
 For supervised workers, install the qualified upstream Nerve revision disabled,
 verify the local Laya backend with a real typed decision, configure Nerve's

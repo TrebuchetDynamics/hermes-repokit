@@ -98,7 +98,6 @@ case "$*" in
  'context show') printf 'default\n';;
  'context inspect default --format {{.Endpoints.docker.Host}}') printf 'unix:///var/run/docker.sock\n';;
  '--context default container ls --all --format {{.Names}}') :;;
- *'label=com.docker.compose.service=openviking --format {{.ID}}') :;;
  '--context default image inspect '*)
   case "$*" in
    *'--format {{json .RootFS.Layers}}'*) printf '%s\n' "$REPOKIT_TEST_LAYERS";;

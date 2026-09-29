@@ -8,11 +8,11 @@ import (
 
 func TestRenderIsPinnedIsolatedAndStandalone(t *testing.T) {
 	id := target.Identity{Project: "repokit-abc", Container: "hermes-my-project"}
-	out, err := Render(id, Options{HermesImage: "org/hermes@sha256:" + strings.Repeat("a", 64), OpenVikingImage: "org/openviking@sha256:" + strings.Repeat("b", 64), UID: 1000, GID: 1000})
+	out, err := Render(id, Options{HermesImage: "org/hermes@sha256:" + strings.Repeat("a", 64), UID: 1000, GID: 1000})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, part := range []string{"name: \"repokit-abc\"", "container_name: \"hermes-my-project\"", "source: \"..\"", "target: /workspace", "target: /opt/data", "HERMES_HOME: /opt/data", "HERMES_WRITE_SAFE_ROOT: /opt/data:/workspace", "target: /app/.openviking", "OPENVIKING_WITH_BOT: \"0\"", "create_host_path: false"} {
+	for _, part := range []string{"name: \"repokit-abc\"", "container_name: \"hermes-my-project\"", "source: \"..\"", "target: /workspace", "target: /opt/data", "HERMES_HOME: /opt/data", "HERMES_WRITE_SAFE_ROOT: /opt/data:/workspace", "create_host_path: false"} {
 		if !strings.Contains(string(out), part) {
 			t.Errorf("missing %q\n%s", part, out)
 		}

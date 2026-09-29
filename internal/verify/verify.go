@@ -9,7 +9,6 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
@@ -111,8 +110,6 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 		expected, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid(), SELinux: detectSELinux()})
 		if err == nil && matchesCompose(id, expected) {
 			artifact = Probe{"compose", Healthy, "generated Hermes-only Compose matches this repository"}
-		} else if expected, err = compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, UID: os.Getuid(), GID: os.Getgid(), SELinux: detectSELinux()}); err == nil && matchesCompose(id, expected) {
-			artifact = Probe{"compose", Healthy, "generated Hermes/OpenViking Compose matches this repository"}
 		}
 	}
 	board := Probe{"kanban", PendingSetup, "native board absent; after Compose start rerun install"}
@@ -216,21 +213,19 @@ func coreComponent(name string) bool {
 	return false
 }
 
-// Readiness summarizes observations into CORE_READY, MEMORY_READY and
-// FULL_READY. Healthy means configured, running AND behavior observed; core
-// configured and running without observed reviewed work is Unqualified.
+// Readiness summarizes observations into CORE_READY. Memory is user-managed,
+// so it is reported as inactive rather than configured or verified by RepoKit.
+// Healthy means configured, running AND behavior observed; core configured and
+// running without observed reviewed work is Unqualified.
 func Readiness(probes []Probe) []Probe {
 	var failing []string
-	review, memory := Unknown, Unknown
+	review := Unknown
 	for _, p := range probes {
 		if coreComponent(p.Component) && p.Status != Healthy {
 			failing = append(failing, p.Component)
 		}
 		if p.Component == "review:evidence" {
 			review = p.Status
-		}
-		if p.Component == "memory" {
-			memory = p.Status
 		}
 	}
 	sort.Strings(failing)
@@ -240,15 +235,8 @@ func Readiness(probes []Probe) []Probe {
 	} else if review != Healthy {
 		core = Probe{"CORE_READY", Unqualified, "configured and running; no automatic executor/tester/reviewer loop observed yet"}
 	}
-	mem := Probe{"MEMORY_READY", Unqualified, "passive verify cannot prove memory behavior; run verify --memory-check"}
-	if memory == Inactive {
-		mem = Probe{"MEMORY_READY", Inactive, "shared OpenViking memory not configured; core work does not depend on it"}
-	}
-	full := Probe{"FULL_READY", Unqualified, "requires CORE_READY and MEMORY_READY both proved"}
-	if core.Status == Degraded {
-		full.Status = Degraded
-	}
-	return []Probe{core, mem, full}
+	mem := Probe{"MEMORY", Inactive, "memory is user-managed; RepoKit does not configure or verify it"}
+	return []Probe{core, mem}
 }
 
 // CoreUsable is verify's exit criterion: nothing core is broken or missing,

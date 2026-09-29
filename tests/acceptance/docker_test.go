@@ -257,8 +257,7 @@ func TestDockerFoundation(t *testing.T) {
 		seen[p.Component] = true
 		expected := map[string]verify.Status{
 			"CORE_READY":              verify.Unqualified, // no reviewed work yet
-			"MEMORY_READY":            verify.Inactive,
-			"FULL_READY":              verify.Unqualified,
+			"MEMORY":                  verify.Inactive,
 			"review:evidence":         verify.Unqualified,
 			"development_environment": verify.Unqualified,
 		}
@@ -273,8 +272,8 @@ func TestDockerFoundation(t *testing.T) {
 			}
 			continue
 		}
-		if strings.HasPrefix(p.Component, "openviking") || p.Component == "memory" {
-			if (p.Status == verify.Healthy || p.Status == verify.Active) && p.Component != "openviking-container" {
+		if p.Component == "memory" {
+			if p.Status == verify.Healthy || p.Status == verify.Active {
 				t.Fatal("integration falsely certified")
 			}
 			continue

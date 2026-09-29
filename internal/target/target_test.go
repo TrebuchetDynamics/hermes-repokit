@@ -200,7 +200,7 @@ func TestNativeToolInstallDoesNotInvalidatePrivateDeployment(t *testing.T) {
 func TestNativeToolExceptionsDoNotPermitRedirectedManagedPaths(t *testing.T) {
 	for _, rel := range []string{
 		"compose.yaml", "config.yaml", ".env", "auth.json", "kanban.db", "profiles", "bin",
-		"development-image", "openviking", ".cache", ".cache/uv", ".local", ".local/bin",
+		"development-image", ".cache", ".cache/uv", ".local", ".local/bin",
 		".local/share", ".local/share/uv", ".local/share/uv/tools", ".cua-driver", ".cua-driver/packages",
 		"profiles/executor/config.yaml", "development-image/Dockerfile",
 		"home", "home/.cache", "home/.cache/uv", "lazy-packages", "gateway.sock", "state/gateway.loop-tick.123.sock",

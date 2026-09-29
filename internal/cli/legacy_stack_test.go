@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
@@ -16,7 +15,7 @@ import (
 // Public generated preimage from ce7b6c8; never read or adopt private state.
 func legacyLayaCompose(t *testing.T, id target.Identity) []byte {
 	t.Helper()
-	base, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, UID: os.Getuid(), GID: os.Getgid()})
+	base, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,7 +63,7 @@ func TestInstallMigratesExactLegacySidecarsPreservingOwnerState(t *testing.T) {
 				t.Fatal(err)
 			}
 			state := filepath.Join(a.Directory, ".hermes")
-			preserved := map[string]string{"config.yaml": "owner-config\n", "openviking/ov.conf": "private memory config", "laya/model": "owner model", "profiles/owner/SOUL.md": "owner identity", "kanban.db": "existing board"}
+			preserved := map[string]string{"config.yaml": "owner-config\n", "memories/private.conf": "private owner config", "laya/model": "owner model", "profiles/owner/SOUL.md": "owner identity", "kanban.db": "existing board"}
 			for name, data := range preserved {
 				path := filepath.Join(state, name)
 				if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
@@ -89,7 +88,7 @@ func TestInstallMigratesExactLegacySidecarsPreservingOwnerState(t *testing.T) {
 					t.Fatalf("missing original Compose backup: %v", err)
 				}
 				current, _ := os.ReadFile(id.Compose)
-				if strings.Contains(string(current), "  laya:") || strings.Contains(string(current), "  openviking:") || !strings.Contains(string(current), "./development-image") {
+				if strings.Contains(string(current), "  laya:") || !strings.Contains(string(current), "./development-image") {
 					t.Fatal("replacement is not core runtime")
 				}
 				if code, _, diag = invoke(t, a, "install"); code != 0 {

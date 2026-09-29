@@ -59,7 +59,7 @@ func TestRuntimeStateDoesNotClaimModelOrMemoryOperation(t *testing.T) {
 		t.Fatalf("%+v", out)
 	}
 	for _, p := range out[2:] {
-		if p.Component == "openviking" || p.Component == "superpowers" {
+		if p.Component == "superpowers" {
 			t.Fatalf("unproved integration: %+v", p)
 		}
 	}

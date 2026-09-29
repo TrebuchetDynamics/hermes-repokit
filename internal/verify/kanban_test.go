@@ -102,12 +102,12 @@ func TestGatewayAndReviewEvidenceFromPublicCLI(t *testing.T) {
 func TestReadinessSeparatesConfiguredFromProved(t *testing.T) {
 	healthy := []Probe{{"compose", Healthy, ""}, {"gateway", Healthy, ""}, {"kanban:dispatch", Healthy, ""}, {"development:go", Healthy, ""}, {"docker_acceptance", Inactive, ""}, {"memory", Inactive, ""}}
 	got := Readiness(append(healthy, Probe{"review:evidence", Unqualified, ""}))
-	if got[0].Status != Unqualified || got[1].Status != Inactive || got[2].Status != Unqualified || !CoreUsable(got) {
+	if got[0].Status != Unqualified || got[1].Status != Inactive || !CoreUsable(got) {
 		t.Fatalf("configured core must be usable but unproved: %+v", got)
 	}
 	got = Readiness(append(healthy, Probe{"review:evidence", Healthy, ""}))
-	if got[0].Status != Healthy || got[2].Status == Healthy {
-		t.Fatalf("FULL_READY must need proved memory: %+v", got)
+	if got[0].Status != Healthy {
+		t.Fatalf("proved core must be healthy: %+v", got)
 	}
 	got = Readiness(append(healthy, Probe{"channel:telegram", Degraded, ""}, Probe{"review:evidence", Healthy, ""}))
 	if got[0].Status != Degraded || !strings.Contains(got[0].Detail, "channel:telegram") || CoreUsable(got) {

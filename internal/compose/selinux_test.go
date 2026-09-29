@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/selinux"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
@@ -15,7 +14,7 @@ func renderForSELinux(t *testing.T, state selinux.State) string {
 	t.Helper()
 	id := target.Identity{Project: "repokit-abc", Container: "hermes-my-project"}
 	req := development.Requirements{Go: true}
-	b, err := Render(id, Options{HermesImage: qualification.FoundationImage, OpenVikingImage: projectmemory.Image, Development: &req, UID: 1000, GID: 1000, SELinux: state})
+	b, err := Render(id, Options{HermesImage: qualification.FoundationImage, Development: &req, UID: 1000, GID: 1000, SELinux: state})
 	if err != nil {
 		t.Fatal(err)
 	}

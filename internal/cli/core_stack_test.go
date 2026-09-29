@@ -42,7 +42,7 @@ func TestCoreStackHasNoOwnedSupervision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "  laya:") || strings.Contains(string(data), "  openviking:") || !strings.Contains(string(data), "REPOKIT_OPENVIKING: \"1\"") {
+	if strings.Contains(string(data), "  laya:") || !strings.Contains(string(data), "working_dir: /workspace") {
 		t.Fatal("core topology differs", string(data))
 	}
 }

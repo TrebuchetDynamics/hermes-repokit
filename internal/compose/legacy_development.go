@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/selinux"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
@@ -61,21 +60,19 @@ func DevelopmentInstallSelected(id target.Identity) (Options, bool) {
 	recipeGo := bytes.Contains(recipe["Dockerfile"], []byte("https://go.dev/dl/go"))
 	for _, goTool := range []bool{false, true} {
 		for _, tests := range []bool{false, true} {
-			for _, memory := range []string{"", projectmemory.Image} {
-				for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
-					req := development.Requirements{Go: goTool}
-					o := Options{HermesImage: qualification.FoundationImage, Development: &req, DockerTests: tests, OpenVikingImage: memory, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
-					renders := []func(target.Identity, Options) ([]byte, error){Render, PreviousNames}
-					if generated && goTool == recipeGo {
-						for _, older := range []func(target.Identity, Options, string) ([]byte, error){LegacyDevelopment, OlderRecipe} {
-							renders = append(renders, func(id target.Identity, o Options) ([]byte, error) { return older(id, o, fingerprint) })
-						}
+			for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
+				req := development.Requirements{Go: goTool}
+				o := Options{HermesImage: qualification.FoundationImage, Development: &req, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
+				renders := []func(target.Identity, Options) ([]byte, error){Render, PreviousNames}
+				if generated && goTool == recipeGo {
+					for _, older := range []func(target.Identity, Options, string) ([]byte, error){LegacyDevelopment, OlderRecipe} {
+						renders = append(renders, func(id target.Identity, o Options) ([]byte, error) { return older(id, o, fingerprint) })
 					}
-					for _, render := range renders {
-						expected, err := render(id, o)
-						if err == nil && bytes.Equal(data, expected) {
-							return o, true
-						}
+				}
+				for _, render := range renders {
+					expected, err := render(id, o)
+					if err == nil && bytes.Equal(data, expected) {
+						return o, true
 					}
 				}
 			}

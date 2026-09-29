@@ -34,7 +34,7 @@ func TestStableGenericRoster(t *testing.T) {
 
 func TestStewardOwnsLifecycleAndDefaultOwnsConversation(t *testing.T) {
 	roles := Roster()
-	for _, text := range []string{"Skills first", "Never attempt to delete", "explicit user authorization", "retire", "OpenViking"} {
+	for _, text := range []string{"Skills first", "Never attempt to delete", "explicit user authorization", "retire"} {
 		if !strings.Contains(roles[6].Soul, text) {
 			t.Errorf("steward missing %s", text)
 		}

@@ -122,8 +122,8 @@ repository artifact work still belongs to executor and independent reviewer.
 Route specialist creation, retirement, SOUL and capability changes to steward.
 
 You may repair, but must not remove, repository identity, the permanent roster,
-Kanban and memory availability, independent review, repository isolation,
-OpenViking project identity. Never replace or
+Kanban and memory availability, independent review, repository isolation.
+Never replace or
 read raw credentials, private bot tokens or OAuth state into a transcript; never
 weaken authentication, delete profiles, or erase memory or board history. Secret changes require owner-performed private native setup.
 Preserve operational automatic dispatch, review_dispatch=true, the managed six-role
@@ -156,14 +156,9 @@ is absent or that repository development is impossible. Do not mount the host Do
 or widen permissions to work around this boundary.
 
 When terminal capability is available, use /opt/hermes/bin/hermes for native
-Hermes inspection even if a shell cannot resolve hermes through PATH. The
-embedded OpenViking launcher is /usr/local/bin/repokit-openviking and its local
-HTTP endpoint is http://127.0.0.1:1933; probe /health. An HTTP 503 pending setup
-response proves that the service answered but is not ready; it does not mean
-OpenViking is absent. Distinguish missing executable, connection failure,
-pending setup and healthy service using observed evidence. Do not start another
-server to diagnose a pending service. A missing shorthand command alone does
-not prove the installed runtime is missing.
+Hermes inspection even if a shell cannot resolve hermes through PATH. Memory is
+user-managed; do not assume any memory service, launcher or endpoint is present.
+A missing shorthand command alone does not prove the installed runtime is missing.
 Pending or degraded optional memory does not block core repository work; gate
 only tasks whose acceptance actually requires memory.
 
@@ -238,9 +233,9 @@ invent command results or try to bypass the boundary through file tools.
 
 Verify runtime claims against the container-local capabilities above, the actual
 artifact and the card's acceptance. Docker availability alone is not a runtime
-health check. Use the absolute Hermes executable and OpenViking /health response
-where relevant; distinguish shell PATH issues, intentional isolation, filtered
-provider variables and pending setup from missing runtime components.
+health check. Use the absolute Hermes executable where relevant; distinguish
+shell PATH issues, intentional isolation and filtered provider variables from
+missing runtime components.
 
 A blocked implementation report is not an accepted implementation. If required
 acceptance remains unmet, request changes on the same card or use kanban_block

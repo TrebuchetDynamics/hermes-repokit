@@ -33,8 +33,6 @@ func (r *foundationRunner) Run(ctx context.Context, program string, args ...stri
 	}
 	call := strings.Join(args, " ")
 	switch {
-	case strings.Contains(call, "container ls") && strings.Contains(call, "label=com.docker.compose.service=openviking"):
-		return process.Result{}
 	case call == "context show":
 		return process.Result{Output: r.context}
 	case strings.Contains(call, "context inspect"):
@@ -114,7 +112,7 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "REPOKIT_OPENVIKING: \"1\"") || strings.Contains(string(data), "\n  openviking:") || strings.Contains(string(data), "  laya:") {
+	if strings.Contains(string(data), "  laya:") || !strings.Contains(string(data), "container_name:") {
 		t.Fatal("unexpected sidecar selection")
 	}
 	r.runtime = developmentRuntimeFixture(r.id)
@@ -131,11 +129,6 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	var probes []verify.Probe
 	if err := json.Unmarshal([]byte(out), &probes); err != nil {
 		t.Fatal(err)
-	}
-	for _, p := range probes {
-		if (p.Component == "openviking") && p.Status == verify.Healthy {
-			t.Fatalf("unqualified integration: %+v", p)
-		}
 	}
 	config := filepath.Join(a.Directory, ".hermes/config.yaml")
 	edited := []byte("# native owner edit\nkanban:\n  dispatch_in_gateway: false\n")
@@ -281,9 +274,6 @@ func TestGenericTeamIsDefaultPlan(t *testing.T) {
 	if p.Kanban["orchestrator_profile"] != "default" || p.Kanban["max_in_progress"] != float64(1) {
 		t.Fatalf("defaults %v", p.Kanban)
 	}
-	if p.ProposedMemoryConfig["provider"] != "openviking" {
-		t.Fatal("shared memory proposal absent")
-	}
 }
 
 func TestVerifyDoesNotCertifyUnqualifiedIntegrations(t *testing.T) {
@@ -296,11 +286,11 @@ func TestVerifyDoesNotCertifyUnqualifiedIntegrations(t *testing.T) {
 	pending := map[string]bool{}
 	for _, p := range probes {
 		switch p.Component {
-		case "openviking", "memory", "review:evidence", "CORE_READY", "MEMORY_READY", "FULL_READY":
+		case "memory", "review:evidence", "CORE_READY", "MEMORY":
 			pending[p.Component] = p.Status != verify.Healthy
 		}
 	}
-	if !pending["openviking"] || !pending["memory"] || !pending["review:evidence"] || !pending["CORE_READY"] || !pending["MEMORY_READY"] || !pending["FULL_READY"] {
+	if !pending["memory"] || !pending["review:evidence"] || !pending["CORE_READY"] || !pending["MEMORY"] {
 		t.Fatal("missing explicit integration gates")
 	}
 }

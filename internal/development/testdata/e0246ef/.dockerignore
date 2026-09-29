@@ -1,7 +1,0 @@
-*
-!Dockerfile
-!repokit-docker-test
-!repokit-openviking
-!openviking-run
-!openviking-finish
-!patch-openviking-entrypoint.py

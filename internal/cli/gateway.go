@@ -41,7 +41,7 @@ func (a App) finishSetup(id target.Identity, dc string, code int, out, diag io.W
 	fmt.Fprintln(out, "No worker has been exercised by setup. Prove the loop with `hermes-repokit verify --dispatch-check` (one researcher card, model cost) or a real reviewed task.")
 	for _, p := range verify.RuntimeIntegrations(context.Background(), id, a.Runner) {
 		if p.Component == "memory" {
-			fmt.Fprintf(diag, "Optional memory: %s. %s. Core dispatch does not depend on it; use setup --memory to configure shared memory.\n", p.Status, p.Detail)
+			fmt.Fprintf(diag, "Optional memory: %s. %s. Core dispatch does not depend on it; memory is user-managed.\n", p.Status, p.Detail)
 		}
 	}
 	return 0

@@ -1,4 +1,0 @@
-#!/command/with-contenv sh
-set -eu
-[ "${REPOKIT_OPENVIKING:-0}" = 1 ] || exit 0
-exec s6-setuidgid hermes /usr/local/bin/repokit-openviking serve

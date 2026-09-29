@@ -3,7 +3,7 @@
 
 Requires a privately configured, disposable native six-profile deployment.
 Never copies credentials, edits a board DB, invents worker results or qualifies
-later gateway/OpenViking gates. Raw model output stays in private logs.
+later gateway gates. Raw model output stays in private logs.
 """
 import argparse
 from collections import Counter

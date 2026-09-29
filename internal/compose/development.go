@@ -8,7 +8,6 @@ import (
 	"regexp"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/projectmemory"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/selinux"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
@@ -45,14 +44,12 @@ func DevelopmentSelected(id target.Identity) (Options, bool) {
 	}
 	for _, goTool := range []bool{false, true} {
 		for _, tests := range []bool{false, true} {
-			for _, memory := range []string{"", projectmemory.Image} {
-				for _, sel := range []selinux.State{"", selinux.Detect()} {
-					req := development.Requirements{Go: goTool}
-					o := Options{HermesImage: qualification.FoundationImage, Development: &req, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), OpenVikingImage: memory, SELinux: sel}
-					expected, err := Render(id, o)
-					if err == nil && bytes.Equal(data, expected) {
-						return o, true
-					}
+			for _, sel := range []selinux.State{"", selinux.Detect()} {
+				req := development.Requirements{Go: goTool}
+				o := Options{HermesImage: qualification.FoundationImage, Development: &req, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: sel}
+				expected, err := Render(id, o)
+				if err == nil && bytes.Equal(data, expected) {
+					return o, true
 				}
 			}
 		}
