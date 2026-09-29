@@ -48,7 +48,7 @@ func (g *nativeGateway) RunInput(_ context.Context, input io.Reader, _ string, a
 	if input != nil {
 		data, _ := io.ReadAll(input)
 		g.scripts = append(g.scripts, string(data))
-		if strings.Contains(string(data), "gateway' 'restart'") {
+		if strings.Contains(string(data), "gateway' 'restart'") || strings.Contains(string(data), "gateway' 'start'") {
 			g.pid = g.restart
 		}
 		return process.Result{Output: "ok"}
@@ -81,7 +81,7 @@ func operational() map[string]any {
 
 func TestOperationalDispatchIsObservedWithoutRestart(t *testing.T) {
 	g := &nativeGateway{kanban: operational(), pid: 42}
-	state, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, 3, 0)
+	state, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, false, 3, 0)
 	if err != nil || state != "current" || len(g.scripts) != 0 {
 		t.Fatalf("operational deployment mutated: %q %v %d", state, err, len(g.scripts))
 	}
@@ -91,18 +91,18 @@ func TestOwnerChangedPolicyIsPreserved(t *testing.T) {
 	k := operational()
 	k["max_in_progress"] = float64(3)
 	g := &nativeGateway{kanban: k, pid: 42}
-	if _, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, 3, 0); err == nil || len(g.scripts) != 0 {
+	if _, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, false, 3, 0); err == nil || len(g.scripts) != 0 {
 		t.Fatal("owner dispatch policy overwritten")
 	}
 	g.kanban = map[string]any{"dispatch_in_gateway": "yes"}
-	if _, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, 3, 0); err == nil || len(g.scripts) != 0 {
+	if _, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, false, 3, 0); err == nil || len(g.scripts) != 0 {
 		t.Fatal("ambiguous dispatch setting overwritten")
 	}
 }
 
 func TestActivationSetsPolicyLastAndRestartsIdleGateway(t *testing.T) {
 	g := &nativeGateway{kanban: map[string]any{"dispatch_in_gateway": false}, pid: 42, restart: 77, stats: `{"by_status":{"done":3}}`}
-	state, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, 3, 0)
+	state, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, false, 3, 0)
 	if err != nil || state != "restarted" || len(g.scripts) != 1 {
 		t.Fatalf("activation: %q %v", state, err)
 	}
@@ -125,19 +125,19 @@ func TestActivationSetsPolicyLastAndRestartsIdleGateway(t *testing.T) {
 
 func TestActivationRefusesRunningWorkAndUnconfirmedRestart(t *testing.T) {
 	g := &nativeGateway{kanban: map[string]any{"dispatch_in_gateway": false}, pid: 42, restart: 77, stats: `{"by_status":{"running":1}}`}
-	if _, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, 3, 0); err == nil || len(g.scripts) != 0 {
+	if _, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, false, 3, 0); err == nil || len(g.scripts) != 0 {
 		t.Fatal("restarted over a running card")
 	}
 	g.stats = `{"by_status":{}}`
 	g.restart = 42 // restart did not produce a new process
-	if _, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, 3, time.Millisecond); err == nil {
+	if _, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, false, 3, time.Millisecond); err == nil {
 		t.Fatal("unobserved replacement gateway certified")
 	}
 }
 
 func TestActivationWithStoppedGatewayDoesNotStartIt(t *testing.T) {
 	g := &nativeGateway{kanban: map[string]any{}, stats: `{"by_status":{}}`}
-	state, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, 3, 0)
+	state, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, false, 3, 0)
 	if err != nil || state != "not-running" || len(g.scripts) != 1 || strings.Contains(g.scripts[0], "'gateway' 'restart'") || strings.Contains(g.scripts[0], "'gateway' 'start'") {
 		t.Fatalf("stopped gateway: %q %v", state, err)
 	}
@@ -176,5 +176,38 @@ func TestDispatchCheckRequiresResearcherEvidence(t *testing.T) {
 	stringMeta := `{"task":{"id":"t_1","status":"done"},"runs":[{"profile":"researcher","status":"done","outcome":"completed","summary":"s","metadata":"{\"first_line\":\"\",\"changed_files\":[]}"}]}`
 	if json.Unmarshal([]byte(stringMeta), &rec) != nil || !DispatchCheckPassed(rec, "") {
 		t.Fatal("string-encoded metadata or empty first line rejected")
+	}
+}
+
+func TestExplicitSetupStartsStoppedGatewayInstallDoesNot(t *testing.T) {
+	for _, kanban := range []map[string]any{{"dispatch_in_gateway": false}, operational()} {
+		leave := &nativeGateway{kanban: kanban, restart: 55, stats: `{"by_status":{}}`}
+		if state, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", leave, false, 3, 0); err != nil || state != "not-running" {
+			t.Fatalf("install path changed a stopped gateway: %q %v", state, err)
+		}
+		for _, script := range leave.scripts {
+			if strings.Contains(script, "'gateway' 'start'") {
+				t.Fatal("install path started the gateway")
+			}
+		}
+		start := &nativeGateway{kanban: kanban, restart: 55, stats: `{"by_status":{}}`}
+		state, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", start, true, 3, 0)
+		if err != nil || state != "started" || start.pid != 55 || !strings.Contains(start.scripts[len(start.scripts)-1], "'-p' 'default' 'gateway' 'start'") {
+			t.Fatalf("setup did not start the stopped gateway: %q %v", state, err)
+		}
+	}
+}
+
+func TestGatewayStartMustBeObserved(t *testing.T) {
+	g := &nativeGateway{kanban: operational(), restart: 0, stats: `{"by_status":{}}`}
+	if _, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, true, 3, time.Millisecond); err == nil {
+		t.Fatal("unobserved gateway start reported as started")
+	}
+}
+
+func TestRunningGatewayIsNotStartedAgain(t *testing.T) {
+	g := &nativeGateway{kanban: operational(), pid: 42, restart: 99}
+	if state, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, true, 3, 0); err != nil || state != "current" || len(g.scripts) != 0 {
+		t.Fatalf("running operational gateway touched: %q %v %d", state, err, len(g.scripts))
 	}
 }

@@ -26,12 +26,12 @@ against a fresh clone.
       fixes data ownership, so a `docker exec` issued in that window fails with
       `PermissionError: /opt/data/.env`. `install` and `setup` now wait (bounded,
       90 s) for a public `config get` read, then report "runtime still starting"
-      instead of "native team inspection unavailable".
-- [ ] **Gateway never started on fresh setup.** Setup ends with dispatch
-      configured and the gateway stopped, with no command given. Print the exact
-      native command (`hermes-<repo> -p default gateway start`) or start it
-      through that command. Native boot reconciliation keeps it running afterwards.
-      *Test:* Docker foundation asserts the message or a running gateway after setup.
+      instead of "native team inspection unavailable" (#4).
+- [x] **Gateway never started on fresh setup.** Explicit `setup` / `setup --team`
+      now starts a stopped default gateway through the native `gateway start`
+      and waits for a running PID; Hermes keeps it running across restarts.
+      `install` reruns and `setup --memory` never start an owner-stopped gateway
+      and print `hermes-<repo> -p default gateway start` instead.
 - [ ] **`.hermes-repokit.lock` hygiene.** It is left untracked at the repository
       root and is not ignored, so it shows in `git status` and could be committed.
       Move it under `.hermes/` or add it to `.git/info/exclude` (never edit the

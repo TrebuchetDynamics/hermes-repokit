@@ -36,6 +36,8 @@ type App struct {
 	Initializer     native.InputRunner
 	// HostSELinux overrides host detection in tests; empty detects the live host.
 	HostSELinux selinux.State
+	// startGateway lets explicit setup start a stopped default gateway.
+	startGateway bool
 }
 
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -113,6 +115,9 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	}
 	switch args[0] {
 	case "setup":
+		// Explicit setup activates the team, so it starts a stopped gateway;
+		// install reruns and memory-only setup leave an owner's choice alone.
+		a.startGateway = !memorySetup
 		if memorySetup && !native.InteractiveInput(a.Stdin) {
 			fmt.Fprintln(stderr, "Run setup --memory in your private terminal; credentials must remain in native setup.")
 			return 1
