@@ -111,3 +111,32 @@ evidence `t_b170ab94`) and `MEMORY_READY` inactive (OpenViking not configured).
 `t_ee305797` went created → claimed → spawned → completed → archived with no
 manual dispatch; the researcher returned the exact README first line with
 `changed_files: []`. Telegram round-trip delivery was not exercised.
+
+## Telegram round trip and restart (2026-09-29)
+
+A bounded documentation task was sent from the owner's phone to the default
+bot in a fresh `/new` session. All times UTC; no manual dispatch or CLI step.
+
+| Time | Evidence |
+| --- | --- |
+| 18:44:58 | Telegram message received by `default` |
+| 18:45:23 | `default` created card `t_6641c2b0` for `executor`, preserving the task's bounds |
+| 18:45:43 | Gateway dispatched `executor` |
+| 18:46:20 | Executor changed only the requested paragraph of `docs/implementation-progress.md`, reported `git diff --check` and `go test ./...` passing, and requested same-card review |
+| 18:46:36 | Review-handoff notification sent to the originating chat |
+| 18:46:39 | Gateway dispatched `reviewer` on the same card |
+| 18:47:16 | Reviewer independently re-ran both checks, made no edits and approved |
+| 18:47:22 | Completion woke `default`; result sent to the originating chat |
+
+The owner confirmed both messages arrived in the same chat. The other
+uncommitted working-tree paths were unchanged (checksums compared).
+
+After `docker restart`, the default gateway was running within about 5 seconds
+and the Telegram adapter re-registered its commands. All 22 cards (id, status,
+assignee) matched a consistent pre-restart copy; the dispatch policy was intact;
+`verify` reported `CORE_READY` healthy citing `t_6641c2b0`; and a new
+`verify --dispatch-check` completed researcher card `t_e8f4e070`.
+
+Not exercised: a reviewer request-changes correction cycle, a vague request
+("Improve readme" produced a reply but no card; the conversation was not
+inspected), a fresh unrelated repository, and shared memory.

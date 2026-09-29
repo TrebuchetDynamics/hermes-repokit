@@ -17,8 +17,10 @@ shared Kanban, embedded OpenViking and ordinary Compose/native lifecycle.
 - [x] Prove the gateway and dispatcher return after Compose recreate and `docker restart` (native main-wrapper re-registers s6 gateway services; dispatch check passed after restart).
 - [x] Run `verify --dispatch-check` with a real provider (live dogfood, after restart). A fresh-deployment run remains open.
 - [ ] OpenViking shutdown: the upstream entrypoint's TERM wait race is no longer patched. Not reproducible while memory is unconfigured (pending server only); re-check after `setup --memory`.
-- [ ] Prove originating-channel task/result delivery.
-- [ ] Prove genuine same-card executor/reviewer correction and approval.
+- [x] Prove originating-channel task/result delivery: Telegram → default → automatic executor → automatic same-card reviewer approval → result in the same chat (live dogfood, `t_6641c2b0`), surviving `docker restart`.
+- [ ] Prove a same-card request-changes correction cycle (approval is proven; a reviewer rejection → executor revision was not exercised).
+- [ ] Prove a fresh, unrelated-repository bootstrap through the same Telegram loop.
+- [ ] Qualify coordinator behavior for vague requests (for example "Improve readme"), not only bounded tasks.
 - [ ] Prove cross-profile memory write/recall, restart persistence and repository isolation.
 - [ ] Complete integrated removal-first acceptance and bounded self-dogfood.
 - [ ] Resolve optional Superpowers candidate scanner admission if selected.

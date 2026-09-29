@@ -42,10 +42,10 @@ Default's configured interactive channels receive native preset tools plus Kanba
 and memory. A fresh native conversation is required to refresh cached tool schemas.
 
 Operational setup separates dispatch-off bootstrap from automatic default gateway
-execution/review. It checks providers, identities, tools and routing; reports
-OpenViking independently; fences board claims; preserves active/finalizing workers; and
-requires native singleton/startup evidence and a real no-write researcher canary.
-Read-only verification never dispatches or runs inference.
+execution/review. After checks pass, setup writes the native dispatch policy with
+`hermes config set` and restarts the gateway once. `verify` is observational; it
+does not dispatch or run inference. The explicit `verify --dispatch-check` is the
+researcher proof of automatic gateway dispatch.
 
 In a later Docker-capable session the full `go test ./...` and `go test -race ./...`
 suites passed every package, including the six
