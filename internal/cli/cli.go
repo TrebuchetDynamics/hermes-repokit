@@ -145,6 +145,10 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "Setup requires the running pinned Hermes deployment. Inspect Docker access and service state. Start with: %s\n", launcher.StartCommand(id.Compose, dockerContext))
 			return 1
 		}
+		if err := a.waitForNativeCLI(id, dockerContext); err != nil {
+			fmt.Fprintln(stderr, "setup deferred:", err)
+			return 1
+		}
 		if memorySetup {
 			// Optional memory must not suspend a running core dispatcher.
 			return a.finishSetup(id, dockerContext, a.setupMemory(id, dockerContext, stdout, stderr), stdout, stderr)

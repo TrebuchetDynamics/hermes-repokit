@@ -59,7 +59,8 @@ func TestMemoryOnlyFailureDoesNotSuspendCoreDispatch(t *testing.T) {
 	defer terminal.Close()
 	a.Stdin = terminal
 	code, _, diag := invoke(t, a, "setup", "--memory")
-	if code == 0 || input.calls != 0 {
-		t.Fatalf("memory prerequisites must fail without suspending gateway: code=%d mutations=%d diag=%s", code, input.calls, diag)
+	// Read-only readiness probes are allowed; no native script may run.
+	if code == 0 || len(input.scripts) != 0 {
+		t.Fatalf("memory prerequisites must fail without suspending gateway: code=%d mutations=%d diag=%s", code, len(input.scripts), diag)
 	}
 }

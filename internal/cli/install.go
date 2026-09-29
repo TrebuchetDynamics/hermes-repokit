@@ -236,6 +236,10 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 	if runner == nil {
 		runner = process.Runner{Timeout: 2 * time.Minute}
 	}
+	if err := a.waitForNativeCLI(id, dockerContext); err != nil {
+		fmt.Fprintln(stderr, "native initialization deferred:", err)
+		return 1
+	}
 	if err := native.Initialize(context.Background(), id, dockerContext, afterSetup, runner); err != nil {
 		if errors.Is(err, native.ErrTeamPending) && !afterSetup {
 			fmt.Fprintln(stdout, "Native shared Kanban checked; team setup pending. After native default setup, run hermes-repokit setup --team without repeating login.")
@@ -246,4 +250,15 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 	}
 	fmt.Fprintln(stdout, "Native shared Kanban and six-profile team reconciled. Memory and model-driven acceptance are separate stages.")
 	return 0
+}
+
+// nativeReadyTimeout bounds the wait for a just-started container's Hermes CLI.
+var nativeReadyTimeout = 90 * time.Second
+
+func (a App) waitForNativeCLI(id target.Identity, dockerContext string) error {
+	runner := a.Initializer
+	if runner == nil {
+		runner = process.Runner{Timeout: 30 * time.Second}
+	}
+	return native.WaitForCLI(context.Background(), id, dockerContext, runner, nativeReadyTimeout, time.Second)
 }

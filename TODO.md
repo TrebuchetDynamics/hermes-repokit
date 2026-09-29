@@ -21,14 +21,12 @@ Found in the fresh-repository trials. Each needs unit tests plus a real check
 against a fresh clone.
 
 - [x] Accept a group-writable (775) root when the group is the owner's private
-      group; refusals name the path and the `chmod` fix. *(branch
-      `fix/fresh-clone-root-permissions`, not yet merged)*
-- [ ] **Post-start install race.** `install` run right after the printed Compose
-      start fails with "native team inspection unavailable" while Hermes boots.
-      Add a bounded readiness wait, then "runtime still starting; retry" instead
-      of a generic error.
-      *Test:* fake runner that fails the first N CLI calls; Docker run of
-      `install` immediately after `compose up`.
+      group; refusals name the path and the `chmod` fix (#3).
+- [x] **Post-start install race.** On a first boot Hermes remaps its user and
+      fixes data ownership, so a `docker exec` issued in that window fails with
+      `PermissionError: /opt/data/.env`. `install` and `setup` now wait (bounded,
+      90 s) for a public `config get` read, then report "runtime still starting"
+      instead of "native team inspection unavailable".
 - [ ] **Gateway never started on fresh setup.** Setup ends with dispatch
       configured and the gateway stopped, with no command given. Print the exact
       native command (`hermes-<repo> -p default gateway start`) or start it

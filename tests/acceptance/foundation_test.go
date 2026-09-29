@@ -112,12 +112,11 @@ case "$*" in
  *)
   [ "$1" = --context ] && [ "$2" = default ] && [ "$3" = compose ] || exit 2
   shift 7
-  # Setup first suspends native dispatch. This fixture fakes Docker/native
-  # execution only; dispatch semantics have their own native fixtures.
+  # Setup first waits for the native CLI to answer a public read. This
+  # fixture fakes Docker/native execution only; other native commands fail.
   if [ "$1" = exec ] && [ "$2" = -T ] && [ "$3" = --user ]; then
-   input=$(cat)
-   case "$input" in
-    *REPOKIT_DISPATCH=prepared*) printf 'REPOKIT_DISPATCH=prepared\n'; exit 0;;
+   case "$*" in
+    *' config get '*) printf 'false\n'; exit 0;;
     *) exit 4;;
    esac
   fi
