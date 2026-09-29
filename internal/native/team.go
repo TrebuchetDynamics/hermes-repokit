@@ -175,6 +175,10 @@ func inspectRole(run teamCLI, root *os.Root, role team.Role) (string, bool, erro
 			for _, field := range DispatchPolicy() {
 				fields["kanban."+field.Key] = field.Value
 			}
+		} else if ok && UpgradablePolicy(kanban) {
+			for _, field := range sixRoleDispatchPolicy() {
+				fields["kanban."+field.Key] = field.Value
+			}
 		}
 	}
 	for key, want := range fields {
@@ -208,7 +212,26 @@ func teamScript(id target.Identity, afterSetup bool, run teamCLI, root *os.Root)
 	if err != nil {
 		return "", "", nil, err
 	}
+	upgrade := false
 	if dispatch == true {
+		value, err := configValue(run, "default", "kanban")
+		if err != nil {
+			return "", "", nil, err
+		}
+		kanban, _ := value.(map[string]any)
+		// The six-profile release's exact policy is reprovisioned below so it
+		// gains tester and the current SOULs; activation then widens dispatch.
+		upgrade = UpgradablePolicy(kanban)
+		if upgrade {
+			// Rewriting SOULs never happens under a live worker.
+			if busy, err := runningWork(run); err != nil || busy {
+				return "", "", nil, errors.New("a card is running or Kanban is unreadable; the six-profile team upgrade waits for idle workers")
+			}
+			guard += "# Refuse under the lock if work started since Go observed the board.\n" +
+				"if hermes -p default kanban stats --json | grep -q '\"running\"'; then exit 3; fi\n"
+		}
+	}
+	if dispatch == true && !upgrade {
 		// An operational team is observed, not reprovisioned. Only default's
 		// own channel tools are completed so every channel can reach Kanban.
 		drift := []string{}
@@ -350,6 +373,11 @@ func teamScript(id target.Identity, afterSetup bool, run teamCLI, root *os.Root)
 				return "", "", nil, e
 			}
 			if ok {
+				// A managed profile from an earlier generation is upgraded in
+				// place; its description and configuration already match.
+				if prior != role.Soul {
+					script += soulWrite(role.Name, role.Soul)
+				}
 				script += trust
 				continue
 			}

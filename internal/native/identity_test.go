@@ -12,11 +12,13 @@ import (
 func TestManagedSoulsPreserveExactRepositoryMigrationSources(t *testing.T) {
 	id := target.Identity{Name: "atlas", Project: "repokit-123"}
 	roles := team.ForRepository(id)
-	if len(roles) != 6 {
+	if len(roles) != 7 {
 		t.Fatalf("roles=%d", len(roles))
 	}
 	for _, role := range roles {
-		if !strings.Contains(role.Soul, "repokit-123") || !matchingSoul(role.LegacySoul, role) || !matchingSoul(role.PreviousRepositorySoul, role) {
+		// tester postdates every historical generation and has none to match.
+		historical := role.Name == "tester" || matchingSoul(role.LegacySoul, role) && matchingSoul(role.PreviousRepositorySoul, role)
+		if !strings.Contains(role.Soul, "repokit-123") || !historical {
 			t.Fatalf("%s lost exact migration source", role.Name)
 		}
 		if matchingSoul(role.Soul+"\nowner change", role) {

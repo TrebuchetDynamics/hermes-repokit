@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="depTitle depDesc">
   <title id="depTitle">What RepoKit leaves behind: a private .hermes directory beside one Compose-owned Hermes container</title>
-  <desc id="depDesc">The installer writes a private .hermes directory (Compose file, launcher, config, development image, memory data, gitignore) and one Hermes container supervised by s6, running a default gateway, six native profiles, a shared Kanban board and embedded memory on loopback with no published host ports.</desc>
+  <desc id="depDesc">The installer writes a private .hermes directory (Compose file, launcher, config, development image, memory data, gitignore) and one Hermes container supervised by s6, running a default gateway, seven native profiles, a shared Kanban board and embedded memory on loopback with no published host ports.</desc>
 
   <rect width="1200" height="520" rx="24" fill="#0A0D0F"/>
   <rect x="0.5" y="0.5" width="1199" height="519" rx="23.5" fill="none" stroke="#1E2A31"/>
@@ -40,20 +40,22 @@
     <rect x="516" y="168" width="604" height="30" rx="8" fill="#172128" stroke="#26333B"/>
     <text x="532" y="188" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#F0B24A">s6 supervisor — starts and drains the local services</text>
 
-    <text x="516" y="224" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#7F909C">Six permanent native profiles</text>
+    <text x="516" y="224" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#7F909C">Seven permanent native profiles</text>
     <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="#E8EEF2" text-anchor="middle">
-      <rect x="516" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
-      <text x="563" y="253">default</text>
-      <rect x="618" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
-      <text x="665" y="253">researcher</text>
-      <rect x="720" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
-      <text x="767" y="253">planner</text>
-      <rect x="822" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
-      <text x="869" y="253">executor</text>
-      <rect x="924" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
-      <text x="971" y="253">reviewer</text>
-      <rect x="1026" y="234" width="94" height="30" rx="8" fill="#172128" stroke="#26333B"/>
-      <text x="1073" y="253">steward</text>
+      <rect x="516" y="234" width="80" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="556" y="253">default</text>
+      <rect x="603.3" y="234" width="80" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="643.3" y="253">researcher</text>
+      <rect x="690.7" y="234" width="80" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="730.7" y="253">planner</text>
+      <rect x="778" y="234" width="80" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="818" y="253">executor</text>
+      <rect x="865.3" y="234" width="80" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="905.3" y="253">tester</text>
+      <rect x="952.7" y="234" width="80" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="992.7" y="253">reviewer</text>
+      <rect x="1040" y="234" width="80" height="30" rx="8" fill="#172128" stroke="#26333B"/>
+      <text x="1080" y="253">steward</text>
     </g>
 
     <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13">

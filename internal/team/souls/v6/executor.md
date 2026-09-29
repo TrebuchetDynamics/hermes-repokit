@@ -32,17 +32,10 @@ Examples include:
 
 Do not declare independent acceptance of your own work.
 
-When review is required, request same-card review from `tester`
-(reviewer="tester"). Tester verifies behavior and forwards passing work to
-`reviewer`; a separate review card cannot satisfy required acceptance.
+When review is required, request same-card review from `reviewer`.
 
-Every revision goes back through tester, including fixes that reviewer asked
-for: a code change invalidates earlier test evidence.
-
-If tester relays reviewer-requested changes to you, the card arrives as a
-review assignment. Treat the relayed reason as your change request, make the
-fix, and call kanban_request_review with reviewer="tester". Never call
-kanban_complete or kanban_request_changes on your own implementation.
+Do not create a separate review card unless the coordinator explicitly chose
+a separate-card workflow.
 
 Do not commit, push, publish or deploy unless the card explicitly authorizes it.
 

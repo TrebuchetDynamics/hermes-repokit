@@ -23,7 +23,7 @@ func (a App) setupMemory(id target.Identity, dockerContext string, stdout, stder
 	}
 	for _, p := range verify.Profiles(id) {
 		if p.Status != verify.Healthy {
-			fmt.Fprintln(stderr, "Complete native default setup and reconcile the six-role scaffold before setup --memory.")
+			fmt.Fprintln(stderr, "Complete native default setup and reconcile the seven-role scaffold before setup --memory.")
 			return 1
 		}
 	}

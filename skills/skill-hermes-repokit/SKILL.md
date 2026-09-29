@@ -1,6 +1,6 @@
 ---
 name: skill-hermes-repokit
-description: Use when installing, resuming, verifying, migrating, or operating Hermes RepoKit in a repository, including the generated launcher, six-profile team, Kanban dispatch, embedded OpenViking, channel parity, and repository development runtime. Not for unrelated Hermes installations or developing RepoKit features.
+description: Use when installing, resuming, verifying, migrating, or operating Hermes RepoKit in a repository, including the generated launcher, seven-profile team, Kanban dispatch, embedded OpenViking, channel parity, and repository development runtime. Not for unrelated Hermes installations or developing RepoKit features.
 ---
 
 # Hermes RepoKit in repositories
@@ -13,14 +13,14 @@ launcher own runtime usage after bootstrap; RepoKit can then be removed.
 
 Report capabilities independently; container health is not component readiness:
 
-- **Core team:** Hermes, six profiles, shared Kanban, routing and dispatcher.
+- **Core team:** Hermes, seven profiles, shared Kanban, routing and dispatcher.
 - **Development runtime:** repository mounted at `/workspace` with its required toolchain.
 - **Memory:** embedded OpenViking, reported as healthy, degraded, pending or unknown.
 - **Channels:** CLI and configured human-facing adapters route to `default`.
 
 `verify` prints `CORE_READY`, `MEMORY_READY` and `FULL_READY` first. Core is
 `healthy` only when configuration, runtime, toolchain, dispatch policy, gateway and
-channel tools are healthy and native card history shows same-card executor→reviewer
+channel tools are healthy and native card history shows same-card executor→tester→reviewer
 completion; `unqualified` means configured but the loop is not yet observed.
 Passive verify never proves memory. End-to-end channel delivery still needs
 behavioral evidence.
@@ -73,8 +73,8 @@ versions differ. Do not assume `--version` or release binaries exist.
   isolated Docker acceptance daemon is test infrastructure, not another production runtime.
 - Coding readiness requires the target repository's toolchain inside `/workspace`;
   terminal/file tools alone are insufficient.
-- Permanent profiles: `default`, `researcher`, `planner`, `executor`, `reviewer`,
-  `steward`. Default coordinates; steward manages team evolution.
+- Permanent profiles: `default`, `researcher`, `planner`, `executor`, `tester`,
+  `reviewer`, `steward`. Default coordinates; steward manages team evolution.
 - Configured human-facing channels such as Telegram route to `default` and retain
   core repository-development, Kanban and memory capabilities expected from CLI.
   Setup owns parity; do not require manual per-channel Kanban enablement. Memory
@@ -87,7 +87,7 @@ versions differ. Do not assume `--version` or release binaries exist.
 install → dispatch off
 setup → team reconciled → native dispatch policy set → gateway restarted
 verify --dispatch-check (explicit, paid) → gateway claims no-write researcher card
-real task → executor → same-card reviewer → verify shows review evidence
+real task → executor → same-card tester → reviewer → verify shows review evidence
 ```
 
 Setup refuses while a card is running and preserves an owner-changed dispatch

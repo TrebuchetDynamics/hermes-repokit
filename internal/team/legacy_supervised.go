@@ -3,8 +3,8 @@ package team
 // Exact former managed policy bytes, used only to recognize safe SOUL migrations.
 // These policies are never installed by the current roster.
 func legacySupervisedRoster() []Role {
-	roles := Roster()
-	common, _ := souls.ReadFile("souls/common.md")
+	roles := sixRoleRoster()
+	common, _ := souls.ReadFile("souls/v6/common.md")
 	roles[5].Soul = string(common) + "\n" + legacySupervisedSteward
 	return roles
 }

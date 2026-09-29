@@ -69,7 +69,7 @@ func memorySetup(id target.Identity, dockerContext string, configured bool, run 
 	if code := run(compose("exec", "-T", "--user", "hermes", "hermes", "repokit-openviking", "health")); code != 0 {
 		return code
 	}
-	fmt.Fprintln(out, "Use Custom URL http://127.0.0.1:1933 and a normal user key for account repokit and this repository. Choose Mirror to OpenViking store to share the native connection with all six profiles.")
+	fmt.Fprintln(out, "Use Custom URL http://127.0.0.1:1933 and a normal user key for account repokit and this repository. Choose Mirror to OpenViking store to share the native connection with all seven profiles.")
 	if code := run(exec.Command(id.Launcher, "-p", "default", "memory", "setup", "openviking")); code != 0 {
 		return code
 	}

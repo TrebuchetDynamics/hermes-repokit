@@ -52,8 +52,8 @@ replacing runtime state. Installation does not automatically run a gateway.
 
 ## Team and Kanban work
 
-Talk to `default`; it coordinates `researcher`, `planner`, `executor`, `reviewer`,
-and `steward`. Use existing profiles and task-specific skills. Steward owns
+Talk to `default`; it coordinates `researcher`, `planner`, `executor`, `tester`,
+`reviewer` and `steward`. Use existing profiles and task-specific skills. Steward owns
 persistent specialist lifecycle; ordinary usage does not require new roles.
 Role SOUL boundaries are advisory, not operating-system isolation.
 
@@ -69,7 +69,9 @@ dispatch. Keep default responsible for the task graph and preserve queued work.
 Live channel notification and actual worker artifacts still require evidence.
 
 For independent review, inspect same-card execution history and artifacts:
-implementation actor `executor`, a different approval actor `reviewer`. Done status alone
+implementation actor `executor`, a later verification actor `tester` and a
+distinct approval actor `reviewer`. Reviewer-requested changes land on tester,
+which relays them to executor; the fix passes tester again. Done status alone
 is insufficient. Request changes only for a legitimate issue, never fabricate
 a rejection to satisfy a test. Do not commit or push generated work unless asked.
 
@@ -94,7 +96,7 @@ following behavioral results; perform them only within an authorized live test:
 | Automatic dispatch | Gateway claims a no-write researcher card and researcher completes it; no manual dispatch |
 | Development runtime | Target manifest requirements match available toolchain, `/workspace` and mount access |
 | Channels | Configured adapters route to default with CLI core capability parity; actual task/result delivery tested separately |
-| Same-card review | Real artifact review with distinct executor/reviewer run identities |
+| Same-card review | Real artifact review with distinct executor/tester/reviewer run identities |
 | Shared memory | Unique durable project fact written through OpenViking, recalled in another fresh profile/session, then recalled after restart |
 | Repository isolation | Normally configured second disposable repo cannot retrieve that fact; different user headers alone are insufficient |
 | Runtime independence | Remove only the test-owned bootstrap binary; launcher/native commands and raw Compose restart work with profiles, board and memory preserved |

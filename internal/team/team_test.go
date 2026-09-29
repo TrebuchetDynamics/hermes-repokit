@@ -7,10 +7,10 @@ import (
 
 func TestStableGenericRoster(t *testing.T) {
 	roles := Roster()
-	if len(roles) != 6 {
+	if len(roles) != 7 {
 		t.Fatalf("role count: %d", len(roles))
 	}
-	for i, name := range []string{"default", "researcher", "planner", "executor", "reviewer", "steward"} {
+	for i, name := range []string{"default", "researcher", "planner", "executor", "tester", "reviewer", "steward"} {
 		r := roles[i]
 		if r.Name != name || r.Description == "" {
 			t.Fatalf("role: %+v", r)
@@ -27,7 +27,7 @@ func TestStableGenericRoster(t *testing.T) {
 	if strings.Join(roles[0].Toolsets, ",") != "kanban,memory" {
 		t.Fatal("coordinator has implementation authority")
 	}
-	if !strings.Contains(roles[3].Soul, "same-card review") || !strings.Contains(roles[4].Soul, "Do not modify") {
+	if !strings.Contains(roles[3].Soul, "same-card review") || !strings.Contains(roles[5].Soul, "Do not modify") || !strings.Contains(roles[4].Soul, "must not modify") {
 		t.Fatal("missing review boundary")
 	}
 }
@@ -35,7 +35,7 @@ func TestStableGenericRoster(t *testing.T) {
 func TestStewardOwnsLifecycleAndDefaultOwnsConversation(t *testing.T) {
 	roles := Roster()
 	for _, text := range []string{"Skills first", "Never attempt to delete", "explicit user authorization", "retire", "OpenViking"} {
-		if !strings.Contains(roles[5].Soul, text) {
+		if !strings.Contains(roles[6].Soul, text) {
 			t.Errorf("steward missing %s", text)
 		}
 	}
@@ -56,5 +56,12 @@ func TestExecutorHasNativeCodingToolsWithoutOrchestratorKanban(t *testing.T) {
 	}
 	if strings.Contains(tools, ",kanban,") {
 		t.Fatal("worker has persistent orchestrator tools")
+	}
+}
+
+func TestTesterCannotEditRepositoryFiles(t *testing.T) {
+	role := Roster()[4]
+	if role.Name != "tester" || strings.Join(role.Toolsets, ",") != "terminal,memory" {
+		t.Fatalf("tester tools: %+v", role)
 	}
 }

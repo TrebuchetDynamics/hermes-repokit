@@ -132,7 +132,7 @@ inspected rather than recreated. Local Hermes memory remains enabled; native
 OpenViking extraction/synchronization is intended behavior. Doctor may call the
 configured providers; `verify` does not.
 
-Core setup reconciles the six profiles, then sets the native dispatch policy and
+Core setup reconciles the seven profiles, then sets the native dispatch policy and
 restarts the gateway. It does not prove a worker ran: use the explicit
 `verify --dispatch-check` (no-write researcher card, `metadata.first_line` must
 equal the README's first line) or real reviewed work.

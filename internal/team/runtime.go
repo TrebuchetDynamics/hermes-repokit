@@ -6,8 +6,8 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
-// runtimeContract is deliberately applied after the historical SOUL builders.
-// Changing those builders would invalidate exact-match ownership migrations.
+// runtimeContract binds every role to the container runtime and the same-card
+// executor -> tester -> reviewer acceptance chain.
 func runtimeContract(id target.Identity, role string) string {
 	contract := fmt.Sprintf(`# Runtime and acceptance contract
 
@@ -59,11 +59,15 @@ and the evidence satisfies that contract. Completing that diagnosis does not
 complete or approve the underlying repair. Repeated blocker reports without
 new evidence or a changed outcome are not repository improvements.
 
-When independent review is required, call native kanban_request_review with
-reviewer="reviewer" on the SAME assigned card after producing the artifact and
-verification evidence. The distinct reviewer owns acceptance through that
-card's native review lifecycle. A separate review card, coordinator approval,
-or kanban_complete cannot substitute for required same-card review.
+When independent review is required, the implementer calls native
+kanban_request_review with reviewer="tester" on the SAME assigned card after
+producing the artifact and verification evidence. Tester proves behavior and
+forwards passing work with reviewer="reviewer"; the distinct reviewer owns
+acceptance through that card's native review lifecycle. Every revision passes
+tester again before reviewer approval. When reviewer requests changes, Hermes
+returns the card to tester, which relays it unchanged to the implementer. A
+separate review or QA card, coordinator approval, or kanban_complete cannot
+substitute for required same-card verification and review.
 
 `, id.Name)
 	switch role {
@@ -75,15 +79,19 @@ acceptance and verification to the assignee's actual capabilities. Planner has
 file and memory tools; it cannot run Git or list the Kanban board. Supply current
 Git and board facts with their source and freshness in the planning handoff,
 or route those inspections to a tool-capable profile first. Researcher likewise
-has file/web/memory, not terminal capability. Do not assign shell verification
-to a profile that cannot execute it, or widen tools merely to hide bad routing.
+has file/web/memory, not terminal capability. Tester has terminal and memory
+but no file-editing tools and never modifies the repository. Do not assign shell
+verification to a profile that cannot execute it, or widen tools merely to hide
+bad routing.
 
 After a blocker, inspect the evidence and remaining authorized work. Resolve
 the dependency through a capable role, select a feasible bounded improvement,
 or report the precise owner input needed if nothing can proceed. Do not keep
 dispatching the same infeasible task or count repeated diagnoses as progress.
-Review requests must use kanban_request_review with reviewer="reviewer" on the
-implementation card. Verify native review state before reporting acceptance.
+Implementation cards request review with reviewer="tester"; tester forwards
+passing work to reviewer. Before reporting acceptance, verify native review state
+and run history: after the latest implementation run, a tester run handed the
+card to reviewer and reviewer completed it, with three distinct profiles.
 
 `
 	case "planner":
@@ -95,6 +103,17 @@ artifacts; identify their freshness and any uncertainty. If a required fact is
 missing, request a tool-capable inspection through default and block the card
 with the appropriate kind when its acceptance cannot be fulfilled. Do not
 invent command results or try to bypass the boundary through file tools.
+
+`
+	case "tester":
+		contract += `## Behavioral verification boundary
+
+Your tools are terminal and memory. Use the terminal to read, build, test and
+probe; never to write, patch, move, format, stage or commit repository files.
+Probes live under /tmp. Verify runtime claims against the container-local
+capabilities above rather than inferring health from Docker or PATH alone.
+Forward only passing work to reviewer; request changes otherwise. Never approve
+or complete an implementation card.
 
 `
 	case "reviewer":
@@ -110,7 +129,8 @@ A blocked implementation report is not an accepted implementation. If required
 acceptance remains unmet, request changes on the same card or use kanban_block
 for a capability/input blocker; do not approve merely because the explanation
 is plausible. A diagnosis may satisfy a diagnostic-only card, but cannot be used
-to accept a repair or verification card. Never implement the reviewed change.
+to accept a repair or verification card. Approval requires a tester pass after the
+latest implementation run. Never implement the reviewed change.
 
 `
 	}
