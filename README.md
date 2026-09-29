@@ -18,15 +18,23 @@ repository-specific container, six native profiles, a shared board and private
 memory state. After bootstrap, ordinary Compose and the generated launcher work
 without RepoKit installed.
 
+The [v1 architecture rule](docs/architecture.md) is: **RepoKit configures
+capabilities; it does not implement them.** Production bootstrap uses Go and
+public Hermes/OpenViking interfaces. A capability that those interfaces cannot
+safely establish remains unqualified.
+
 It is for repository owners who want a persistent, role-based team to work on
 code or other repository artifacts while keeping deployment state isolated from
 the application's own Compose stack. Go is the bootstrap implementation choice;
 the generated runtime is a pinned Hermes development image, not a Go service or
 a RepoKit daemon.
 
-> **Status · pre-v1.** The six-role team, shared memory and gateway activation are
-> implemented and tested offline; live model work, memory recall and independent
-> same-card review remain unqualified. See [remaining gates](#running-and-remaining-gates).
+> **Status · pre-v1.** Live dogfood proved the core loop: a Telegram request to
+> `default` was executed by `executor`, approved by `reviewer` on the same card and
+> reported back to the same chat, and the team kept working after `docker restart`.
+> The same loop passed on a fresh clone of an unrelated Go repository. Memory
+> recall remains open. See
+> [remaining gates](#running-and-remaining-gates).
 
 ## Quickstart
 
@@ -40,7 +48,7 @@ hermes-repokit install   # publish Compose, launcher, host command and private s
 # run the printed Compose build/start command
 hermes-repokit install   # initialize native Kanban after the runtime is running
 hermes-repokit setup     # private provider, team, memory and activation
-hermes-repokit verify    # read-only health and gate report
+hermes-repokit verify    # observational CORE/MEMORY/FULL readiness report
 hermes-my-project        # native Hermes CLI as default, when ~/.local/bin is on PATH
 ```
 
@@ -72,9 +80,8 @@ preserves history, and deletion needs explicit approval. See the
 
 Profiles are persistent identities, not necessarily running workers. The native
 gateway dispatcher is off on a fresh install; successful setup enables the
-configured single default dispatcher only after readiness checks and a real
-no-write researcher canary. RepoKit does not run as a supervisor or mediate
-ongoing agent work.
+single default dispatcher through native configuration and one gateway restart.
+RepoKit does not run as a supervisor or mediate ongoing agent work.
 
 ## What it leaves behind
 
@@ -100,15 +107,20 @@ own `.hermes/compose.yaml` and project namespace, with explicit file/context rou
 
 ## Running and remaining gates
 
-Fresh installs keep dispatch off. Setup enables one `default` gateway dispatcher
-(automatic review, concurrency one, no auto-decomposition) only after native
-core readiness and a real no-write researcher canary. OpenViking readiness is
-reported separately and does not block core work. Live Telegram delivery and
-same-card review remain separate acceptance gates.
+Fresh installs keep dispatch off. After the six profiles reconcile, setup writes
+the native Kanban policy on `default` (automatic review, concurrency one, no
+auto-decomposition, six-profile allowlist) with `hermes config set` and restarts
+the gateway once. It refuses while a card is running, preserves an owner-changed
+policy and never claims a worker ran. OpenViking never blocks core work.
 
-`verify` is read-only: it observes artifacts, native configuration and bounded health
-responses, and never runs models, dispatches tasks or writes memory. Memory `active`
-means the six bindings authenticate, not that recall or extraction works.
+`verify` is observational and leads with `CORE_READY`, `MEMORY_READY` and
+`FULL_READY`. Core is `healthy` only when configuration, runtime, worker-shell
+toolchain, dispatch policy, gateway and per-channel tools are healthy and native
+card history shows same-card executor→reviewer completion; otherwise
+`unqualified` (not yet exercised) or `degraded`. It exits 0 unless core is
+degraded. `verify --dispatch-check` is the explicit, paid proof: one no-write
+researcher card must be claimed and completed by the gateway without manual
+dispatch.
 
 `verify --memory-check` currently returns a structured `unsupported` report and
 exit code 1 **before runtime access or writes**. It does not run a canary: the
@@ -119,7 +131,7 @@ Write, extraction, both recall checks and cleanup remain individually
 | Area | Remaining evidence |
 | --- | --- |
 | Embedded memory | Live write/recall, restart persistence and cross-repository denial |
-| Team work | Real executor/reviewer correction cycle and channel delivery |
+| Team work | Reviewer request-changes correction cycle |
 | Runtime independence | Removal-first acceptance with real work and memory |
 | Optional plugins | Native scanner admission and owner configuration |
 

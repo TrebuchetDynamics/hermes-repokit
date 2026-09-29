@@ -69,10 +69,21 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 	if priorID.Container != id.Container {
 		priorLauncher = priorID.Container
 	}
-	oldRecipe, err := development.LegacyRecipe(report.Development)
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-		return 1
+	// Any older generated recipe self-certifies through its fingerprint label;
+	// an owner-edited recipe does not and is never upgraded. An interrupted
+	// upgrade is recognized from the exact recipe copy saved beside its backup.
+	type olderRecipe struct {
+		files       map[string][]byte
+		fingerprint string
+	}
+	var olderRecipes []olderRecipe
+	candidates := []string{filepath.Join(id.Root, ".hermes", "development-image")}
+	saved, _ := filepath.Glob(filepath.Join(id.Root, ".hermes", "compose.before-*.development-image"))
+	for _, dir := range append(candidates, saved...) {
+		files, fingerprint, ok := development.ReadGeneratedRecipe(dir)
+		if ok && fingerprint != development.Fingerprint(report.Development) {
+			olderRecipes = append(olderRecipes, olderRecipe{files, fingerprint})
+		}
 	}
 	for _, memory := range []string{"", projectmemory.Image} {
 		for _, tests := range []bool{false, true} {
@@ -81,13 +92,21 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 			}
 			for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
 				opts := compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: memory, Development: &report.Development, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
-				old, err := compose.LegacyDevelopment(id, opts)
-				if err != nil {
-					fmt.Fprintln(stderr, err)
-					return 1
+				for _, older := range olderRecipes {
+					old, err := compose.LegacyDevelopment(id, opts, older.fingerprint)
+					if err != nil {
+						fmt.Fprintln(stderr, err)
+						return 1
+					}
+					previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-path.yaml", PreviousRecipe: older.files, PreviousLauncher: priorLauncher})
+					old, err = compose.OlderRecipe(id, opts, older.fingerprint)
+					if err != nil {
+						fmt.Fprintln(stderr, err)
+						return 1
+					}
+					previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-recipe-" + older.fingerprint[:12] + ".yaml", PreviousRecipe: older.files})
 				}
-				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-path.yaml", PreviousRecipe: oldRecipe, PreviousLauncher: priorLauncher})
-				old, err = compose.PreviousNames(id, opts)
+				old, err := compose.PreviousNames(id, opts)
 				if err != nil {
 					fmt.Fprintln(stderr, err)
 					return 1

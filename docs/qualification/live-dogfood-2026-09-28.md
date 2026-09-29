@@ -88,3 +88,55 @@ contributor validation; it is not an installation prerequisite.
 
 These fixtures are credential-free and do not replace the live researcher evidence
 above. Concurrent SELinux work in the main checkout was excluded from this delivery.
+
+## Recipe upgrade and restart (2026-09-29)
+
+Before migration: native `hermes backup` (594 MB), a consistent Kanban copy (20
+cards) and the generated files were saved; no card was running. `install`
+recognized the older generated recipe by its self-certifying fingerprint, saved
+`compose.before-recipe-3033add1f051.yaml` and the exact old recipe beside it,
+removed the obsolete entrypoint patch file and published the new recipe. The
+printed Compose command rebuilt `repokit/hermes-repokit:3fb6500b99fc07711dcd3ef3`
+and recreated the one container. A second `install` reconciled all six profiles
+without drift and left the operational dispatch policy and gateway untouched.
+
+Afterwards the six SOUL/description/config files and all 20 cards (id, status,
+assignee) were unchanged; the dispatch policy was intact; `hermes-repokit` ran
+from `/tmp`. The native main-wrapper re-registered the s6 gateway services: the
+default gateway was running about 5 seconds after recreation and again after
+`docker restart`. `verify` then reported `CORE_READY` healthy (same-card review
+evidence `t_b170ab94`) and `MEMORY_READY` inactive (OpenViking not configured).
+
+`verify --dispatch-check` on the restarted gateway passed in 80 seconds: card
+`t_ee305797` went created → claimed → spawned → completed → archived with no
+manual dispatch; the researcher returned the exact README first line with
+`changed_files: []`. Telegram round-trip delivery was not exercised.
+
+## Telegram round trip and restart (2026-09-29)
+
+A bounded documentation task was sent from the owner's phone to the default
+bot in a fresh `/new` session. All times UTC; no manual dispatch or CLI step.
+
+| Time | Evidence |
+| --- | --- |
+| 18:44:58 | Telegram message received by `default` |
+| 18:45:23 | `default` created card `t_6641c2b0` for `executor`, preserving the task's bounds |
+| 18:45:43 | Gateway dispatched `executor` |
+| 18:46:20 | Executor changed only the requested paragraph of `docs/implementation-progress.md`, reported `git diff --check` and `go test ./...` passing, and requested same-card review |
+| 18:46:36 | Review-handoff notification sent to the originating chat |
+| 18:46:39 | Gateway dispatched `reviewer` on the same card |
+| 18:47:16 | Reviewer independently re-ran both checks, made no edits and approved |
+| 18:47:22 | Completion woke `default`; result sent to the originating chat |
+
+The owner confirmed both messages arrived in the same chat. The other
+uncommitted working-tree paths were unchanged (checksums compared).
+
+After `docker restart`, the default gateway was running within about 5 seconds
+and the Telegram adapter re-registered its commands. All 22 cards (id, status,
+assignee) matched a consistent pre-restart copy; the dispatch policy was intact;
+`verify` reported `CORE_READY` healthy citing `t_6641c2b0`; and a new
+`verify --dispatch-check` completed researcher card `t_e8f4e070`.
+
+Not exercised: a reviewer request-changes correction cycle, a vague request
+("Improve readme" produced a reply but no card; the conversation was not
+inspected), a fresh unrelated repository, and shared memory.

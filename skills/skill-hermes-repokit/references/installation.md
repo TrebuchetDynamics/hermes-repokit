@@ -132,11 +132,10 @@ inspected rather than recreated. Local Hermes memory remains enabled; native
 OpenViking extraction/synchronization is intended behavior. Doctor may call the
 configured providers; `verify` does not.
 
-Successful core setup requires native provider/profile/tool readiness, the target
-repository's development toolchain, routing and real gateway dispatch evidence.
-Setup must create a no-write researcher card, let the gateway claim it without
-manual dispatch, and observe researcher completion. Use the selected native card
-contract; the current README-title canary uses `NO_MARKDOWN_TITLE` when appropriate.
+Core setup reconciles the six profiles, then sets the native dispatch policy and
+restarts the gateway. It does not prove a worker ran: use the explicit
+`verify --dispatch-check` (no-write researcher card, `metadata.first_line` must
+equal the README's first line) or real reviewed work.
 Only then report automatic execution/review operational. Active/finalizing workers defer setup;
 queued work is preserved. Optional plugins remain owner-managed through native
 admission. Respect scanner refusal and preserve existing plugin choices.
@@ -150,7 +149,7 @@ execution available; do not change providers, disable dispatch or demand memory
 credentials merely to clear a warning.
 
 Check the selected revision's actual setup order and activation checks. A version
-that aborts before the canary when memory fails does not implement this contract.
+that blocks dispatch activation when memory fails does not implement this contract.
 Report dispatch as blocked by that implementation/version and memory separately.
 It needs a source-level decoupling or a compatible revision, not a manual config
 bypass, one-shot dispatch or a fabricated `CORE_READY`. An operating request alone

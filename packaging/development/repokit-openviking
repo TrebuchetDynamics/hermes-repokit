@@ -23,32 +23,20 @@ case "${1:-}" in
         cd /opt/data/openviking
         exec /app/.venv/bin/openviking-server "$@"
         ;;
-    python)
-        shift
-        exec /app/.venv/bin/python "$@"
-        ;;
     health)
         # /health is observational; /ready may invoke paid embeddings.
-        exec /app/.venv/bin/python -I -c '
-import json, urllib.request
-try:
-    class NoRedirect(urllib.request.HTTPRedirectHandler):
-        def redirect_request(self, *args, **kwargs): return None
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-    with opener.open("http://127.0.0.1:1933/health", timeout=3) as response:
-        data = response.read(4097)
-        assert response.status == 200 and len(data) <= 4096
-        assert json.loads(data).get("status") == "ok"
-    print("healthy")
-except Exception:
-    print("degraded")
-    raise SystemExit(1)
-'
+        if /usr/bin/curl --fail --silent --show-error --max-time 3 --max-filesize 4096 --noproxy '*' \
+            http://127.0.0.1:1933/health | /usr/bin/jq -e '.status == "ok"' >/dev/null; then
+            printf 'healthy\n'
+        else
+            printf 'degraded\n'
+            exit 1
+        fi
         ;;
     restart)
         # Restart only memory, never the gateway or its active workers.
         s6-svc -wD -T 15000 -d /run/service/repokit-openviking
         exec s6-svc -wu -T 15000 -u /run/service/repokit-openviking
         ;;
-    *) echo 'Usage: repokit-openviking {server|python|health|restart}' >&2; exit 2 ;;
+    *) echo 'Usage: repokit-openviking {server|health|restart}' >&2; exit 2 ;;
 esac

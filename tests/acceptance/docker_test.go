@@ -25,9 +25,6 @@ import (
 //go:embed fixtures/team_lifecycle.py
 var teamLifecycle string
 
-//go:embed fixtures/memory_link.py
-var memoryLinkFixture string
-
 // This proves credential-free foundation behavior only. It is deliberately not
 // named the removal-first release gate: no paid chat, review or memory is faked.
 func TestDockerFoundation(t *testing.T) {
@@ -80,8 +77,10 @@ func TestDockerFoundation(t *testing.T) {
 		cmd.Dir = root
 		cmd.Env = append(installerEnv, "DOCKER_CONTEXT="+dc)
 		out, err := cmd.CombinedOutput()
-		if err == nil || !strings.Contains(string(out), "Native state saved; gateway convergence incomplete.") || strings.Contains(string(out), "Dispatch operational:") {
-			t.Fatalf("expected unqualified core convergence for %v: %v %s", command, err, out)
+		// No gateway runs in this credential-free fixture: setup configures the
+		// native dispatch policy but must not start the gateway or claim work ran.
+		if err != nil || !strings.Contains(string(out), "default gateway is not running") || !strings.Contains(string(out), "No worker has been exercised") {
+			t.Fatalf("expected configured dispatch with a stopped gateway for %v: %v %s", command, err, out)
 		}
 	}
 	// An independent owner stack must remain untouched throughout installation,
@@ -251,41 +250,27 @@ func TestDockerFoundation(t *testing.T) {
 	if verifyErr == nil || json.Unmarshal(output, &probes) != nil {
 		t.Fatalf("full acceptance falsely certified: %v %s", verifyErr, output)
 	}
-	pendingCore := map[string]struct{}{
-		"kanban:dispatch-live":     {},
-		"kanban:dispatcher-canary": {},
-	}
+	seen := map[string]bool{}
 	for _, p := range probes {
-		delete(pendingCore, p.Component)
-		pending := map[string]verify.Status{
-			"kanban:dispatch":            verify.Inactive,
-			"kanban:dispatch-configured": verify.Inactive,
-			"kanban:dispatch-live":       verify.Inactive,
-			"kanban:dispatch-policy":     verify.Degraded,
-			"kanban:dispatcher-canary":   verify.Unqualified,
-			"gateway-inputs":             verify.Unknown,
-			"maintenance:live":           verify.Unqualified,
-			"channel:cli:route":          verify.Unknown,
-			"channel:cli:authorization":  verify.Unqualified,
-			"memory:default:fallback":    verify.Inactive,
+		seen[p.Component] = true
+		expected := map[string]verify.Status{
+			"CORE_READY":              verify.Degraded, // gateway stopped
+			"MEMORY_READY":            verify.Inactive,
+			"FULL_READY":              verify.Degraded,
+			"gateway":                 verify.Inactive,
+			"review:evidence":         verify.Unqualified,
+			"development_environment": verify.Unqualified,
 		}
-		if want, ok := pending[p.Component]; ok {
+		if want, ok := expected[p.Component]; ok {
 			if p.Status != want {
 				t.Fatalf("credential-free boundary: %+v; want %s", p, want)
 			}
-			continue
-		}
-		if p.Component == "gateway-generation" {
-			if p.Status != verify.Inactive {
-				t.Fatalf("unexpected gateway: %+v", p)
+			if p.Component == "CORE_READY" && p.Detail != "not ready: gateway" {
+				t.Fatalf("core must be blocked only by the stopped gateway: %+v", p)
 			}
 			continue
 		}
-
-		if strings.HasPrefix(p.Component, "openviking") || p.Component == "memory" || p.Component == "review" {
-			// Embedded-runtime packaging/identity is independent of memory
-			// acceptance; only the live memory and review surfaces must stay
-			// uncertified without private setup.
+		if strings.HasPrefix(p.Component, "openviking") || p.Component == "memory" {
 			if (p.Status == verify.Healthy || p.Status == verify.Active) && p.Component != "openviking-container" {
 				t.Fatal("integration falsely certified")
 			}
@@ -295,8 +280,10 @@ func TestDockerFoundation(t *testing.T) {
 			t.Fatalf("scaffold probe: %+v", p)
 		}
 	}
-	if len(pendingCore) != 0 {
-		t.Fatalf("missing credential-free core evidence: %v", pendingCore)
+	for _, required := range []string{"kanban:dispatch", "kanban:notifications", "channel:cli", "profile:default", "profile:reviewer"} {
+		if !seen[required] {
+			t.Fatalf("missing credential-free core evidence: %s", required)
+		}
 	}
 	for _, role := range team.ForRepository(id) {
 		dir := filepath.Join(root, ".hermes")
@@ -340,13 +327,6 @@ func TestDockerFoundation(t *testing.T) {
 			t.Fatal("role memory changed")
 		}
 	}
-	// Exercise the actual pinned native config setters and per-profile resolver.
-	// This fixture never contacts a memory service or claims authenticated recall.
-	memorySource, err := os.ReadFile("../../internal/native/memory.py")
-	if err != nil {
-		t.Fatal(err)
-	}
-	docker("exec", "-T", "--user", "hermes", "--env", "HOME=/opt/data", "hermes", "python", "-c", string(memorySource)+"\n"+memoryLinkFixture)
 	lifecycle := func(action, profile string) {
 		home := "/opt/data"
 		if profile != "default" {

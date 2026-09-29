@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var commands = [...]string{"plan", "install", "setup", "verify"}
@@ -43,7 +44,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "cannot resolve working directory")
 		return 1
 	}
-	return (App{Directory: dir, Path: os.Getenv("PATH"), Runner: process.Runner{}, Stdin: os.Stdin}).Run(args, stdout, stderr)
+	// Native CLI calls through docker exec start Python; 5s flaps under load.
+	return (App{Directory: dir, Path: os.Getenv("PATH"), Runner: process.Runner{Timeout: 30 * time.Second}, Stdin: os.Stdin}).Run(args, stdout, stderr)
 }
 func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 1 && (args[0] == "-h" || args[0] == "--help") {
@@ -60,8 +62,10 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	memorySetup := false
 	teamSetup := false
 	memoryCheck := false
+	dispatchCheck := false
 	if args[0] == "verify" {
 		flags.BoolVar(&memoryCheck, "memory-check", false, "report memory self-check qualification; unsupported lifecycles block before execution")
+		flags.BoolVar(&dispatchCheck, "dispatch-check", false, "create one researcher card and require automatic gateway completion")
 	}
 	if args[0] == "plan" || args[0] == "install" {
 		flags.BoolVar(&a.DockerTests, "docker-tests", false, "publish opt-in privileged isolated Docker acceptance service; never the host socket")
@@ -77,7 +81,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		usage(stdout)
 		return 0
 	}
-	if err != nil || flags.NArg() != 0 || (teamSetup && memorySetup) {
+	if err != nil || flags.NArg() != 0 || (teamSetup && memorySetup) || (memoryCheck && dispatchCheck) {
 		return usageError(stderr)
 	}
 	for _, arg := range args[1:] {
@@ -92,6 +96,9 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		return 1
+	}
+	if dispatchCheck {
+		return a.dispatchCheck(stdout)
 	}
 	id, err := target.Resolve(a.Directory)
 	if err != nil {
@@ -142,9 +149,6 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			// Optional memory must not suspend a running core dispatcher.
 			return a.finishSetup(id, dockerContext, a.setupMemory(id, dockerContext, stdout, stderr), stdout, stderr)
 		}
-		if code := a.prepareDispatch(id, dockerContext, stderr); code != 0 {
-			return code
-		}
 		if teamSetup {
 			return a.finishSetup(id, dockerContext, a.initialize(id, dockerContext, true, stdout, stderr), stdout, stderr)
 		}
@@ -177,14 +181,14 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		probes = append(probes, verify.DefaultKanban(context.Background(), id, a.Runner)...)
 		probes = append(probes, verify.OpenViking(context.Background(), id, a.Runner)...)
 		probes = append(probes, verify.RuntimeIntegrations(context.Background(), id, a.Runner)...)
+		probes = append(probes, verify.ReviewEvidence(context.Background(), id, a.Runner))
 		probes = append(probes, verify.HostSecurity(context.Background(), id, a.Runner)...)
-		if err := json.NewEncoder(stdout).Encode(probes); err != nil {
+		readiness := verify.Readiness(probes)
+		if err := json.NewEncoder(stdout).Encode(append(readiness, probes...)); err != nil {
 			return 1
 		}
-		for _, p := range probes {
-			if p.Status != verify.Healthy && p.Status != verify.Active {
-				return 1
-			}
+		if !verify.CoreUsable(readiness) {
+			return 1
 		}
 		return 0
 	case "plan", "install":
@@ -321,6 +325,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify> [--engineering] [--help]")
 	fmt.Fprintln(w, "       hermes-repokit setup [--team|--memory]")
 	fmt.Fprintln(w, "       hermes-repokit verify [--memory-check] (self-check currently unsupported; no memory writes)")
+	fmt.Fprintln(w, "       hermes-repokit verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)")
 	fmt.Fprintln(w, "       hermes-repokit <plan|install> [--docker-tests]")
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }

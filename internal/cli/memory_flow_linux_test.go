@@ -16,7 +16,7 @@ func TestFullSetupActivatesCoreWhenMemoryStageFails(t *testing.T) {
 		t.Fatal(diag)
 	}
 	r.runtime = developmentRuntimeFixture(r.id)
-	input := &teamResumeInput{result: `REPOKIT_TEAM={"status":"configured","drift":[]}`}
+	input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10, team: `REPOKIT_TEAM={"status":"configured","drift":[]}`}
 	a.Initializer = input
 	terminal, err := os.OpenFile("/dev/ptmx", os.O_RDWR, 0600)
 	if err != nil {
@@ -37,7 +37,7 @@ func TestFullSetupActivatesCoreWhenMemoryStageFails(t *testing.T) {
 	var output bytes.Buffer
 	code := a.Run([]string{"setup"}, &output, &output)
 	out := output.String()
-	core := strings.Index(out, "Dispatch operational")
+	core := strings.Index(out, "Configured native automatic dispatch")
 	memory := strings.Index(out, "Complete native default setup")
 	if code == 0 || core < 0 || memory < core || !strings.Contains(out, "Optional memory setup incomplete") {
 		t.Fatalf("core must activate before optional memory, preserving its failure: code=%d out=%s", code, out)
@@ -50,7 +50,7 @@ func TestMemoryOnlyFailureDoesNotSuspendCoreDispatch(t *testing.T) {
 		t.Fatal(diag)
 	}
 	r.runtime = developmentRuntimeFixture(r.id)
-	input := &gatewayInput{state: "current"}
+	input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10}
 	a.Initializer = input
 	terminal, err := os.OpenFile("/dev/ptmx", os.O_RDWR, 0600)
 	if err != nil {

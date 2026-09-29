@@ -81,14 +81,7 @@ func TestDockerOpenVikingPending(t *testing.T) {
 		t.Fatal("OpenViking rendered as an independent service")
 	}
 	docker("up", "-d", "--build", "hermes")
-	probe := `import urllib.request, urllib.error
-try:
-    urllib.request.urlopen('http://127.0.0.1:1933/health', timeout=2)
-except urllib.error.HTTPError as e:
-    assert e.code == 503
-else:
-    raise AssertionError('unconfigured service claimed ready')
-`
+	probe := `[ "$(/usr/bin/curl --silent --output /dev/null --write-out '%{http_code}' --max-time 2 --noproxy '*' http://127.0.0.1:1933/health)" = 503 ]`
 	// The embedded service only starts after the base image's stage-2 hook has
 	// remapped the runtime user and prepared the data volume, so waiting for the
 	// pending endpoint also establishes that Hermes identity/mount setup is done.
@@ -96,7 +89,7 @@ else:
 		t.Helper()
 		deadline := time.Now().Add(60 * time.Second)
 		for {
-			args := append(append([]string{}, base...), "exec", "-T", "--user", "hermes", "hermes", "repokit-openviking", "python", "-c", probe)
+			args := append(append([]string{}, base...), "exec", "-T", "--user", "hermes", "hermes", "/bin/sh", "-c", probe)
 			if exec.CommandContext(ctx, "docker", args...).Run() == nil {
 				return
 			}
@@ -110,15 +103,8 @@ else:
 	if got := strings.TrimSpace(string(docker("exec", "-T", "--user", "hermes", "hermes", "id", "-u"))); got != strconv.Itoa(os.Getuid()) {
 		t.Fatalf("embedded process UID = %s", got)
 	}
-	// Qualify native init's path and writer without invoking its private wizard.
-	docker("exec", "-T", "--user", "hermes", "hermes", "repokit-openviking", "python", "-c", `from openviking_cli.setup_wizard import _config_path, _workspace_path
-assert str(_config_path()) == '/opt/data/openviking/ov.conf'
-assert _workspace_path() == '/opt/data/openviking/data'
-from pathlib import Path
-p = Path('/opt/data/openviking/persistence-fixture')
-p.write_text('nonsecret persistent fixture')
-p.chmod(0o600)
-`)
+	// Verify the private mount persists without invoking the native wizard.
+	docker("exec", "-T", "--user", "hermes", "hermes", "/bin/sh", "-c", `printf '%s' 'nonsecret persistent fixture' > /opt/data/openviking/persistence-fixture && chmod 600 /opt/data/openviking/persistence-fixture`)
 	install()
 	for _, p := range verify.OpenViking(ctx, id, process.Runner{}) {
 		if p.Component == "openviking-container" {
@@ -137,10 +123,7 @@ p.chmod(0o600)
 	removeInstaller()
 	docker("up", "-d", "--no-build", "--pull", "never", "--force-recreate", "hermes")
 	waitPending()
-	docker("exec", "-T", "--user", "hermes", "hermes", "repokit-openviking", "python", "-c", `from pathlib import Path
-assert Path('/opt/data/openviking/persistence-fixture').read_text() == 'nonsecret persistent fixture'
-assert not Path('/opt/data/openviking/ov.conf').exists()
-`)
+	docker("exec", "-T", "--user", "hermes", "hermes", "/bin/sh", "-c", `[ "$(cat /opt/data/openviking/persistence-fixture)" = 'nonsecret persistent fixture' ] && [ ! -e /opt/data/openviking/ov.conf ]`)
 	info, err := os.Stat(filepath.Join(root, ".hermes/openviking"))
 	if err != nil || info.Mode().Perm() != 0700 {
 		t.Fatal("memory directory is not private")
@@ -148,5 +131,5 @@ assert not Path('/opt/data/openviking/ov.conf').exists()
 	if _, err := os.Stat(installer); !os.IsNotExist(err) {
 		t.Fatal("installer survived removal")
 	}
-	t.Log("PASS: embedded pinned nonroot OpenViking pending server returns 503; native config/workspace paths use private mount; install rerun and Compose recreation preserve data after installer removal. Live memory remains unproven.")
+	t.Log("PASS: embedded pinned nonroot OpenViking pending server returns 503; install rerun and Compose recreation preserve private mount data after installer removal. Live memory remains unproven.")
 }

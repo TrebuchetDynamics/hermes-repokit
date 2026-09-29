@@ -40,50 +40,41 @@ entry point; it delegates team changes to steward. See the [team model](team-mod
 Plain `setup` activates the core team, then continues with optional private shared-memory setup. Failed steps
 preserve native state. Resume individual stages with `setup --team`,
 `setup --memory`; these flags are mutually exclusive.
-After a successful stage, RepoKit admits the bundled native maintenance plugin
-through Hermes's scanner and installer. Scanner refusal or edited plugin source
-stops activation. Team/default setup suspends an already operational dispatcher through native
-configuration and graceful restart before reconciliation; active workers defer
-setup, while queued cards are preserved. `setup --memory` does not suspend working
-dispatch; a failed memory stage retains its nonzero result without taking core work offline.
+Team reconciliation on an operational team (dispatch already on) observes and
+reports drift; it never rewrites profiles under live workers. It only completes
+`default`'s own Kanban/memory tools on saved channels. `setup --memory` never
+touches dispatch; a failed memory stage keeps its nonzero result without taking
+core work offline.
 
-Fresh installation keeps `dispatch_in_gateway=false`. Operational activation
-requires configured native provider/model resolution for all six profiles, current
-SOULs/descriptions and channel tools, initialized Kanban, default gateway routing,
-and the real researcher canary below. OpenViking is reported independently; core
-work can proceed with memory pending or degraded. Retry optional memory setup with
-`setup --memory` without repeating core-provider login.
+Fresh installation keeps `dispatch_in_gateway=false`. After the six profiles
+reconcile without drift, setup writes the native Kanban policy on `default` with
+`hermes config set`: `review_dispatch=true`, `max_in_progress=1`,
+`auto_decompose=false`, `orchestrator_profile=default`, the six-profile
+`dispatch_profiles` allowlist, and `dispatch_in_gateway=true` last. It then runs
+`hermes gateway restart` and waits for a new gateway PID in `gateway status`.
+Setup refuses (and leaves dispatch off) while any card is running. An
+already-matching policy is left untouched with no restart; an owner-changed
+policy is preserved and reported, never overwritten. A stopped gateway is not
+started by setup. OpenViking is reported independently and never gates core work.
 
-After the gates pass, the default gateway alone runs automatic execution and review:
-`dispatch_in_gateway=true`, `review_dispatch=true`, `auto_decompose=false`,
-`max_in_progress=1`, `orchestrator_profile=default`, and an explicit allowlist of
-all six permanent profiles. Specialists keep gateway dispatch off. Setup uses
-native gateway start/restart, checks the replacement process, its singleton lock
-and startup concurrency, and creates a no-write researcher canary. The gateway
-initially admits only researcher. It must claim the card and complete with the
-exact first physical README line in `metadata.first_line` and no changed files.
-An empty file or blank first line yields an empty string; only a missing README
-yields `README_MISSING`. Successful canaries are archived natively. After the
-worker exits and the gateway evidence is rechecked, setup releases the six-profile
-allowlist. Failure preserves native history and does not report readiness.
-No one-shot dispatch is used.
+Setup does not run a model or claim that a worker executed. Prove the loop with
+the explicit, paid `hermes-repokit verify --dispatch-check`: it creates one
+no-write researcher card, requires the running gateway to claim it within 150
+seconds without any manual dispatch, and accepts only a completed researcher run
+whose `metadata.first_line` equals the README's first physical line (computed by
+RepoKit) with no changed files. A passing card is archived; a failing card is
+preserved for inspection.
 
-An unchanged operational `install` rerun rechecks activation gates and reuses the
-current gateway/canary evidence; it does not restart or purchase another canary.
-After a failed canary, `setup --team` can retry without another provider login.
-Only an exact RepoKit canary with closed researcher runs and no dependencies can
-lead to a retry, under the native claim fence. Previous terminal cards are left
-untouched; retry keys follow their task IDs so an interrupted retry is reused
-after gateway replacement. Recovery checks at most 32 terminal predecessors.
-Owner-modified cards and active/finalizing workers stop recovery.
-
-`verify` is read-only and reports configured dispatch, live dispatch, policy and
-canary qualification separately. Config enabled with an old process or missing
-lock/startup evidence is stale and fails verification. Native emergency pause is
-preserved. A fresh Telegram conversation (`/new`) refreshes the coordinator SOUL
-and tools; native subscriptions and notification/wake return worker outcomes to
-the originating conversation. Actual Telegram delivery and independent same-card
-review still need live acceptance; a successful CLI canary cannot prove them.
+`verify` is observational. It uses public `hermes config get`, `gateway status`
+and `kanban list/show --json` and reports `CORE_READY`, `MEMORY_READY` and
+`FULL_READY` first. `CORE_READY` is `healthy` only when configuration, runtime,
+toolchain, dispatch policy, gateway and channel tools are healthy **and** a
+recent done card shows same-card review (an implementation run requesting review
+followed by a completed reviewer run). Without that evidence it is `unqualified`.
+`verify` exits 0 unless core is `degraded`. Passive verify never proves memory,
+so `MEMORY_READY` and `FULL_READY` are never `healthy` from it. A fresh
+Telegram conversation (`/new`) refreshes the coordinator's tools; actual
+originating-channel delivery is not observed by verify.
 
 Live main-model work and memory recall remain unqualified. The repository basename
 determines the full launcher/container name; collisions refuse rather than silently
@@ -123,11 +114,12 @@ launcher. Native `setup` configures Hermes; the bootstrap binary's `setup` also
 performs RepoKit team/integration reconciliation. The runtime must be started
 before use.
 
-In the `hermes-repokit` repository, the generated host command has the same name
-as the bootstrap binary. Invoke the bootstrap by its separate absolute path for
-`plan`, `install`, `setup --team`, or `verify`. RepoKit preserves an unrelated
-existing host executable and reports the collision; it never replaces the
-bootstrap binary with a launcher.
+In the `hermes-repokit` repository, the generated host command is
+`hermes-repokit`; the source-installed bootstrap is `repokit`. Use `repokit`
+for `plan`, `install`, `setup --team` and `verify`, and `hermes-repokit` for
+native Hermes commands. An independently built bootstrap named
+`hermes-repokit` still needs a separate absolute path. RepoKit preserves an
+unrelated existing host executable and reports the collision.
 
 For an exact earlier generated deployment, `install` saves the old Compose as
 `compose.before-names.yaml`, publishes the new launcher and image name, and leaves

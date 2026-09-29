@@ -1,11 +1,8 @@
 package team
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
-	"os/exec"
 	"reflect"
 	"testing"
 
@@ -36,18 +33,5 @@ func TestRuntimePolicyMigration(t *testing.T) {
 		if !reflect.DeepEqual(role.Toolsets, previous[i].Toolsets) {
 			t.Fatalf("%s runtime policy widened capabilities", role.Name)
 		}
-	}
-	payload, err := json.Marshal(map[string][]Role{"current": current, "previous": previous})
-	if err != nil {
-		t.Fatal(err)
-	}
-	python, err := exec.LookPath("python3")
-	if err != nil {
-		t.Skip("Python required for provisioning behavior test")
-	}
-	cmd := exec.Command(python, "-B", "testdata/runtime_migration.py")
-	cmd.Stdin = bytes.NewReader(payload)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("runtime SOUL provisioning: %v\n%s", err, output)
 	}
 }

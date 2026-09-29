@@ -2,7 +2,6 @@ package verify
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -11,9 +10,6 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
-
-//go:embed integrations_probe.py
-var integrationsProbe string
 
 const integrationInspect = `{"id":{{json .Id}},"status":{{json .State.Status}},"image":{{json .Config.Image}},"imageID":{{json .Image}},"mounts":{{json .Mounts}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"workspace":{{range .Mounts}}{{if eq .Destination "/workspace"}}{{json .Source}}{{end}}{{end}},"home":{{range .Mounts}}{{if eq .Destination "/opt/data"}}{{json .Source}}{{end}}{{end}},"unexpectedMounts":"{{range .Mounts}}{{if or (ne .Type "bind") (and (ne .Destination "/workspace") (ne .Destination "/opt/data"))}}x{{end}}{{end}}"}`
 
@@ -36,37 +32,19 @@ func integrationRuntime(ctx context.Context, id target.Identity, r Runner) (stri
 	return dc, s.ID, nil
 }
 
-// RuntimeIntegrations reads native configuration without importing Hermes,
-// discovering plugins, opening the board, or invoking any model. Active memory
-// requires matching native bindings and authenticated user identity from the
-// read-only /health endpoint; model-backed acceptance stays separate.
+// RuntimeIntegrations reports only what the pinned runtime and public service
+// checks establish. Configured memory identity and recall behavior require an
+// authenticated user-level operation, so passive verification does not certify
+// them from files or service health.
 func RuntimeIntegrations(ctx context.Context, id target.Identity, r Runner) []Probe {
-	memory := Probe{"memory", Unknown, "native memory configuration unavailable; runtime identity must match"}
-	dc, container, err := integrationRuntime(ctx, id, r)
-	if err == nil {
-		memoryService := "memory-service-unavailable"
+	memory := Probe{"memory", Unknown, "native memory identity and effective profile configuration unavailable"}
+	if _, _, err := integrationRuntime(ctx, id, r); err == nil {
+		memory = Probe{"memory", Unqualified, "pinned runtime observed; all-profile user identity, recall, extraction and persistence unqualified"}
 		for _, p := range OpenViking(ctx, id, r) {
-			if p.Component == "openviking-container" && p.Status == Healthy {
-				memoryService = "memory-service-matched"
-			}
-		}
-		result := r.Run(ctx, "docker", "--context", dc, "exec", "--user", "hermes", "--workdir", "/", container, "/opt/hermes/.venv/bin/python", "-I", "-B", "-c", integrationsProbe, "/opt/data", id.Project, memoryService)
-		var observed struct{ Memory string }
-		if result.Err == nil && !result.Truncated && json.Unmarshal([]byte(result.Output), &observed) == nil {
-			switch observed.Memory {
-			case "active":
-				memory = Probe{"memory", Active, "all six native profiles authenticate as the project user through read-only /health; recall, extraction and persistence acceptance unqualified"}
-			case "inactive":
-				memory = Probe{"memory", Inactive, "native OpenViking memory, user key or matching service is absent or disabled"}
-			case "degraded":
-				memory = Probe{"memory", Degraded, "native memory configuration, linked identity or profile override differs; private values withheld"}
+			if p.Component == "openviking-config" && p.Status == PendingSetup {
+				memory = Probe{"memory", Inactive, "native OpenViking configuration absent; run setup --memory"}
 			}
 		}
 	}
-	return []Probe{memory, {"review", Unqualified, "distinct-actor same-card review acceptance is not established by configuration or service health"}}
+	return []Probe{memory}
 }
-
-// IntegrationCheckSource lets mutating setup recheck the same passive policy
-// inside its writer lock. Execute in a separate namespace to isolate helpers;
-// __name__ must differ from __main__ so the CLI entry point is not invoked.
-func IntegrationCheckSource() string { return integrationsProbe }

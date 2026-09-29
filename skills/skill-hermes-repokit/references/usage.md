@@ -59,10 +59,10 @@ Role SOUL boundaries are advisory, not operating-system isolation.
 
 Fresh/incomplete installs keep dispatch off. Successful setup enables one default
 gateway dispatcher with automatic review, concurrency one and no automatic
-decomposition after core Hermes/team readiness and a researcher-canary pass.
-The canary is a no-write researcher card claimed by the gateway and observed
-through successful researcher completion; a manually dispatched card cannot pass
-this gate. OpenViking readiness is reported separately and does not gate core work.
+decomposition through native configuration and one gateway restart. Prove it
+with the explicit `verify --dispatch-check` (a no-write researcher card the
+gateway must claim without manual dispatch) or with real reviewed work.
+OpenViking readiness is reported separately and does not gate core work.
 Inspect configured and live dispatch separately before promising progress. If
 activation is incomplete, resume `setup --team`; do not bypass it with one-shot
 dispatch. Keep default responsible for the task graph and preserve queued work.
@@ -99,7 +99,7 @@ following behavioral results; perform them only within an authorized live test:
 | Repository isolation | Normally configured second disposable repo cannot retrieve that fact; different user headers alone are insufficient |
 | Runtime independence | Remove only the test-owned bootstrap binary; launcher/native commands and raw Compose restart work with profiles, board and memory preserved |
 
-Summarize the observed capabilities, for example after the core canary and channel
+Summarize the observed capabilities, for example after the dispatch check and channel
 checks passed but before private memory setup:
 
 ```text
@@ -113,8 +113,8 @@ readiness           CORE_READY
 
 `FULL_READY` adds authenticated OpenViking readiness. These summary labels do not
 replace raw component evidence or certify memory recall/isolation, independent
-review or removal-first acceptance. If dispatch is actually off, the canary never
-ran, a required compiler is missing or configured channels fail, report the core
+review or removal-first acceptance. If dispatch is actually off, the dispatch check
+never passed, a required compiler is missing or configured channels fail, report the core
 blocker instead of inferring readiness from a healthy container.
 
 For self-dogfood, preserve repository source. For a disposable release fixture,

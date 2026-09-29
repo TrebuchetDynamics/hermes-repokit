@@ -2,91 +2,114 @@ package verify
 
 import (
 	"context"
-	"fmt"
-	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 )
 
-func TestDefaultKanbanRequiresExplicitDispatchConfiguration(t *testing.T) {
-	for _, state := range []string{"missing", "invalid", ""} {
-		t.Run(state, func(t *testing.T) {
-			id, r := integrationFixture(t)
-			r.config = fmt.Sprintf(`{"kanban":{"fallback":"enabled"},"memory":{"fallback":"enabled"},"dispatch":%q}`, state)
-			probes := DefaultKanban(context.Background(), id, r)
-			p := probes[len(probes)-1]
-			if p.Component != "kanban:dispatch" || p.Status != Degraded {
-				t.Fatalf("dispatch drift not reported: %+v", probes)
+// hermesRunner answers public `hermes -p default ...` reads by suffix.
+type hermesRunner struct {
+	*integrationRunner
+	replies map[string]string
+}
+
+func (r *hermesRunner) Run(ctx context.Context, command string, args ...string) process.Result {
+	call := strings.Join(args, " ")
+	if strings.Contains(call, "/usr/local/bin/hermes -p default ") {
+		r.calls = append(r.calls, append([]string{command}, args...))
+		for suffix, reply := range r.replies {
+			if strings.HasSuffix(call, suffix) {
+				return process.Result{Output: reply}
 			}
-		})
-	}
-}
-
-func TestDefaultKanbanUnavailableReportsBothToolsetsAndDispatch(t *testing.T) {
-	id, r := integrationFixture(t)
-	r.config = `{"kanban":{"fallback":"enabled"}}`
-	probes := DefaultKanban(context.Background(), id, r)
-	if len(probes) != 3 {
-		t.Fatalf("missing failure probes: %+v", probes)
-	}
-	for i, name := range []string{"kanban:default", "memory:default", "kanban:dispatch"} {
-		if probes[i].Component != name || probes[i].Status != Unknown {
-			t.Fatalf("incomplete observation accepted: %+v", probes)
 		}
+		return process.Result{Err: context.DeadlineExceeded}
 	}
+	return r.integrationRunner.Run(ctx, command, args...)
 }
 
-func TestDefaultKanbanReportsPlatformDrift(t *testing.T) {
-	id, r := integrationFixture(t)
-	r.config = `{"kanban":{"fallback":"enabled","cli":"enabled","telegram":"missing","discord":"fallback"},"memory":{"fallback":"enabled","telegram":"missing","discord":"fallback"},"dispatch":"manual"}`
-	probes := DefaultKanban(context.Background(), id, r)
-	found := map[string]bool{}
+const operationalKanban = `{"dispatch_in_gateway":true,"review_dispatch":true,"max_in_progress":1,"auto_decompose":false,"orchestrator_profile":"default","dispatch_profiles":["default","researcher","planner","executor","reviewer","steward"],"auto_subscribe_on_create":true,"notify_in_gateway":true}`
+
+func status(probes []Probe, component string) Status {
 	for _, p := range probes {
-		if p.Component == "kanban:default:telegram" || p.Component == "memory:default:telegram" {
-			found[p.Component] = true
-			if p.Status != Degraded {
-				t.Fatal(p)
-			}
-		}
-		if p.Component == "kanban:dispatch" && p.Status == Inactive && strings.Contains(p.Detail, "dispatch_in_gateway=false") && strings.Contains(p.Detail, "bootstrap") {
-			found[p.Component] = true
+		if p.Component == component {
+			return p.Status
 		}
 	}
-	if len(found) != 3 {
-		t.Fatalf("missing Telegram drift: %+v", probes)
-	}
+	return ""
 }
 
-func TestDefaultKanbanReadOnlyFixture(t *testing.T) {
-	cmd := exec.Command("python3", "-B", "kanban_test.py")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("%v %s", err, out)
-	} else if !strings.Contains(string(out), "OK") {
-		t.Fatal(string(out))
-	}
-}
-
-func TestOptionalChannelsAndUnresolvedMemoryDoNotClaimFallbackHealth(t *testing.T) {
-	id, r := integrationFixture(t)
-	r.config = `{"kanban":{"fallback":"enabled","telegram":"not-configured","discord":"fallback"},"memory":{"fallback":"not-configured","telegram":"not-configured","discord":"unknown","slack":"fallback"},"dispatch":"manual"}`
+func TestKanbanObservesPolicyNotificationsAndChannelTools(t *testing.T) {
+	id, base := integrationFixture(t)
+	r := &hermesRunner{integrationRunner: base, replies: map[string]string{
+		"config get kanban --json":            operationalKanban,
+		"config get platform_toolsets --json": `{"cli":["kanban","memory","file"],"telegram":["file","terminal"],"api_server":["file"]}`,
+	}}
 	probes := DefaultKanban(context.Background(), id, r)
-	want := map[string]Status{
-		"kanban:default:telegram": Inactive,
-		"kanban:default:discord":  Healthy,
-		"memory:default:fallback": Inactive,
-		"memory:default:telegram": Inactive,
-		"memory:default:discord":  Unknown,
-		"memory:default:slack":    Unknown,
+	if status(probes, "kanban:dispatch") != Healthy || status(probes, "kanban:notifications") != Healthy ||
+		status(probes, "channel:cli") != Healthy || status(probes, "channel:telegram") != Degraded || status(probes, "channel:api_server") != "" {
+		t.Fatalf("%+v", probes)
 	}
-	for _, p := range probes {
-		if state, ok := want[p.Component]; ok {
-			if p.Status != state {
-				t.Fatalf("unsupported channel status: %+v; want %v", p, state)
-			}
-			delete(want, p.Component)
+	for _, call := range r.calls {
+		joined := strings.Join(call, " ")
+		if strings.Contains(joined, "python") || strings.Contains(joined, " set ") {
+			t.Fatalf("verify used a private or mutating command: %s", joined)
 		}
 	}
-	if len(want) != 0 {
-		t.Fatalf("missing observations: %+v", want)
+}
+
+func TestKanbanDistinguishesOffOwnerChangedAndUnreadable(t *testing.T) {
+	id, base := integrationFixture(t)
+	for reply, want := range map[string]Status{
+		`{"dispatch_in_gateway":false}`: Inactive,
+		`{}`:                            Inactive,
+		strings.Replace(operationalKanban, `"max_in_progress":1`, `"max_in_progress":4`, 1): Degraded,
+		`not json`: Unknown,
+	} {
+		r := &hermesRunner{integrationRunner: base, replies: map[string]string{"config get kanban --json": reply}}
+		if got := status(DefaultKanban(context.Background(), id, r), "kanban:dispatch"); got != want {
+			t.Fatalf("%s: got %s want %s", reply, got, want)
+		}
+	}
+}
+
+func TestGatewayAndReviewEvidenceFromPublicCLI(t *testing.T) {
+	id, base := integrationFixture(t)
+	r := &hermesRunner{integrationRunner: base, replies: map[string]string{
+		"gateway status": "✓ Gateway is running (PID: 9)",
+		"kanban list --status done --sort completed-desc --json": `[{"id":"t_a"},{"id":"t_b"}]`,
+		"kanban show t_a --json":                                 `{"runs":[{"profile":"executor","outcome":"completed"}]}`,
+		"kanban show t_b --json":                                 `{"runs":[{"profile":"executor","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]}`,
+	}}
+	if got := status(Gateway(context.Background(), id, r), "gateway"); got != Healthy {
+		t.Fatal(got)
+	}
+	if p := ReviewEvidence(context.Background(), id, r); p.Status != Healthy || !strings.Contains(p.Detail, "t_b") {
+		t.Fatal(p)
+	}
+	// A card completed by its implementer alone is not independent review.
+	r.replies["kanban list --status done --sort completed-desc --json"] = `[{"id":"t_a"}]`
+	r.replies["gateway status"] = "✗ Gateway is not running"
+	if p := ReviewEvidence(context.Background(), id, r); p.Status != Unqualified {
+		t.Fatal(p)
+	}
+	if got := status(Gateway(context.Background(), id, r), "gateway"); got != Inactive {
+		t.Fatal(got)
+	}
+}
+
+func TestReadinessSeparatesConfiguredFromProved(t *testing.T) {
+	healthy := []Probe{{"compose", Healthy, ""}, {"gateway", Healthy, ""}, {"kanban:dispatch", Healthy, ""}, {"development:go", Healthy, ""}, {"docker_acceptance", Inactive, ""}, {"memory", Inactive, ""}}
+	got := Readiness(append(healthy, Probe{"review:evidence", Unqualified, ""}))
+	if got[0].Status != Unqualified || got[1].Status != Inactive || got[2].Status != Unqualified || !CoreUsable(got) {
+		t.Fatalf("configured core must be usable but unproved: %+v", got)
+	}
+	got = Readiness(append(healthy, Probe{"review:evidence", Healthy, ""}))
+	if got[0].Status != Healthy || got[2].Status == Healthy {
+		t.Fatalf("FULL_READY must need proved memory: %+v", got)
+	}
+	got = Readiness(append(healthy, Probe{"channel:telegram", Degraded, ""}, Probe{"review:evidence", Healthy, ""}))
+	if got[0].Status != Degraded || !strings.Contains(got[0].Detail, "channel:telegram") || CoreUsable(got) {
+		t.Fatalf("broken channel must block core: %+v", got)
 	}
 }

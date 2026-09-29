@@ -2,74 +2,156 @@ package native
 
 import (
 	"context"
-	_ "embed"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
+	"reflect"
 	"regexp"
-	"strings"
+	"strconv"
+	"time"
 
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/gateway"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
 
-//go:embed dispatch.py
-var dispatchScript string
-
-var dispatchFailurePattern = regexp.MustCompile(`^(RuntimeError|ValueError|OSError|TimeoutExpired|CalledProcessError|Exception)\|((dispatch_main|check_activation|switch_gateway|dispatcher_canary|dispatch_fence|startup_since|log_cursor|create_dispatch_canary|retry_dispatch_canary|suspend_failed_activation|release_dispatch):[1-9][0-9]{0,5}(>(dispatch_main|check_activation|switch_gateway|dispatcher_canary|dispatch_fence|startup_since|log_cursor|create_dispatch_canary|retry_dispatch_canary|suspend_failed_activation|release_dispatch):[1-9][0-9]{0,5}){0,7}|unknown:0)$`)
-
-type dispatchFailure struct{ diagnostic string }
-
-func (e *dispatchFailure) Error() string { return "native dispatch failed: " + e.diagnostic }
-
-// DispatchDiagnostic exposes only validated stage names, exception categories,
-// and source line numbers; native output and exception values remain private.
-func DispatchDiagnostic(err error) string {
-	var failure *dispatchFailure
-	if errors.As(err, &failure) {
-		return failure.diagnostic
+// DispatchPolicy is the native Kanban policy RepoKit configures on default.
+// Native Hermes owns claims, workers, review dispatch and notifications; RepoKit
+// only sets these public configuration values and restarts the gateway once.
+// dispatch_in_gateway is written last so a partial write leaves dispatch off.
+func DispatchPolicy() []struct {
+	Key   string
+	Value any
+} {
+	profiles := []any{}
+	for _, role := range team.Roster() {
+		profiles = append(profiles, role.Name)
 	}
-	return ""
+	return []struct {
+		Key   string
+		Value any
+	}{
+		{"review_dispatch", true},
+		{"max_in_progress", float64(1)},
+		{"auto_decompose", false},
+		{"orchestrator_profile", "default"},
+		{"dispatch_profiles", profiles},
+		{"dispatch_in_gateway", true},
+	}
 }
 
-func dispatchFailureFromOutput(output string) error {
-	for _, line := range strings.Split(output, "\n") {
-		value, ok := strings.CutPrefix(line, "REPOKIT_DISPATCH_FAILURE=")
-		if ok && dispatchFailurePattern.MatchString(value) {
-			return &dispatchFailure{diagnostic: value}
+// OperationalPolicy reports whether a decoded native `kanban` config section
+// holds the complete managed dispatch policy.
+func OperationalPolicy(kanban map[string]any) bool {
+	for _, field := range DispatchPolicy() {
+		if !reflect.DeepEqual(kanban[field.Key], field.Value) {
+			return false
 		}
 	}
-	return nil
+	return true
 }
 
-func dispatchInitializationScript(id target.Identity, action string) string {
-	payload, _ := json.Marshal(map[string]any{"roles": team.ForRepository(id), "repo_id": id.Project, "action": action})
-	return bootstrapScript + "\n/opt/hermes/.venv/bin/python -B - <<'REPOKIT_GATEWAY_PY'\n" + team.KanbanPolicy + "\n" + teamScript + "\n" + gateway.SupportScript() + "\n" + dispatchScript + "\nimport base64\ntry:\n    dispatch_main(json.loads(base64.b64decode('" + base64.StdEncoding.EncodeToString(payload) + "')))\nexcept Exception as error:\n    print('REPOKIT_DISPATCH_FAILURE='+dispatch_failure_diagnostic(error), file=sys.stderr)\n    print('Operational dispatch incomplete; inspect native gates, active work, gateway startup and canary evidence. Native state preserved.', file=sys.stderr)\n    sys.exit(1)\nREPOKIT_GATEWAY_PY\n"
-}
+var (
+	gatewayRunning = regexp.MustCompile(`Gateway is running \(PID: ([0-9]{1,10})\)`)
+	gatewayStopped = regexp.MustCompile(`(?i)gateway is not running|gateway not running`)
+)
 
-// PrepareDispatch suspends an existing managed dispatcher under native board
-// locks before any setup mutation. It never claims a card or interrupts a worker.
-func PrepareDispatch(ctx context.Context, id target.Identity, dc string, r InputRunner) error {
-	result, err := runBootstrap(ctx, id, dc, false, dispatchInitializationScript(id, "prepare"), r)
-	if err != nil || !strings.Contains(result.Output, "REPOKIT_DISPATCH=prepared") {
-		return fmt.Errorf("dispatch suspension unverified; active workers and owner policy preserved")
+// GatewayPID parses public `hermes gateway status` output: a PID when running,
+// 0 when the status explicitly says it is not running, and an error otherwise.
+func GatewayPID(status string) (int, error) {
+	if m := gatewayRunning.FindStringSubmatch(status); m != nil {
+		return strconv.Atoi(m[1])
 	}
-	return nil
+	if gatewayStopped.MatchString(status) {
+		return 0, nil
+	}
+	return 0, errors.New("gateway status unrecognized")
 }
 
-// ConvergeGateway checks core native gates under the bootstrap lock. Optional
-// memory health is reported independently by the caller. A matching
-// live generation and successful canary are reused; otherwise the native gateway
-// restarts and executes a real no-write researcher canary.
-func ConvergeGateway(ctx context.Context, id target.Identity, dc string, r InputRunner) (string, error) {
-	result, err := runBootstrap(ctx, id, dc, false, dispatchInitializationScript(id, "activate"), r)
+func gatewayPID(run teamCLI) (int, error) {
+	out, err := run("-p", "default", "gateway", "status")
 	if err != nil {
-		return "", err
+		return 0, err
 	}
-	if strings.Contains(result.Output, "REPOKIT_GATEWAY=current") && strings.Contains(result.Output, "REPOKIT_CANARY=researcher-done") {
+	return GatewayPID(string(out))
+}
+
+func runningWork(run teamCLI) (bool, error) {
+	raw, err := run("-p", "default", "kanban", "stats", "--json")
+	if err != nil {
+		return false, err
+	}
+	var stats struct {
+		ByStatus map[string]int `json:"by_status"`
+	}
+	if json.Unmarshal(raw, &stats) != nil {
+		return false, errors.New("native Kanban stats unavailable")
+	}
+	return stats.ByStatus["running"] > 0, nil
+}
+
+// ConvergeGateway enables native automatic dispatch on the default gateway.
+// It never overwrites an owner-changed dispatch policy, never restarts while a
+// card is running, and never claims that a worker has executed: live dispatch
+// is proved separately by `verify --dispatch-check` or real reviewed work.
+// States: "current" (already operational, untouched), "restarted" (policy set
+// and gateway replaced) or "not-running" (policy set; gateway not started).
+func ConvergeGateway(ctx context.Context, id target.Identity, dc string, r InputRunner) (string, error) {
+	return convergeGateway(ctx, id, dc, r, 90, time.Second)
+}
+
+func convergeGateway(ctx context.Context, id target.Identity, dc string, r InputRunner, attempts int, pause time.Duration) (string, error) {
+	run := nativeTeamCLI(ctx, id, dc, r)
+	value, err := configValue(run, "default", "kanban")
+	if err != nil {
+		return "", errors.New("native dispatch configuration unavailable")
+	}
+	kanban, ok := value.(map[string]any)
+	if !ok {
+		return "", errors.New("native dispatch configuration unavailable")
+	}
+	before, err := gatewayPID(run)
+	if err != nil {
+		return "", errors.New("native gateway status unavailable")
+	}
+	switch kanban["dispatch_in_gateway"] {
+	case true:
+		if !OperationalPolicy(kanban) {
+			return "", errors.New("owner-changed dispatch policy preserved; inspect `kanban` configuration on default")
+		}
+		if before == 0 {
+			return "not-running", nil
+		}
 		return "current", nil
+	case false, nil:
+	default:
+		return "", errors.New("ambiguous native dispatch setting preserved")
 	}
-	return "", fmt.Errorf("gateway dispatch/canary did not establish operational readiness")
+	if busy, err := runningWork(run); err != nil || busy {
+		return "", errors.New("a card is running or Kanban is unreadable; dispatch left off so active work is not interrupted")
+	}
+	script := bootstrapScript + "\n# Refuse under the lock if work started since Go observed the board.\n" +
+		"if hermes -p default kanban stats --json | grep -q '\"running\"'; then exit 3; fi\n"
+	for _, field := range DispatchPolicy() {
+		script += teamSet("default", "kanban."+field.Key, field.Value)
+	}
+	if before != 0 {
+		script += teamCommand("-p", "default", "gateway", "restart")
+	}
+	if _, err := runBootstrap(ctx, id, dc, false, script, r); err != nil {
+		return "", errors.New("native dispatch configuration or gateway restart failed; inspect `kanban` configuration and gateway status")
+	}
+	if before == 0 {
+		return "not-running", nil
+	}
+	for i := 0; i < attempts; i++ {
+		if pid, err := gatewayPID(run); err == nil && pid != 0 && pid != before {
+			return "restarted", nil
+		}
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(pause):
+		}
+	}
+	return "", fmt.Errorf("dispatch configured, but a replacement gateway was not observed; inspect `gateway status`")
 }

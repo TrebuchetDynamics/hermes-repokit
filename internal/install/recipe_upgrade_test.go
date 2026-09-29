@@ -4,20 +4,18 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 )
 
 func TestRecipeUpgradeResumesOnlyKnownFileStates(t *testing.T) {
-	for _, scenario := range []string{"old", "backup", "replaced", "replaced-without-backup", "wrong-backup", "backup-link", "recipe-drift", "unknown-file", "missing-file", "file-link", "directory-link", "compose-drift"} {
+	for _, scenario := range []string{"old", "backup", "replaced", "removed", "replaced-without-backup", "wrong-backup", "backup-link", "recipe-drift", "unknown-file", "missing-file", "file-link", "directory-link", "compose-drift"} {
 		t.Run(scenario, func(t *testing.T) {
 			id, files := fixture(t)
 			req := development.Requirements{Go: true}
-			old, err := development.LegacyRecipe(req)
-			if err != nil {
-				t.Fatal(err)
-			}
+			old := frozenRecipe(t)
 			current, err := development.Recipe(req)
 			if err != nil {
 				t.Fatal(err)
@@ -29,6 +27,9 @@ func TestRecipeUpgradeResumesOnlyKnownFileStates(t *testing.T) {
 			files["compose.yaml"] = Artifact{Data: prior, Mode: 0600}
 			if _, err := Publish(id, files, nil); err != nil {
 				t.Fatal(err)
+			}
+			for name := range old {
+				delete(files, "development-image/"+name)
 			}
 			for name, data := range current {
 				files["development-image/"+name] = Artifact{Data: data, Mode: 0600}
@@ -50,6 +51,11 @@ func TestRecipeUpgradeResumesOnlyKnownFileStates(t *testing.T) {
 			case "replaced":
 				write(backup, prior)
 				write("development-image/Dockerfile", current["Dockerfile"])
+			case "removed":
+				write(backup, prior)
+				if err := os.Remove(filepath.Join(state, "development-image/patch-openviking-entrypoint.py")); err != nil {
+					t.Fatal(err)
+				}
 			case "replaced-without-backup":
 				write("development-image/Dockerfile", current["Dockerfile"])
 			case "wrong-backup":
@@ -86,7 +92,7 @@ func TestRecipeUpgradeResumesOnlyKnownFileStates(t *testing.T) {
 			before := snapshotRecipeTree(t, state)
 			upgrades := []StackUpgrade{{Compose: prior, BackupName: backup, PreviousRecipe: old}}
 			created, err := PublishStackChecked(id, files, upgrades, nil)
-			success := scenario == "old" || scenario == "backup" || scenario == "replaced"
+			success := scenario == "old" || scenario == "backup" || scenario == "replaced" || scenario == "removed"
 			if success {
 				if err != nil || !created {
 					t.Fatalf("upgrade: %v %v", created, err)
@@ -95,6 +101,17 @@ func TestRecipeUpgradeResumesOnlyKnownFileStates(t *testing.T) {
 					got, err := os.ReadFile(filepath.Join(state, "development-image", name))
 					if err != nil || !bytes.Equal(got, want) {
 						t.Fatalf("wrong upgraded %s: %v", name, err)
+					}
+				}
+				if _, err := os.Lstat(filepath.Join(state, "development-image/patch-openviking-entrypoint.py")); !os.IsNotExist(err) {
+					t.Fatal("old-only recipe file not removed")
+				}
+				if scenario != "removed" {
+					for name, want := range old {
+						got, _ := os.ReadFile(filepath.Join(state, RecipeBackupName(backup), name))
+						if !bytes.Equal(got, want) {
+							t.Fatalf("old recipe %s not preserved beside the Compose backup", name)
+						}
 					}
 				}
 				for name, want := range map[string][]byte{backup: prior, "config.yaml": []byte("owner native config"), "native-data": []byte("owner database")} {
@@ -147,4 +164,23 @@ func snapshotRecipeTree(t *testing.T, root string) map[string][]byte {
 		t.Fatal(err)
 	}
 	return out
+}
+
+// frozenRecipe is a real generated recipe from e0246ef, including a file the
+// current recipe no longer has.
+func frozenRecipe(t *testing.T) map[string][]byte {
+	t.Helper()
+	dir := "../development/testdata/e0246ef"
+	files := map[string][]byte{}
+	for _, name := range []string{"Dockerfile-go", ".dockerignore", "repokit-docker-test", "repokit-openviking", "openviking-run", "openviking-finish", "patch-openviking-entrypoint.py"} {
+		data, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		files[strings.TrimSuffix(name, "-go")] = data
+	}
+	if _, ok := development.GeneratedRecipe(files); !ok {
+		t.Fatal("frozen recipe no longer self-certifies")
+	}
+	return files
 }

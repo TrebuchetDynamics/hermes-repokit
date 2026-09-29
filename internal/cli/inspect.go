@@ -7,8 +7,10 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
@@ -63,6 +65,11 @@ func (a App) nativeRuntimeReady(id target.Identity, dockerContext string) (bool,
 	if runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && verify.RuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) && verify.PreviousNamedImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) {
 		return false, nil // Exact previous image name: recreate via printed Compose command.
 	}
+	// Same deployment running an older generated image (recipe upgraded on
+	// disk): recreation through the printed Compose command is pending.
+	if runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && verify.RuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) && olderGeneratedImage(id, runtime.Image) {
+		return false, nil
+	}
 	if _, selected := compose.DevelopmentSelected(id); selected && runtime.Image == qualification.FoundationImage && runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && runtime.UnexpectedMounts == "" {
 		return false, nil
 	}
@@ -84,4 +91,22 @@ func (a App) nativeRuntimeReady(id target.Identity, dockerContext string) (bool,
 		return false, fmt.Errorf("running container image or identity does not match the qualified deployment")
 	}
 	return true, nil
+}
+
+var generatedTag = regexp.MustCompile(`^[0-9a-f]{24}$`)
+
+// olderGeneratedImage recognizes RepoKit's own image names for this deployment
+// whose recipe tag differs from the current recipe.
+func olderGeneratedImage(id target.Identity, image string) bool {
+	selected, ok := compose.DevelopmentSelected(id)
+	if !ok {
+		return false
+	}
+	for _, prefix := range []string{"repokit/" + id.Container + ":", id.Project + "-hermes-dev:"} {
+		if tag, found := strings.CutPrefix(image, prefix); found && generatedTag.MatchString(tag) {
+			// The current recipe tag keeps its separate image-ID checks.
+			return tag != development.Fingerprint(*selected.Development)[:24]
+		}
+	}
+	return false
 }

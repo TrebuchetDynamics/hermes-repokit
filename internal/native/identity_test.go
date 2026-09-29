@@ -2,7 +2,6 @@ package native
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"strings"
 	"testing"
 
@@ -10,35 +9,28 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
 
-func TestInitializationCarriesRepositoryIdentityAndExactMigrationSource(t *testing.T) {
+func TestManagedSoulsPreserveExactRepositoryMigrationSources(t *testing.T) {
 	id := target.Identity{Name: "atlas", Project: "repokit-123"}
-	script := initializationScript(id, false)
-	_, payload, ok := strings.Cut(script, "main(json.loads(base64.b64decode('")
-	if !ok {
-		t.Fatal("team payload missing")
+	roles := team.ForRepository(id)
+	if len(roles) != 6 {
+		t.Fatalf("roles=%d", len(roles))
 	}
-	encoded, _, ok := strings.Cut(payload, "')")
-	if !ok {
-		t.Fatal("team payload incomplete")
-	}
-	data, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var got struct {
-		Roles      []team.Role `json:"roles"`
-		AfterSetup bool        `json:"after_setup"`
-	}
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatal(err)
-	}
-	want := team.ForRepository(id)
-	if got.AfterSetup || len(got.Roles) != len(want) {
-		t.Fatalf("wrong bootstrap payload: after_setup=%t, roles=%d", got.AfterSetup, len(got.Roles))
-	}
-	for i, role := range got.Roles {
-		if role.Name != want[i].Name || role.Soul != want[i].Soul || role.LegacySoul != want[i].LegacySoul {
-			t.Fatalf("%s missing repository identity or migration source", want[i].Name)
+	for _, role := range roles {
+		if !strings.Contains(role.Soul, "repokit-123") || !matchingSoul(role.LegacySoul, role) || !matchingSoul(role.PreviousRepositorySoul, role) {
+			t.Fatalf("%s lost exact migration source", role.Name)
 		}
+		if matchingSoul(role.Soul+"\nowner change", role) {
+			t.Fatalf("%s accepted altered SOUL", role.Name)
+		}
+		encoded := base64.StdEncoding.EncodeToString([]byte(role.Soul))
+		if !strings.Contains(soulWrite(role.Name, role.Soul), encoded) {
+			t.Fatalf("%s SOUL bytes not preserved", role.Name)
+		}
+	}
+}
+func TestTeamCommandsQuoteUntrustedDescription(t *testing.T) {
+	command := teamCommand("profile", "describe", "reviewer", "--text", "owner's $(touch /tmp/never)")
+	if !strings.Contains(command, "'owner'\\''s $(touch /tmp/never)'") {
+		t.Fatalf("unsafe shell argument: %s", command)
 	}
 }

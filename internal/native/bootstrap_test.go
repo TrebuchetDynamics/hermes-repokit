@@ -54,18 +54,6 @@ func TestNativeBootstrapPreservesSharedBoard(t *testing.T) {
 	}
 }
 
-func TestTeamProvisioningFilesystem(t *testing.T) {
-	python, err := exec.LookPath("python3")
-	if err != nil {
-		t.Skip("Python required for installer-script development tests; end users use Hermes Python")
-	}
-	cmd := exec.Command(python, "team_test.py")
-	cmd.Env = append(os.Environ(), "PYTHONDONTWRITEBYTECODE=1")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("%v %s", err, out)
-	}
-}
-
 type bootstrapInput struct {
 	args   []string
 	data   string
@@ -74,8 +62,10 @@ type bootstrapInput struct {
 
 func (r *bootstrapInput) RunInput(_ context.Context, input io.Reader, program string, args ...string) process.Result {
 	r.args = append([]string{program}, args...)
-	data, _ := io.ReadAll(input)
-	r.data = string(data)
+	if input != nil {
+		data, _ := io.ReadAll(input)
+		r.data = string(data)
+	}
 	return r.result
 }
 func TestInitializeUsesContainerLockAndSanitizesFailure(t *testing.T) {
@@ -92,25 +82,12 @@ func TestInitializeUsesContainerLockAndSanitizesFailure(t *testing.T) {
 	if err == nil || strings.Contains(err.Error(), "secret") {
 		t.Fatalf("failure diagnostic: %v", err)
 	}
-	r.result.Output = "secret output\nREPOKIT_DISPATCH_FAILURE=RuntimeError|dispatch_main:400>switch_gateway:121\nsecret trailer"
-	_, err = ConvergeGateway(context.Background(), id, "local", r)
-	if err == nil || !strings.Contains(err.Error(), "switch_gateway:121") || strings.Contains(err.Error(), "secret") {
-		t.Fatalf("dispatch diagnostic missing or unsanitized: %v", err)
-	}
-	for _, unsafe := range []string{"RuntimeError|owner_secret:123", "PrivateSecret|switch_gateway:123", "RuntimeError|switch_gateway:123 secret"} {
-		r.result.Output = "REPOKIT_DISPATCH_FAILURE=" + unsafe
-		_, err = ConvergeGateway(context.Background(), id, "local", r)
-		if err == nil || strings.Contains(err.Error(), unsafe) {
-			t.Fatalf("untrusted dispatch diagnostic accepted: %v", err)
-		}
+	if _, err = runBootstrap(context.Background(), id, "local", true, "script", r); err == nil || strings.Contains(err.Error(), "secret") {
+		t.Fatalf("bootstrap failure diagnostic: %v", err)
 	}
 	args := strings.Join(r.args, " ")
 	if !strings.Contains(args, "--context local compose --env-file /dev/null -f ") || !strings.Contains(args, "exec -T --user hermes --env HOME=/opt/data --workdir /workspace hermes /usr/bin/flock -n /workspace/.hermes-repokit.lock /bin/sh -s -- /workspace /opt/data") || r.data == "" {
 		t.Fatalf("unsafe invocation: %v", r.args)
-	}
-	r.result = process.Result{Output: `REPOKIT_TEAM={"status":"configured","drift":[]}`}
-	if err := Initialize(context.Background(), id, "local", false, r); err != nil {
-		t.Fatal(err)
 	}
 }
 
