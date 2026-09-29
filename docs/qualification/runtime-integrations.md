@@ -27,7 +27,7 @@ credentials are not borrowed. Its manual-dispatch observations cannot certify th
 operational gateway or originating-channel notification path.
 
 `verify` reads artifacts, bounded Docker state and native configuration and reports
-`CORE_TEAM` and `DISPATCH`. It does not load plugins, run models or probe memory.
+`CORE_TEAM`, `DISPATCH`, `DEVELOPMENT_RUNTIME` and `HOST_LAUNCHER`. It does not load plugins, run models or probe memory.
 `DISPATCH` stays unqualified until same-card review is observed. See [integration probes](../../internal/verify/integrations.go).
 
 Private main-model configuration, actual independent review correction and full

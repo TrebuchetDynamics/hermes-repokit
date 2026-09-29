@@ -21,6 +21,11 @@ func TestManagedSoulsPreserveExactRepositoryMigrationSources(t *testing.T) {
 		if !strings.Contains(role.Soul, "repokit-123") || !historical {
 			t.Fatalf("%s lost exact migration source", role.Name)
 		}
+		for _, previous := range role.PreviousManagedSouls {
+			if previous != "" && !matchingSoul(previous, role) {
+				t.Fatalf("%s previous managed generation not upgradeable", role.Name)
+			}
+		}
 		if matchingSoul(role.Soul+"\nowner change", role) {
 			t.Fatalf("%s accepted altered SOUL", role.Name)
 		}

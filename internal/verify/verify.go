@@ -183,9 +183,9 @@ func Profiles(id target.Identity) []Probe {
 			} else {
 				soul, e := io.ReadAll(io.LimitReader(f, 65537))
 				f.Close()
-				if e == nil && string(soul) != role.Soul && managedHistory(role, string(soul)) {
+				if e == nil && string(soul) != role.Soul && previousManaged(role, string(soul)) {
 					probe.Status = PendingSetup
-					probe.Detail = "historical managed SOUL needs repository identity upgrade; run setup --team"
+					probe.Detail = "exact previous RepoKit-managed SOUL; rerun install to upgrade it"
 				} else if e != nil || string(soul) != role.Soul {
 					probe.Status = Degraded
 					probe.Detail = "role SOUL drift; owner identity preserved"
@@ -197,84 +197,89 @@ func Profiles(id target.Identity) []Probe {
 	return probes
 }
 
-// coreTeamComponent must be healthy for CORE_TEAM: the container, native
-// state, seven profiles, toolchain and Kanban board.
-func coreTeamComponent(name string) bool {
-	switch name {
-	case "compose", "hermes", "config", "launcher", "kanban", "filesystem", "git", "selinux", "access", "python-imports":
-		return true
-	}
-	for _, prefix := range []string{"profile:", "development:"} {
-		if strings.HasPrefix(name, prefix) {
+// previousManaged reports an exact earlier RepoKit-generated SOUL, which
+// install upgrades; anything else is owner drift and is preserved.
+func previousManaged(role team.Role, soul string) bool {
+	for _, managed := range append([]string{role.LegacySoul, role.PreviousSoul, role.PreviousRepositorySoul, role.PreviousRepositoryOriginalSoul}, role.PreviousManagedSouls...) {
+		if managed != "" && managed == soul {
 			return true
 		}
 	}
 	return false
 }
 
-// dispatchComponent must be healthy for DISPATCH: the default gateway, its
-// automatic Kanban dispatch/notification policy and configured channels.
-func dispatchComponent(name string) bool {
+// readinessGroup maps a probe to the RepoKit contract it belongs to. Probes
+// outside these groups (optional acceptance, Hermes features) are reported but
+// never affect readiness.
+func readinessGroup(name string) string {
 	switch name {
+	case "compose", "hermes", "config", "kanban", "filesystem", "git", "selinux", "access":
+		return "CORE_TEAM"
 	case "gateway", "kanban:dispatch", "kanban:notifications", "channels":
-		return true
+		return "DISPATCH"
+	case "python-imports":
+		return "DEVELOPMENT_RUNTIME"
+	case "launcher":
+		return "HOST_LAUNCHER"
 	}
-	return strings.HasPrefix(name, "channel:")
+	switch {
+	case strings.HasPrefix(name, "profile:"):
+		return "CORE_TEAM"
+	case strings.HasPrefix(name, "channel:"):
+		return "DISPATCH"
+	case strings.HasPrefix(name, "development:"):
+		return "DEVELOPMENT_RUNTIME"
+	}
+	return ""
 }
 
-// Readiness summarizes RepoKit/Hermes environment state into CORE_TEAM and
-// DISPATCH. Optional Hermes features, such as memory providers, belong to
-// Hermes and are not RepoKit readiness. DISPATCH is healthy only once a
-// same-card independent review has been observed; configured but unexercised
-// is Unqualified.
+// Readiness summarizes RepoKit's contract: CORE_TEAM (container, native state,
+// seven profiles, Kanban), DISPATCH (gateway, automatic dispatch, channels),
+// DEVELOPMENT_RUNTIME (repository toolchain in the image) and HOST_LAUNCHER.
+// Standard Hermes features, such as memory providers, are outside RepoKit
+// readiness. DISPATCH is healthy only once the same-card executor, tester and
+// reviewer chain has been observed; configured but unexercised is Unqualified.
 func Readiness(probes []Probe) []Probe {
-	var teamFailing, dispatchFailing []string
+	failing := map[string][]string{}
 	review := Unknown
 	for _, p := range probes {
-		if coreTeamComponent(p.Component) && p.Status != Healthy {
-			teamFailing = append(teamFailing, p.Component)
-		}
-		if dispatchComponent(p.Component) && p.Status != Healthy {
-			dispatchFailing = append(dispatchFailing, p.Component)
+		if group := readinessGroup(p.Component); group != "" && p.Status != Healthy {
+			failing[group] = append(failing[group], p.Component)
 		}
 		if p.Component == "review:evidence" {
 			review = p.Status
 		}
 	}
-	sort.Strings(teamFailing)
-	sort.Strings(dispatchFailing)
-	team := Probe{"CORE_TEAM", Healthy, "Hermes, seven profiles, toolchain and Kanban observed"}
-	if len(teamFailing) > 0 {
-		team = Probe{"CORE_TEAM", Degraded, "not ready: " + strings.Join(teamFailing, ", ")}
+	healthy := map[string]string{
+		"CORE_TEAM":           "Hermes container, native state, seven profiles and Kanban observed",
+		"DISPATCH":            "gateway and automatic dispatch policy observed; same-card tester and reviewer acceptance observed",
+		"DEVELOPMENT_RUNTIME": "repository toolchain present in the pinned development image",
+		"HOST_LAUNCHER":       "recognized standalone launcher",
 	}
-	dispatch := Probe{"DISPATCH", Healthy, "gateway and automatic dispatch policy observed; same-card tester and reviewer acceptance observed"}
-	if len(dispatchFailing) > 0 {
-		dispatch = Probe{"DISPATCH", Degraded, "not ready: " + strings.Join(dispatchFailing, ", ")}
-	} else if review != Healthy {
-		dispatch = Probe{"DISPATCH", Unqualified, "configured and running; no automatic executor/tester/reviewer loop observed yet"}
+	var out []Probe
+	for _, group := range []string{"CORE_TEAM", "DISPATCH", "DEVELOPMENT_RUNTIME", "HOST_LAUNCHER"} {
+		p := Probe{group, Healthy, healthy[group]}
+		if names := failing[group]; len(names) > 0 {
+			sort.Strings(names)
+			p = Probe{group, Degraded, "not ready: " + strings.Join(names, ", ")}
+		} else if group == "DISPATCH" && review != Healthy {
+			p = Probe{group, Unqualified, "configured and running; no automatic executor/tester/reviewer loop observed yet"}
+		}
+		out = append(out, p)
 	}
-	return []Probe{team, dispatch}
+	return out
 }
 
-// CoreUsable is verify's exit criterion: neither the core team nor dispatch is
-// broken or missing, even if the loop has not yet been exercised.
+// CoreUsable is verify's exit criterion: no RepoKit readiness group is broken
+// or missing, even if the dispatch loop has not yet been exercised.
 func CoreUsable(readiness []Probe) bool {
-	usable := 0
+	if len(readiness) == 0 {
+		return false
+	}
 	for _, p := range readiness {
-		if (p.Component == "CORE_TEAM" || p.Component == "DISPATCH") && p.Status != Degraded {
-			usable++
+		if p.Status == Degraded {
+			return false
 		}
 	}
-	return usable == 2
-}
-
-// managedHistory reports whether soul is an earlier RepoKit-managed generation
-// of role, which setup --team upgrades in place.
-func managedHistory(role team.Role, soul string) bool {
-	for _, s := range append([]string{role.LegacySoul, role.PreviousSoul, role.PreviousRepositorySoul, role.PreviousRepositoryOriginalSoul}, role.PreviousManagedSouls...) {
-		if s != "" && s == soul {
-			return true
-		}
-	}
-	return false
+	return true
 }

@@ -122,3 +122,27 @@ func TestSameCardChainContract(t *testing.T) {
 		}
 	}
 }
+
+// Steward defines the RepoKit team; Hermes owns its features.
+func TestStewardOwnsTeamNotHermesFeatures(t *testing.T) {
+	var steward Role
+	for _, role := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {
+		if role.Name == "steward" {
+			steward = role
+		}
+	}
+	for _, want := range []string{"You own the RepoKit team itself", "Hermes features, not team definition", "Never attempt to delete default"} {
+		if !strings.Contains(steward.Soul, want) {
+			t.Fatalf("steward missing %q", want)
+		}
+	}
+	for _, stale := range []string{"OpenViking", "model/provider overrides", "shared\nmemory before", "provider/model baseline"} {
+		if strings.Contains(steward.Soul, stale) {
+			t.Fatalf("steward still owns a Hermes feature: %q", stale)
+		}
+	}
+	// The exact previous managed version remains recognized for upgrade.
+	if last := steward.PreviousManagedSouls[len(steward.PreviousManagedSouls)-1]; !strings.Contains(last, "repository OpenViking endpoint/account/user") {
+		t.Fatal("previous managed steward SOUL no longer recognized")
+	}
+}

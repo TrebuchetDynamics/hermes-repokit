@@ -102,7 +102,7 @@ func TestGatewayAndReviewEvidenceFromPublicCLI(t *testing.T) {
 func TestReadinessSeparatesConfiguredFromProved(t *testing.T) {
 	healthy := []Probe{{"compose", Healthy, ""}, {"gateway", Healthy, ""}, {"kanban:dispatch", Healthy, ""}, {"development:go", Healthy, ""}, {"docker_acceptance", Inactive, ""}}
 	got := Readiness(append(healthy, Probe{"review:evidence", Unqualified, ""}))
-	if got[0].Component != "CORE_TEAM" || got[0].Status != Healthy || got[1].Component != "DISPATCH" || got[1].Status != Unqualified || len(got) != 2 || !CoreUsable(got) {
+	if got[0].Component != "CORE_TEAM" || got[0].Status != Healthy || got[1].Component != "DISPATCH" || got[1].Status != Unqualified || len(got) != 4 || got[2].Component != "DEVELOPMENT_RUNTIME" || got[3].Component != "HOST_LAUNCHER" || !CoreUsable(got) {
 		t.Fatalf("configured core must be usable but dispatch unproved: %+v", got)
 	}
 	got = Readiness(append(healthy, Probe{"review:evidence", Healthy, ""}))
@@ -119,7 +119,7 @@ func TestReadinessSeparatesConfiguredFromProved(t *testing.T) {
 // depends on them.
 func TestReadinessIgnoresHermesMemoryProviders(t *testing.T) {
 	got := Readiness([]Probe{{"compose", Healthy, ""}, {"gateway", Healthy, ""}, {"kanban:dispatch", Healthy, ""}, {"review:evidence", Healthy, ""}, {"memory", Degraded, "x"}})
-	if len(got) != 2 || got[0].Status != Healthy || got[1].Status != Healthy || !CoreUsable(got) {
+	if len(got) != 4 || got[0].Status != Healthy || got[1].Status != Healthy || !CoreUsable(got) {
 		t.Fatalf("memory affected RepoKit readiness: %+v", got)
 	}
 }
@@ -149,5 +149,21 @@ func TestAcceptanceChainRequiresTesterAfterLatestImplementation(t *testing.T) {
 		if got := acceptanceChain(c.runs) != ""; got != c.ok {
 			t.Errorf("%s: accepted=%v", name, got)
 		}
+	}
+}
+
+func TestToolchainAndLauncherAreSeparateReadiness(t *testing.T) {
+	base := []Probe{{"compose", Healthy, ""}, {"gateway", Healthy, ""}, {"review:evidence", Healthy, ""}}
+	got := Readiness(append(base, Probe{"development:go", Degraded, ""}))
+	if got[0].Status != Healthy || got[2].Status != Degraded || !strings.Contains(got[2].Detail, "development:go") || CoreUsable(got) {
+		t.Fatalf("missing toolchain must degrade DEVELOPMENT_RUNTIME only: %+v", got)
+	}
+	got = Readiness(append(base, Probe{"launcher", Unknown, ""}))
+	if got[0].Status != Healthy || got[3].Status != Degraded || CoreUsable(got) {
+		t.Fatalf("unusable launcher must degrade HOST_LAUNCHER only: %+v", got)
+	}
+	got = Readiness(append(base, Probe{"docker_acceptance", Inactive, ""}, Probe{"development_environment", Unqualified, ""}))
+	if !CoreUsable(got) {
+		t.Fatalf("optional acceptance probes affected readiness: %+v", got)
 	}
 }

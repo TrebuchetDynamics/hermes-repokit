@@ -45,27 +45,29 @@ uses native Hermes, for example `<launcher> -p default memory setup` and
   Commands are `plan`, `install`, `setup [--team]` and `verify [--dispatch-check]`,
   plus `--docker-tests` for `plan`/`install`.
 - `CORE_READY`, `MEMORY_READY`, `FULL_READY`, `MEMORY` and every `openviking*` or
-  `memory` probe. `verify` reports two summaries: `CORE_TEAM` (container, native
-  state, profiles, toolchain, Kanban, filesystem/SELinux access) and `DISPATCH`
+  `memory` probe. `verify` reports RepoKit's contract only: `CORE_TEAM` (container,
+  native state, profiles, Kanban, filesystem/SELinux access), `DEVELOPMENT_RUNTIME`
+  (worker toolchain, Python import safety), `HOST_LAUNCHER` and `DISPATCH`
   (gateway, Kanban dispatch/notification policy, channels; `unqualified` until a
-  same-card independent review is observed). It exits nonzero only when either is
-  `degraded`.
+  same-card independent review is observed). It exits nonzero only when a summary
+  is `degraded`.
+- Steward's ownership of models/providers, memory providers and OpenViking
+  endpoint/account/user configuration. Steward owns the RepoKit team itself:
+  roster, role definitions, managed SOULs, team skills and tool boundaries,
+  specialist creation and retirement. The exact previous managed steward SOUL is
+  upgraded by `install`; an owner-edited one is preserved and reported as drift.
 - The plan JSON's OpenViking section, `proposed_memory_config_not_activated`, and
   the `openviking` candidate image.
 
 ## No migration
 
-Deployments generated with embedded OpenViking (`REPOKIT_OPENVIKING` in
-`.hermes/compose.yaml`), with the older OpenViking sidecar, or with the Laya stack
-are no longer recognized. `install` refuses them like owner-edited Compose, and
-also refuses a `.hermes/` whose `compose.yaml` was removed, so there is currently no
-supported upgrade path. Such deployments keep running on the RepoKit version that
-generated them until an upgrade path is decided (open follow-up).
-
-Native state (config, profiles, `kanban.db`, `.env`) is untouched. Any
-`.hermes/openviking` data stays on disk and RepoKit ignores it. Profiles that
-Hermes already configured with an OpenViking provider keep that Hermes
-configuration; manage it with native `hermes memory setup` / `hermes memory status`.
+RepoKit is pre-v1 and embedded OpenViking is development history, not a
+compatibility contract. `install` does not recognize Compose generated with
+embedded OpenViking, the older OpenViking sidecar or the Laya stack, and refuses
+it like owner-edited Compose. `install` is not changed to support a manual upgrade
+procedure for that topology. The one existing dogfood deployment is migrated as
+separate, one-off qualification work, recorded under `docs/qualification/`, not
+as part of the supported product.
 
 ## Consequences
 

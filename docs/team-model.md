@@ -42,6 +42,10 @@ Native cloning preserves the supported provider/model baseline; RepoKit does
 not manually copy authentication stores or use `--clone-all`/`--clone-channels`.
 Provider mechanisms outside native config cloning require native verification;
 a copied `.env` fixture is not proof of every OAuth/provider path.
+Steward owns the RepoKit team itself: roster, role definitions, managed SOULs,
+team skills and tool boundaries. Models, providers, credentials, memory providers,
+messaging integrations and plugins are Hermes features; steward does not configure
+them.
 
 Retirement is the default: stop new assignments in coordination with default,
 mark routing metadata retired, and preserve history. Deletion requires explicit
@@ -205,8 +209,8 @@ by the owner through native Hermes (`hermes-<repo> -p default memory setup`,
 future specialists cloned from default inherit whatever native configuration
 default has. Optional plugins remain owner-managed native Hermes components.
 
-`verify` reports scaffold readiness and native integration configuration as
-`CORE_TEAM` and `DISPATCH`. `DISPATCH` remains `unqualified` until actual same-card
+`verify` reports scaffold readiness as `CORE_TEAM`, `DISPATCH`,
+`DEVELOPMENT_RUNTIME` and `HOST_LAUNCHER`. `DISPATCH` remains `unqualified` until actual same-card
 work is accepted. See the [acceptance matrix](qualification/generic-team.md) and
 the [decision record](decisions/2026-09-29-hermes-owns-hermes-features.md).
 

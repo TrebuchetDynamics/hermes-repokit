@@ -169,7 +169,12 @@ func Roster() []Role {
 	}
 	common, _ := souls.ReadFile("souls/common.md")
 	for i := range roles {
-		role, _ := souls.ReadFile("souls/" + roles[i].Name + ".md")
+		// A frozen legacy body keeps Roster's historical bytes exact: every
+		// managed generation derives from them as an ownership proof.
+		role, err := souls.ReadFile("souls/legacy/" + roles[i].Name + ".md")
+		if err != nil {
+			role, _ = souls.ReadFile("souls/" + roles[i].Name + ".md")
+		}
 		roles[i].Soul = string(common) + "\n" + string(role)
 	}
 	return roles

@@ -73,8 +73,8 @@ func TestImportCollisionBlocksCoreReadiness(t *testing.T) {
 	probes := []Probe{{"compose", Healthy, ""}, {"gateway", Healthy, ""}, {"kanban:dispatch", Healthy, ""}, {"review:evidence", Healthy, ""},
 		PythonImports(importFixture(t, "tools/__init__.py"))}
 	got := Readiness(probes)
-	if got[0].Status != Degraded || !strings.Contains(got[0].Detail, "python-imports") || CoreUsable(got) {
-		t.Fatalf("CORE_TEAM must not be healthy with a worker import collision: %+v", got[0])
+	if got[2].Status != Degraded || !strings.Contains(got[2].Detail, "python-imports") || CoreUsable(got) {
+		t.Fatalf("DEVELOPMENT_RUNTIME must not be healthy with a worker import collision: %+v", got[2])
 	}
 }
 

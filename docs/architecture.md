@@ -30,10 +30,11 @@ Each readiness claim needs evidence from the owning component. Container health
 is not Hermes, dispatch or toolchain readiness. A native configuration value is
 not proof of a worker run. If public interfaces cannot safely configure or
 observe a capability, RepoKit reports it as unqualified and preserves owner
-state. `verify` summarizes `CORE_TEAM` (container, native state, profiles,
-toolchain, Kanban, access) and `DISPATCH` (gateway, dispatch/notification
-policy, channels); `DISPATCH` is `unqualified` until same-card independent review
-is observed. Same-card review acceptance remains separate from deterministic
+state. `verify` summarizes RepoKit's contract only: `CORE_TEAM` (container,
+native state, profiles, Kanban, access), `DISPATCH` (gateway,
+dispatch/notification policy, channels; `unqualified` until same-card independent
+review is observed), `DEVELOPMENT_RUNTIME` (worker toolchain, Python import
+safety) and `HOST_LAUNCHER`. Same-card review acceptance remains separate from deterministic
 configuration checks.
 
 Legacy RepoKit-generated state is preserved on an unrecognized migration path.

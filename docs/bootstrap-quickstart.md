@@ -70,14 +70,14 @@ RepoKit) with no changed files. A passing card is archived; a failing card is
 preserved for inspection.
 
 `verify` is observational. It uses public `hermes config get`, `gateway status`
-and `kanban list/show --json` and reports `CORE_TEAM` and `DISPATCH` first.
-`CORE_TEAM` is `healthy` when compose, Hermes, config, launcher, Kanban,
-filesystem, Git, SELinux access, Python imports, every profile and the development
-toolchain are healthy. `DISPATCH` covers the gateway, Kanban dispatch and
+and `kanban list/show --json` and reports four summaries first. `CORE_TEAM` is
+`healthy` when compose, Hermes, config, Kanban, filesystem, Git, SELinux access and
+every profile are healthy. `DEVELOPMENT_RUNTIME` covers the development toolchain
+and Python import safety; `HOST_LAUNCHER` covers the standalone launcher. `DISPATCH` covers the gateway, Kanban dispatch and
 notification policy and channel tools; it is `healthy` only when a recent done
 card also shows same-card review (an implementation run requesting review,
 a later tester run forwarding it, and reviewer completing the card last), otherwise `unqualified`. `verify` exits 0
-unless either summary is `degraded`. A fresh
+unless a summary is `degraded`. A fresh
 Telegram conversation (`/new`) refreshes the coordinator's tools; actual
 originating-channel delivery is not observed by verify.
 
@@ -199,25 +199,9 @@ The generated development image pins its Hermes inputs. Recreate the single
 Hermes service when replacing the image; updating pins requires new
 qualification. Private native state stays in its mount.
 
-## Upgrading from embedded OpenViking
-
-Deployments generated with embedded OpenViking (`REPOKIT_OPENVIKING` in
-`.hermes/compose.yaml`), the older OpenViking sidecar or the historical
-Hermes/OpenViking/Laya stack are no longer recognized. `install` refuses them like
-owner-edited Compose; there is no migration and, for now, no supported upgrade
-path (`install` also refuses a `.hermes/` whose `compose.yaml` was removed). Keep
-such a deployment running on the RepoKit version that generated it until an upgrade
-path is decided.
-
-Native config, profiles, `kanban.db` and `.env` are untouched. Any
-`.hermes/openviking` data is left on disk; RepoKit ignores it. Profiles that
-Hermes already configured with an OpenViking provider keep that Hermes
-configuration; manage it with native `hermes memory setup` / `hermes memory status`.
-See the [decision record](decisions/2026-09-29-hermes-owns-hermes-features.md).
-
-Other edited or unrecognized Compose still refuses automatic adoption. Do not
-hand-patch generated Compose or private state to bypass checks, or delete data to
-force an installation. The installer never stops/deletes containers or removes
+Edited or unrecognized Compose refuses automatic adoption. Do not hand-patch
+generated Compose or private state to bypass checks, or delete data to force an
+installation. The installer never stops/deletes containers or removes
 owner-installed plugins.
 
 ## Qualification boundaries

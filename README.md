@@ -47,7 +47,7 @@ hermes-repokit install   # publish Compose, launcher, host command and private s
 # run the printed Compose build/start command
 hermes-repokit install   # initialize native Kanban after the runtime is running
 hermes-repokit setup     # private provider, team and activation
-hermes-repokit verify    # observational CORE_TEAM/DISPATCH readiness report
+hermes-repokit verify    # observational RepoKit readiness report
 hermes-my-project        # native Hermes CLI as default, when ~/.local/bin is on PATH
 ```
 
@@ -115,15 +115,17 @@ auto-decomposition, seven-profile allowlist) with `hermes config set` and restar
 the gateway once. It refuses while a card is running, preserves an owner-changed
 policy and never claims a worker ran.
 
-`verify` is observational and leads with two summaries. `CORE_TEAM` is `healthy`
-when the container, native config, launcher, seven profiles, worker-shell toolchain,
-Kanban, filesystem/SELinux access and Python imports are healthy. `DISPATCH` covers
-the gateway, Kanban dispatch/notification policy and per-channel tools; it stays
-`unqualified` until native card history shows same-card executor→tester→reviewer
-completion. It exits 0 unless either summary is `degraded`. `verify --dispatch-check`
+`verify` is observational and leads with four summaries of RepoKit's contract.
+`CORE_TEAM` covers the container, native config, seven profiles, Kanban and
+filesystem/SELinux access. `DISPATCH` covers the gateway, Kanban
+dispatch/notification policy and per-channel tools; it stays `unqualified` until
+native card history shows same-card executor→tester→reviewer completion.
+`DEVELOPMENT_RUNTIME` covers the worker-shell toolchain and Python import safety.
+`HOST_LAUNCHER` covers the standalone launcher. It exits 0 unless a summary is
+`degraded`. `verify --dispatch-check`
 is the explicit, paid proof: one no-write researcher card must be claimed and
-completed by the gateway without manual dispatch. Memory is not RepoKit readiness;
-use native `hermes memory status`.
+completed by the gateway without manual dispatch. Standard Hermes features such as
+memory are not RepoKit readiness; inspect them with native Hermes commands.
 
 | Area | Remaining evidence |
 | --- | --- |
@@ -140,21 +142,6 @@ task; see the [dogfood record](docs/qualification/live-dogfood-2026-09-28.md),
 candidate was refused with 229 CAUTION findings; its
 [scanner report](docs/qualification/superpowers-8ca22dba-scan.txt) remains an explicit
 admission gate.
-
-## Upgrading from embedded OpenViking
-
-Deployments generated with embedded OpenViking (`REPOKIT_OPENVIKING` in
-`.hermes/compose.yaml`), the older OpenViking sidecar or the Laya stack are no
-longer recognized; `install` refuses them like owner-edited Compose. There is no
-migration and, for now, no supported upgrade path: `install` also refuses a
-`.hermes/` whose `compose.yaml` was removed. Keep such a deployment running on the
-RepoKit version that generated it until an upgrade path is decided.
-
-Native config, profiles, `kanban.db` and `.env` are untouched. Existing
-`.hermes/openviking` data stays on disk and RepoKit ignores it. Profiles that Hermes
-already configured with an OpenViking provider keep that configuration; manage it
-with native `hermes memory setup` / `hermes memory status`. See the
-[decision record](docs/decisions/2026-09-29-hermes-owns-hermes-features.md).
 
 ## Agent skill
 

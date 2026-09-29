@@ -21,25 +21,12 @@ existing `.hermes` ownership, tracked private-state paths, generated routing,
 and matching container mounts without dumping credential files or Docker env.
 An existing valid deployment is a resume, not a second installation.
 
-## Legacy topology migration
+## Installer refusals
 
-Deployments generated with embedded OpenViking (`REPOKIT_OPENVIKING` in
-`.hermes/compose.yaml`), the older OpenViking sidecar or the Laya stack are not
-recognized; `install` refuses them like owner-edited Compose. There is no
-`migrate` command, no automatic migration and currently no supported upgrade path:
-`install` also refuses a `.hermes/` whose `compose.yaml` was removed. Report the
-legacy topology to the owner and leave it running on the RepoKit version that
-generated it; never hand-edit or remove its Compose to force adoption.
-
-Native config, profiles, `kanban.db` and `.env` are untouched;
-leave `.hermes/openviking` data in place (RepoKit ignores it). A profile Hermes
-already configured with an OpenViking provider keeps that native configuration;
-manage it with `hermes memory setup` / `hermes memory status`.
-
-Any other installer refusal is evidence that the topology is not safely reconciled
-by that version. Preserve it and report the exact unsupported preimage or owner
-drift. Request the bounded missing source migration or owner decision, rather than
-hand-editing Compose, renaming state or deleting the old deployment to force adoption.
+An installer refusal is evidence that the topology is not safely reconciled by
+that version. Preserve it and report the exact unsupported preimage or owner
+drift. Request the owner's decision rather than hand-editing Compose, renaming
+state or deleting the old deployment to force adoption.
 
 ## Obtain the bootstrap executable
 

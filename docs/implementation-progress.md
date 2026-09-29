@@ -11,7 +11,7 @@ embedded OpenViking runtime was removed on 2026-09-29.
 
 The source implements private-state/ownership checks, a standalone launcher,
 conservative profile reconciliation, operational activation and passive
-verification (`CORE_TEAM`, `DISPATCH`). Full v1 acceptance remains incomplete.
+verification (`CORE_TEAM`, `DISPATCH`, `DEVELOPMENT_RUNTIME`, `HOST_LAUNCHER`). Full v1 acceptance remains incomplete.
 
 ## Preserved historical evidence
 

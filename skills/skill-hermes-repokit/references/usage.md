@@ -35,8 +35,8 @@ If only a service is stopped, start that service in the existing project.
 Recreate the single Hermes service using generated pins/build inputs and inspect
 health afterward. Native state remains in its persistent mount. Durable repairs use
 RepoKit source or native Hermes configuration, never hand-edited generated files
-or `.hermes` artifacts to force a passing result. See [version gaps and
-migration](installation.md).
+or `.hermes` artifacts to force a passing result. See [installer
+refusals](installation.md#installer-refusals).
 
 The bootstrap binary is unnecessary for chat, native commands, and Compose
 recovery. If setup or reconciliation is needed after its removal, acquire a
@@ -97,8 +97,8 @@ checks passed but before a reviewed task:
 ```text
 CORE_TEAM           healthy
 DISPATCH            unqualified   (no same-card review observed yet)
-development runtime healthy
-channels            healthy
+DEVELOPMENT_RUNTIME healthy
+HOST_LAUNCHER       healthy
 ```
 
 These summary labels do not replace raw component evidence or certify independent

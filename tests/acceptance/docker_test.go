@@ -258,6 +258,8 @@ func TestDockerFoundation(t *testing.T) {
 		expected := map[string]verify.Status{
 			"CORE_TEAM":               verify.Healthy,
 			"DISPATCH":                verify.Unqualified, // no reviewed work yet
+			"DEVELOPMENT_RUNTIME":     verify.Healthy,
+			"HOST_LAUNCHER":           verify.Healthy,
 			"review:evidence":         verify.Unqualified,
 			"development_environment": verify.Unqualified,
 		}

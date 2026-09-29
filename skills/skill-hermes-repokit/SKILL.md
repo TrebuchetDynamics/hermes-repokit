@@ -19,12 +19,14 @@ Report capabilities independently; container health is not component readiness:
 - **Development runtime:** repository mounted at `/workspace` with its required toolchain.
 - **Channels:** CLI and configured human-facing adapters route to `default`.
 
-`verify` prints `CORE_TEAM` and `DISPATCH` first. `CORE_TEAM` covers the container,
-native config, launcher, profiles, toolchain, Kanban and mount access. `DISPATCH`
+`verify` prints `CORE_TEAM`, `DISPATCH`, `DEVELOPMENT_RUNTIME` and `HOST_LAUNCHER`
+first. `CORE_TEAM` covers the container, native config, profiles, Kanban and mount
+access; `DEVELOPMENT_RUNTIME` the worker toolchain and Python import safety;
+`HOST_LAUNCHER` the standalone launcher. `DISPATCH`
 covers the gateway, dispatch/notification policy and channel tools; it is
 `healthy` only once native card history shows same-card executor→tester→reviewer
 completion, and `unqualified` means configured but the loop is not yet observed.
-`verify` exits nonzero only when either is `degraded`. End-to-end channel delivery
+`verify` exits nonzero only when a summary is `degraded`. End-to-end channel delivery
 still needs behavioral evidence.
 
 Memory is not RepoKit readiness. Shared memory providers are configured and
@@ -103,9 +105,7 @@ scope; this operating skill does not implicitly authorize a product rewrite.
 Preserve owner state on legacy topology detection and use the current RepoKit
 reconciliation path. Do not manually delete legacy containers before replacement
 configuration is generated. If that topology is unsupported, report the exact
-gap and required migration work; never invent a migration command or teardown.
-Embedded-OpenViking, sidecar and Laya deployments are refused; follow the
-documented manual move in [installation](references/installation.md#legacy-topology-migration).
+gap to the owner; never invent a migration command or teardown.
 
 ## Distinguish bootstrap from native usage
 
