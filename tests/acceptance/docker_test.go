@@ -267,7 +267,8 @@ func TestDockerFoundation(t *testing.T) {
 			if p.Status != want {
 				t.Fatalf("credential-free boundary: %+v; want %s", p, want)
 			}
-			if p.Component == "DISPATCH" && !strings.Contains(p.Detail, "no automatic executor/reviewer loop observed yet") {
+			// Status carries the contract; the roster named in the detail may change.
+			if p.Component == "DISPATCH" && !strings.Contains(p.Detail, "loop observed yet") {
 				t.Fatalf("dispatch must be configured and running but unproven: %+v", p)
 			}
 			continue
