@@ -47,4 +47,5 @@ reports this repository's `python-imports` degraded.
 6. `verify` observes only channels with saved per-channel tool selections;
    `hermes -p default tools list --platform <p>` could cover env-only channels.
 7. Upstream Hermes: workers can import repository modules instead of Hermes'
-   (the blocker above). Detected by RepoKit since this trial.
+   (the blocker above), tracked as NousResearch/hermes-agent#126127 with RepoKit's
+   evidence commented. Detected by RepoKit's `verify` since this trial.

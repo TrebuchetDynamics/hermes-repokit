@@ -1,7 +1,10 @@
 # Python import collision in Hermes workers
 
 **Status:** upstream Hermes defect; RepoKit detects it and does not work around it.
-Upstream issue: not yet filed (draft below).
+Upstream: [NousResearch/hermes-agent#126127](https://github.com/NousResearch/hermes-agent/issues/126127)
+(proposed fix [#126277](https://github.com/NousResearch/hermes-agent/pull/126277): spawn workers with `python -P`).
+RepoKit's evidence was added as
+[a comment](https://github.com/NousResearch/hermes-agent/issues/126127#issuecomment-5897286714).
 
 ## What happens
 
@@ -52,27 +55,14 @@ behavior (for example `python -m <local package>` from the repository root).
 Remediation belongs upstream; an owner may alternatively rename the colliding
 root module.
 
-## Upstream issue draft (NousResearch/hermes-agent)
+## Upstream report
 
-> **Kanban workers import repository modules instead of Hermes modules (`python -m` from the workspace)**
->
-> Gateway-dispatched Kanban workers are launched as `python3 -m hermes_cli.main ...`
-> with the task workspace as the working directory. `-m` prepends the working
-> directory to `sys.path` ahead of the Hermes install, so any repository with a
-> root package or module named like a Hermes module (`tools`, `agent`, `gateway`,
-> `plugins`, `providers`, `cron`, `utils`, `cli`, `toolsets`, ...) shadows Hermes.
-> With a root `tools/` package, `_check_file_reqs` raises
-> `ImportError: cannot import name 'check_file_requirements' from 'tools' (/workspace/tools/__init__.py)`
-> and all file tools silently disappear from the worker.
->
-> Reproduction (no model call): run `prompt-size` for a profile with
-> `--toolsets file,memory,web` and `HERMES_KANBAN_TASK` set, inside a directory
-> containing `tools/__init__.py`. Via the `hermes` console script: 19 tools
-> including file. Via `python3 -m hermes_cli.main` with cwd=workspace: 15 tools,
-> no file tools. Same command with cwd=`/`: 19 tools.
->
-> Possible fixes (maintainers' choice): launch workers with Python safe-path
-> semantics (`-P` or `PYTHONSAFEPATH=1`) scoped to the worker launch only, or use
-> an entry point that does not prepend the workspace to `sys.path`. Surfacing a
-> `check_fn` import failure as an error rather than silently dropping the toolset
-> would also have made this immediately visible.
+The issue already existed (found through a workspace `hermes_cli/` directory causing
+crashes). RepoKit's comment adds that ordinary root names such as `tools/` cause a
+**silent** toolset loss rather than a crash, the no-model reproduction above, and
+two suggestions: a `tools/__init__.py` regression case, and surfacing a raising
+`check_fn` as an error.
+
+When a Hermes release with the fix becomes the pinned `FoundationImage`, rerun the
+reproduction; if workers no longer see the workspace on `sys.path`, the
+`python-imports` probe and `HermesImportNames` can be retired.
