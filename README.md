@@ -124,6 +124,21 @@ changed. See
 Existing repository Compose files and services stay in place. RepoKit uses its
 own `.hermes/compose.yaml` and project namespace, with explicit file/context routing.
 
+## Removing a deployment
+
+```sh
+cd my-project
+hermes-repokit remove     # deletes the deployment and .hermes after typed confirmation
+```
+
+`remove` only acts on a deployment it can prove it generated, and asks you to type
+the repository name in an interactive terminal. It then removes RepoKit's Compose
+project (container, network, docker-test volumes), the generated image, the
+`~/.local/bin/hermes-<repo>` symlink it created, the installer lock and its
+exclude line, and **the private `.hermes` state: profiles, Kanban board, provider
+logins, messaging tokens, sessions and memory.** That cannot be undone. Repository
+files and Git history are not touched.
+
 ## Running and remaining gates
 
 Fresh installs keep dispatch off. After the seven profiles reconcile, setup writes

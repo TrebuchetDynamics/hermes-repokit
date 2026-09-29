@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-var commands = [...]string{"plan", "install", "setup", "verify"}
+var commands = [...]string{"plan", "install", "setup", "verify", "remove"}
 
 func Commands() []string { return append([]string(nil), commands[:]...) }
 
@@ -37,6 +37,8 @@ type App struct {
 	HostSELinux selinux.State
 	// startGateway lets explicit setup start a stopped default gateway.
 	startGateway bool
+	// Confirm replaces the interactive remove confirmation in tests.
+	Confirm func(prompt string) (string, error)
 }
 
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -170,6 +172,11 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		return 0
+	case "remove":
+		if _, production := a.Runner.(process.Runner); production || a.Runner == nil {
+			a.Runner = process.Runner{Timeout: 3 * time.Minute} // Compose down drains the gateway
+		}
+		return a.remove(id, stdout, stderr)
 	case "plan", "install":
 		report := a.plan(id, engineering)
 		if args[0] == "plan" {
@@ -298,9 +305,10 @@ func recognized(command string) bool {
 	return false
 }
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify> [--engineering] [--help]")
+	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify|remove> [--engineering] [--help]")
 	fmt.Fprintln(w, "       hermes-repokit setup [--team]")
 	fmt.Fprintln(w, "       hermes-repokit verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)")
 	fmt.Fprintln(w, "       hermes-repokit <plan|install> [--docker-tests]")
+	fmt.Fprintln(w, "       hermes-repokit remove (deletes the deployment and .hermes after typed confirmation)")
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }

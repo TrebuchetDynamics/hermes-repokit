@@ -211,6 +211,18 @@ The generated development image pins its Hermes input.
 Recreate the single Hermes service when replacing the image; updating pins requires
 new qualification. User-managed memory state stays in its own mount.
 
+## Removing a deployment
+
+`hermes-repokit remove` deletes a RepoKit deployment completely, including the
+private `.hermes` state, after you type the repository name in an interactive
+terminal. It refuses a `.hermes` whose launcher or Compose file RepoKit did not
+generate (edited, foreign or hand-built) and a container that does not belong to
+this repository, and it removes a host command only if it is RepoKit's symlink
+to this launcher. Compose `down` always runs for the generated project, so a
+network left by a killed container is cleaned too. Piped input is never accepted
+as confirmation. Stop the deployment with ordinary Compose instead if you only
+want it offline.
+
 ## Legacy deployment migration
 
 `plan` recognizes the exact historical Hermes/Laya local-build stack
