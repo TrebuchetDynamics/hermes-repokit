@@ -46,7 +46,7 @@ func checkDevelopmentArtifacts(root *os.Root, prefix string, files map[string]Ar
 	}
 	return nil
 }
-func prepareDevelopmentArtifacts(state *os.Root, files map[string]Artifact, previous []byte, backup string, write bool) error {
+func prepareDevelopmentArtifacts(state *os.Root, files map[string]Artifact, previous []byte, backup string, write bool, previousRecipe map[string][]byte) error {
 	if _, selected := files["development-image/Dockerfile"]; !selected {
 		return nil
 	}
@@ -54,6 +54,9 @@ func prepareDevelopmentArtifacts(state *os.Root, files map[string]Artifact, prev
 	if err == nil {
 		if !info.IsDir() {
 			return fmt.Errorf("unsafe development build directory")
+		}
+		if len(previousRecipe) > 0 {
+			return upgradeDevelopmentRecipe(state, files, previous, backup, previousRecipe, write)
 		}
 		if strings.Contains(string(previous), "      context: ./development-image\n") {
 			return checkDevelopmentArtifacts(state, "", files)
@@ -79,6 +82,8 @@ func prepareDevelopmentArtifacts(state *os.Root, files map[string]Artifact, prev
 		}
 	} else if !os.IsNotExist(err) {
 		return err
+	} else if len(previousRecipe) > 0 {
+		return fmt.Errorf("previous development recipe missing; owner state preserved")
 	}
 	if !write {
 		return nil

@@ -39,6 +39,7 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 			Version string
 		}
 		Workspace, Certificates bool
+		RuntimeCommands         bool `json:"runtime_commands"`
 		Profiles                map[string]bool
 	}
 	if out.Err != nil || out.Truncated || json.Unmarshal([]byte(out.Output), &observed) != nil {
@@ -70,6 +71,9 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		}
 		result = append(result, Probe{"development:" + name, status, tool.Version})
 	}
+	if !observed.RuntimeCommands {
+		missing = append(missing, "image commands missing from login-shell search path")
+	}
 	if !observed.Workspace {
 		missing = append(missing, "/workspace is not the writable workdir")
 	}
@@ -85,7 +89,7 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		sort.Strings(missing)
 		result[0] = Probe{"development_environment", Degraded, strings.Join(missing, "; ")}
 	} else {
-		result[0] = Probe{"development_environment", Healthy, "required tools execute and six profile terminals select local /workspace; real coding/review acceptance separate"}
+		result[0] = Probe{"development_environment", Healthy, "required tools and image command links available; six profiles select local /workspace; live worker behavior remains separate"}
 	}
 	return append(result, dockerAcceptance(ctx, id, r))
 }

@@ -1,0 +1,4 @@
+#!/command/with-contenv sh
+# A disabled component stays down; enabled memory recovers under native s6.
+[ "${REPOKIT_OPENVIKING:-0}" = 1 ] || exit 125
+exit 0

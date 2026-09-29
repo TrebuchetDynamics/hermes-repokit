@@ -22,7 +22,7 @@ func TestRepositoryIdentityContract(t *testing.T) {
 				t.Errorf("%s identity missing %q", role.Name, want)
 			}
 		}
-		if role.LegacySoul != legacy[i].Soul || (!strings.HasSuffix(role.Soul, legacy[i].Soul) && !strings.HasSuffix(role.PreviousSoul, legacy[i].Soul)) {
+		if role.LegacySoul != legacy[i].Soul || (!strings.HasSuffix(role.Soul, legacy[i].Soul) && !strings.HasSuffix(role.PreviousSoul, legacy[i].Soul) && !strings.HasSuffix(role.PreviousManagedSouls[3], legacy[i].Soul)) {
 			t.Errorf("%s lost exact historical contract", role.Name)
 		}
 		if strings.Contains(role.Soul, id.Root) {
@@ -93,7 +93,7 @@ func TestHistoricalPoliciesRemainExactAndCurrentPoliciesHaveNoSupervision(t *tes
 		{5, []string{"df0d19738af6164056f44df3da543c1d0cb1ce8f07737c6012ba924a73a39ab6", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "39ab2850cdb7c1ec2b7fc3b938fa9ee76b19d7368ea8d40f35dc04211c39937c", "3dfefd27eb6a6c7276bd34bc39c595083f1a7a02d8c7c041b64ac4ade9794827", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}},
 	} {
 		role := roles[fixture.index]
-		historical := append(append([]string{}, role.PreviousManagedSouls...), role.PreviousRepositorySoul, role.PreviousRepositoryOriginalSoul)
+		historical := append(append([]string{}, role.PreviousManagedSouls[:3]...), role.PreviousRepositorySoul, role.PreviousRepositoryOriginalSoul)
 		for i, soul := range historical {
 			if got := fmt.Sprintf("%x", sha256.Sum256([]byte(soul))); got != fixture.hashes[i] {
 				t.Errorf("%s historical policy %d changed: %s", role.Name, i, got)

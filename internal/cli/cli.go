@@ -86,7 +86,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	if selected, ok := compose.DevelopmentSelected(id); ok && selected.DockerTests {
+	if selected, ok := compose.DevelopmentInstallSelected(id); ok && selected.DockerTests {
 		a.DockerTests = true
 	}
 	if a.Runner == nil {

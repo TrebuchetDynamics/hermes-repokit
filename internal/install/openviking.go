@@ -11,7 +11,7 @@ import (
 
 // upgradeCompose executes under the publication lock, with an exact public
 // Compose preimage. It never opens or rewrites native configuration/credentials.
-func upgradeCompose(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInfo, previous []byte, files map[string]Artifact, prepareMemory bool, customBackupName string) (bool, error) {
+func upgradeCompose(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInfo, previous []byte, files map[string]Artifact, prepareMemory bool, customBackupName string, previousRecipe map[string][]byte) (bool, error) {
 	state, err := root.OpenRoot(".hermes")
 	if err != nil {
 		return false, err
@@ -32,7 +32,7 @@ func upgradeCompose(root *os.Root, id target.Identity, rootInfo, lockInfo fs.Fil
 	if customBackupName != "" {
 		backupName = customBackupName
 	}
-	if err := prepareDevelopmentArtifacts(state, files, previous, backupName, false); err != nil {
+	if err := prepareDevelopmentArtifacts(state, files, previous, backupName, false, previousRecipe); err != nil {
 		return false, err
 	}
 	if prepareMemory {
@@ -71,7 +71,7 @@ func upgradeCompose(root *os.Root, id target.Identity, rootInfo, lockInfo fs.Fil
 	} else if err := createOrMatch(state, backupName, previous); err != nil {
 		return false, err
 	}
-	if err := prepareDevelopmentArtifacts(state, files, previous, backupName, true); err != nil {
+	if err := prepareDevelopmentArtifacts(state, files, previous, backupName, true, previousRecipe); err != nil {
 		return false, err
 	}
 	temp := ".compose-stage-" + rand.Text()

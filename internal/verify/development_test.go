@@ -52,12 +52,18 @@ func TestDevelopmentReadinessRequiresRealToolsAndProfileWorkdirs(t *testing.T) {
 	for _, name := range []string{"default", "researcher", "planner", "executor", "reviewer", "steward"} {
 		profiles[name] = true
 	}
-	data := map[string]any{"tools": tools, "workspace": true, "certificates": true, "profiles": profiles}
+	data := map[string]any{"tools": tools, "workspace": true, "runtime_commands": true, "certificates": true, "profiles": profiles}
 	encode := func() { b, _ := json.Marshal(data); r.toolData = string(b) }
 	encode()
 	if got := Development(context.Background(), id, r); got[0].Status != Healthy {
 		t.Fatal(got)
 	}
+	data["runtime_commands"] = false
+	encode()
+	if got := Development(context.Background(), id, r); got[0].Status != Degraded {
+		t.Fatal("missing login-shell entrypoints accepted", got)
+	}
+	data["runtime_commands"] = true
 	tools["go"] = map[string]any{"ok": false, "version": "unavailable"}
 	encode()
 	if got := Development(context.Background(), id, r); got[0].Status != Degraded {

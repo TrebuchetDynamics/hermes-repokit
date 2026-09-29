@@ -32,6 +32,36 @@ Kanban stays exclusive to default. Reviewer can run checks, with its existing
 non-writing policy limitation. Default may make a tiny authorized edit directly;
 substantive changes still use executor and independent reviewer.
 
+## Native terminal command discovery
+
+Hermes captures a login-shell environment for its terminal tool. That shell can
+reset the image PATH, hiding binaries that are available through direct Docker
+exec. The generated image exposes the native Hermes privilege-drop shim and,
+for Go repositories, Go/gofmt through `/usr/local/bin`. No owner shell startup
+file is edited. Verification checks the fixed image links without sourcing
+owner startup files; actual shell execution is a separate acceptance fixture.
+
+`TestDockerDevelopmentRuntime` exercises native `LocalEnvironment` for default,
+executor, reviewer and steward in a disposable container without network,
+credentials or host mounts. It checks first and reused terminal snapshots and
+runs an executor Go/race compilation. These are terminal-backend checks, not
+model-driven coding or reviewer approval evidence.
+
+Exact pre-fix generated development recipes can upgrade through `install`, which
+preserves the original Compose as `compose.before-path.yaml` and verifies every
+old recipe file before replacing it. Interrupted replacements can resume only
+with that exact backup; owner edits and unknown files are refused. Apply the
+printed build/recreation command and normal team reconciliation to activate the
+new image and managed identities. This source-validation pass did not roll out
+changes to the existing deployment.
+
+The 2026-09-29 repair passed the full normal/race suites, Docker-tagged vet and
+`TestDockerDevelopmentRuntime` (17.60 seconds), including native terminal lookup,
+reused snapshots and executor compilation. Exact prior-recipe migration passed
+16 CLI combinations plus interruption/drift scenarios; managed SOUL migration
+preserves edited identities. Model adherence to the updated task policy has not
+been replayed against the live team.
+
 ## Optional Docker acceptance
 
 `hermes-repokit install --docker-tests` publishes the separate daemon service.

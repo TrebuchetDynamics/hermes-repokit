@@ -5,6 +5,7 @@ package acceptance
 import (
 	"context"
 	"crypto/rand"
+	_ "embed"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 	"os"
 	"os/exec"
@@ -13,6 +14,9 @@ import (
 	"testing"
 	"time"
 )
+
+//go:embed fixtures/worker_terminal.py
+var workerTerminalFixture string
 
 // Real image + compiler proof, no credential/model calls. This never mounts the
 // host socket or native state. Daemon access is the same opt-in acceptance gate.
@@ -52,6 +56,7 @@ func TestDockerDevelopmentRuntime(t *testing.T) {
 			t.Errorf("fixture image cleanup: %v %s", err, out)
 		}
 	}()
+	run("run", "--rm", "--network", "none", "--user", "1000:1000", "--env", "HERMES_DISABLE_LAZY_INSTALLS=1", "--entrypoint", "/opt/hermes/.venv/bin/python", image, "-B", "-c", workerTerminalFixture)
 	run("run", "--rm", "--network", "none", "--user", "1000:1000", "--entrypoint", "/bin/sh", image, "-ec", `
  test ! -S /var/run/docker.sock
  test ! -S /docker-test/run/docker.sock

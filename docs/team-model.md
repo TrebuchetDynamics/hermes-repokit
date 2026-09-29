@@ -245,3 +245,27 @@ The optional Docker acceptance daemon is infrastructure, not a profile. It uses
 dedicated disposable test storage and never receives the host Docker socket or
 Hermes private state. Privileged DinD is an explicit testing trust decision, not
 strong host-kernel isolation. Neither Pi nor Codex is a mandatory coding harness.
+
+## Runtime-aware assignments and truthful outcomes
+
+The managed team operates inside `hermes-<repo>`. The native Hermes command is
+`/opt/hermes/bin/hermes`; embedded OpenViking is managed through
+`/usr/local/bin/repokit-openviking`, with private configuration at
+`/opt/data/openviking` and health on `127.0.0.1:1933`. Pending initialization is
+separate from an absent runtime. The ordinary runtime has no host Docker socket;
+local observation does not require one. Multi-deployment acceptance requires
+its own authorized test environment. Terminal secrets are filtered, so missing
+shell variables cannot establish missing native provider authentication.
+
+Default supplies inspected Git/board facts to planner or routes inspection to a
+profile with the required tools. Planner's file/memory toolsets are unchanged.
+Known missing prerequisites should gate the acceptance card, while other feasible
+work can proceed. A completed diagnostic report is not completed acceptance.
+Workers use native blocking for unmet external prerequisites and native same-card
+review for independently reviewed work. A separate blocker-report review does not
+approve the original acceptance criteria.
+
+These are managed agent instructions, not new task-state enforcement in RepoKit.
+Native Hermes owns transitions. Reconciliation recognizes exact prior managed
+SOULs and preserves custom edits; new behavior requires normal setup and fresh
+sessions, and model adherence still needs live evidence.

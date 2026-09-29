@@ -33,6 +33,25 @@ def inspect_tools(go_required, run=subprocess.run):
         except (OSError,subprocess.TimeoutExpired):result[name]={'ok':False,'version':'unavailable'}
     return result
 
+def runtime_commands(go_required, root=Path('/')):
+    # Observe immutable image links only; never source profile startup files in
+    # passive verification. The Docker fixture exercises native shell snapshots.
+    commands={'hermes':'opt/hermes/bin/hermes'}
+    if go_required:
+        commands.update({'go':'usr/local/go/bin/go','gofmt':'usr/local/go/bin/gofmt'})
+    try:
+        for name,target in commands.items():
+            link=root/'usr/local/bin'/name
+            expected=root/target
+            if not link.is_symlink() or link.resolve(strict=True)!=expected.resolve(strict=True):
+                return False
+            if not expected.is_file() or not os.access(expected,os.X_OK):
+                return False
+        return True
+    except (OSError,RuntimeError):
+        return False
+
+
 def native_terminals(root):
     result={}
     for name in ('default','researcher','planner','executor','reviewer','steward'):
@@ -53,4 +72,4 @@ def native_terminals(root):
 if __name__=='__main__':
     tools=inspect_tools(sys.argv[1]=='go')
     print(json.dumps({'tools':tools,'workspace':os.getcwd()=='/workspace' and os.access('/workspace',os.R_OK|os.W_OK|os.X_OK),
-      'certificates':Path('/etc/ssl/certs/ca-certificates.crt').is_file(),'profiles':native_terminals(Path('/opt/data'))}))
+      'runtime_commands':runtime_commands(sys.argv[1]=='go'),'certificates':Path('/etc/ssl/certs/ca-certificates.crt').is_file(),'profiles':native_terminals(Path('/opt/data'))}))

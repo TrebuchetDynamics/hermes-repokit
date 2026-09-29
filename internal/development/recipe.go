@@ -35,6 +35,8 @@ const goInstall = `RUN set -eu; \
     test ! -e /usr/local/go; \
     tar -C /usr/local -xzf /tmp/repokit-go.tar.gz; \
     rm /tmp/repokit-go.tar.gz; \
+    ln -s /usr/local/go/bin/go /usr/local/bin/go; \
+    ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt; \
     /usr/local/go/bin/go version | grep -F 'go1.26.6 linux/'; \
     mkdir /tmp/repokit-go-smoke; \
     printf '%s\n' 'package smoke' 'import "testing"' 'func TestSmoke(t *testing.T) { if 2+2 != 4 { t.Fatal("compiler") } }' > /tmp/repokit-go-smoke/smoke_test.go; \

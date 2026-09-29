@@ -24,6 +24,27 @@ class DevelopmentProbeTest(unittest.TestCase):
             self.assertFalse(any(k.endswith(('TOKEN','KEY')) for k in kwargs['env']))
             self.assertNotIn('hermes',command)
             self.assertNotIn('test',command)
+    def test_image_commands_require_real_targets_in_login_shell_path(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            for name,target in [('hermes','opt/hermes/bin/hermes'),('go','usr/local/go/bin/go'),('gofmt','usr/local/go/bin/gofmt')]:
+                executable=root/target
+                executable.parent.mkdir(parents=True,exist_ok=True)
+                executable.write_text('#!/bin/sh\nexit 0\n')
+                executable.chmod(0o755)
+            self.assertFalse(probe.runtime_commands(True,root))
+            bindir=root/'usr/local/bin';bindir.mkdir(parents=True)
+            for name,target in [('hermes','opt/hermes/bin/hermes'),('go','usr/local/go/bin/go'),('gofmt','usr/local/go/bin/gofmt')]:
+                (bindir/name).symlink_to(root/target)
+            self.assertTrue(probe.runtime_commands(True,root))
+            (bindir/'go').unlink()
+            self.assertFalse(probe.runtime_commands(True,root))
+            self.assertTrue(probe.runtime_commands(False,root))
+            (bindir/'hermes').unlink()
+            (bindir/'hermes').symlink_to('/nonexistent')
+            self.assertFalse(probe.runtime_commands(False,root))
+
     def test_missing_compiler_is_degraded_not_hidden_by_other_tools(self):
         def run(command,**kwargs):
             if command[0].endswith('/go'):raise FileNotFoundError('missing')

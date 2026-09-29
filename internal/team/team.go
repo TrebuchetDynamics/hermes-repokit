@@ -31,7 +31,12 @@ func ForRepository(id target.Identity) []Role {
 	roles := repositoryRoles(id, Roster(), defaultMaintenance)
 	supervised := repositoryRoles(id, legacySupervisedRoster(), legacyOperationalMaintenance)
 	for i := range roles {
-		roles[i].PreviousManagedSouls = []string{supervised[i].Soul, supervised[i].PreviousSoul, supervised[i].LegacySoul}
+		priorSoul := roles[i].Soul
+		roles[i].PreviousManagedSouls = []string{supervised[i].Soul, supervised[i].PreviousSoul, supervised[i].LegacySoul, priorSoul}
+		// Keep historical Roster and repositoryRoles bytes intact: exact matches
+		// are the installer's evidence that an existing profile is still managed.
+		roles[i].Soul = strings.Replace(priorSoul, "Do not create a separate review card unless the coordinator explicitly chose\na separate-card workflow.", "A separate review card cannot satisfy required acceptance; request native same-card review with reviewer=\"reviewer\".", 1)
+		roles[i].Soul = runtimeContract(id, roles[i].Name) + roles[i].Soul
 	}
 	return roles
 }

@@ -18,6 +18,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/install"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/selinux"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 )
@@ -63,6 +64,26 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		artifacts["development-image/"+name] = install.Artifact{Data: data, Mode: 0600}
 	}
 	var previous []install.StackUpgrade
+	oldRecipe, err := development.LegacyRecipe(report.Development)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return 1
+	}
+	for _, memory := range []string{"", projectmemory.Image} {
+		for _, tests := range []bool{false, true} {
+			if tests && !report.DockerTests {
+				continue
+			}
+			for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
+				old, err := compose.LegacyDevelopment(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: memory, Development: &report.Development, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state})
+				if err != nil {
+					fmt.Fprintln(stderr, err)
+					return 1
+				}
+				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-path.yaml", PreviousRecipe: oldRecipe})
+			}
+		}
+	}
 	legacy, err := compose.LegacyLayaBuild(id, os.Getuid(), os.Getgid())
 	if err != nil {
 		fmt.Fprintln(stderr, err)

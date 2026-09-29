@@ -45,6 +45,8 @@ type StackUpgrade struct {
 	Compose       []byte
 	PrepareMemory bool
 	BackupName    string
+	// PreviousRecipe contains exact development-image filenames and bytes.
+	PreviousRecipe map[string][]byte
 }
 
 // PublishStackChecked upgrades any recognized preimage while preserving native state.
@@ -112,7 +114,7 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 				if e == nil && name == "compose.yaml" {
 					for _, prior := range previous {
 						if len(prior.Compose) > 0 && bytes.Equal(b, prior.Compose) {
-							return upgradeCompose(root, id, rootInfo, lockInfo, prior.Compose, files, prior.PrepareMemory, prior.BackupName)
+							return upgradeCompose(root, id, rootInfo, lockInfo, prior.Compose, files, prior.PrepareMemory, prior.BackupName, prior.PreviousRecipe)
 						}
 					}
 				}
