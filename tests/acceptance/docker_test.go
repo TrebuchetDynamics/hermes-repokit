@@ -79,7 +79,7 @@ func TestDockerFoundation(t *testing.T) {
 		cmd.Dir = root
 		cmd.Env = append(installerEnv, "DOCKER_CONTEXT="+dc)
 		out, err := cmd.CombinedOutput()
-		if err != nil || !strings.Contains(string(out), want) || !strings.Contains(string(out), "No worker has been exercised") {
+		if err != nil || !strings.Contains(string(out), want) || !strings.Contains(string(out), "no worker has run yet") {
 			t.Fatalf("expected %q from %v: %v %s", want, command, err, out)
 		}
 	}
@@ -244,7 +244,7 @@ func TestDockerFoundation(t *testing.T) {
 
 	// Explicit setup activates the team: the fresh gateway is started once
 	// through the native command, without claiming any worker ran.
-	runActivationCLI("Started the default gateway", "setup", "--team")
+	runActivationCLI("default gateway started", "setup", "--team")
 	scaffoldVerify := exec.CommandContext(ctx, installer, "verify")
 	scaffoldVerify.Dir = root
 	output, verifyErr := scaffoldVerify.CombinedOutput()

@@ -51,6 +51,16 @@ against a fresh clone.
 - [ ] **Monorepo toolchains.** Detection reads root manifests only, so PMB's
       Python/Rust subprojects were missed. Defer unless real projects need it.
 
+## Owner request: `remove`
+
+- [x] `hermes-repokit remove` deletes a RepoKit deployment (Compose project,
+      generated image, host command, lock and exclude line, and `.hermes`) after
+      the repository name is typed in an interactive terminal; it refuses state
+      it cannot prove it generated.
+- [ ] Optional: a non-interactive `--yes` for scripted teardown, if ever needed.
+- [x] `install` builds and starts the deployment itself; `stop` / `start` stop and
+      restart it with state kept (recreation deferred while a card runs).
+
 ## Owner request: preferred tool defaults
 
 - [ ] Enable a preferred tool set on `default` at install/setup through native

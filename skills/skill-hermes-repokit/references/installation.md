@@ -76,25 +76,24 @@ repokit install
 ```
 
 This publishes `.hermes/compose.yaml`, native defaults, `.hermes/bin/hermes-<repo>`,
-the pinned development-image recipe and the `~/.local/bin/hermes-<repo>` link. It
-preserves recognized prior state, refuses ambiguous changes and starts nothing.
-Dispatch stays off.
+the pinned development-image recipe and the `~/.local/bin/hermes-<repo>` link, then
+builds and starts the `hermes` service through ordinary Compose (the first build
+can take several minutes), waits for Hermes to answer and initializes native
+Kanban. It preserves recognized prior state and refuses ambiguous changes. On an
+existing deployment it recreates the container only when the image changed, and
+defers that while a Kanban card is running. Dispatch stays off until setup.
 
-Run the **exact build/start command `install` printed** — context, absolute
-Compose file, `--env-file /dev/null` and selector cleanup included. The first
-build downloads and builds the pinned image and can take several minutes. Then
-confirm with that project's `compose ps` and rerun:
-
-```sh
-repokit install     # native Kanban initialization and team reconciliation
-```
+Afterwards, `repokit stop` stops the deployment with all state kept and
+`repokit start` brings it back (Hermes restarts a gateway that was running).
+`repokit remove` deletes the deployment and its `.hermes` state after the owner
+types the repository name; never run it on the owner's behalf without that intent.
 
 Do not hand-write a competing Compose deployment or run an unqualified
 `docker compose up`.
 
 Optional: for a repository whose tests need Docker, use `plan --docker-tests` /
-`install --docker-tests` and run both printed commands (image rebuild, then the
-`--profile docker-tests` daemon). This adds a privileged, project-scoped test
+`install --docker-tests` (it rebuilds the image) and run the printed
+`--profile docker-tests` daemon command. This adds a privileged, project-scoped test
 daemon without the host Docker socket; tasks call `repokit-docker-test` from
 `/workspace`.
 
@@ -163,8 +162,8 @@ private `Z` relabeling to exactly two mounts, `<repo>` → `/workspace` and
 user home) are refused rather than relabeled. `verify` reports the host state and
 in-container access.
 
-If an older deployment lacks relabeling, rerun `install` and recreate the Hermes
-service with the printed command; all state is preserved. Never run
+If an older deployment lacks relabeling, rerun `install`; it recreates the Hermes
+service with the relabeled mounts and preserves all state. Never run
 `setenforce 0`, change global policy, add policy modules, relabel unrelated paths
 or hand-edit the Compose file.
 
@@ -172,8 +171,8 @@ or hand-edit the Compose file.
 
 `install` recognizes exact earlier generated deployments and upgrades them in
 place, keeping backups such as `compose.before-names.yaml` or
-`compose.before-core.yaml`. Recreate the service with the printed command, then
-rerun `install` (and `setup --team` when the team changed). Edited launchers,
+`compose.before-core.yaml`, and recreates the service itself (run `setup --team`
+when the team changed). Edited launchers,
 recipes, backups and conflicting names are preserved and refused.
 
 The historical Hermes/Laya local-build stack is recognized too. Take a native

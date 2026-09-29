@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-var commands = [...]string{"plan", "install", "setup", "verify"}
+var commands = [...]string{"plan", "install", "setup", "verify", "start", "stop", "remove"}
 
 func Commands() []string { return append([]string(nil), commands[:]...) }
 
@@ -37,6 +37,10 @@ type App struct {
 	HostSELinux selinux.State
 	// startGateway lets explicit setup start a stopped default gateway.
 	startGateway bool
+	// Confirm replaces the interactive remove confirmation in tests.
+	Confirm func(prompt string) (string, error)
+	// ComposeExec replaces the streamed `docker compose` invocation in tests.
+	ComposeExec func(stdout, stderr io.Writer, args ...string) error
 }
 
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -170,6 +174,15 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		return 0
+	case "start":
+		return a.start(id, stdout, stderr)
+	case "stop":
+		return a.stop(id, stdout, stderr)
+	case "remove":
+		if _, production := a.Runner.(process.Runner); production || a.Runner == nil {
+			a.Runner = process.Runner{Timeout: 3 * time.Minute} // Compose down drains the gateway
+		}
+		return a.remove(id, stdout, stderr)
 	case "plan", "install":
 		report := a.plan(id, engineering)
 		if args[0] == "plan" {
@@ -244,6 +257,7 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 		p.ProposedChanges = append(p.ProposedChanges, "reconcile the seven native team profiles after default setup; preserve user drift and unknown profiles; integrations remain pending")
 	}
 	p.ProposedChanges = append(p.ProposedChanges, "create or reuse ~/.local/bin/"+id.Container+" as a symlink to the generated launcher when safe; preserve conflicts and report missing PATH")
+	p.ProposedChanges = append(p.ProposedChanges, "build and start "+id.Container+" with ordinary Docker Compose, then initialize native Kanban")
 	p.ProposedChanges = append(p.ProposedChanges, "add "+lockExcludeEntry+" to the local, never-committed .git/info/exclude unless already ignored, so the installer lock stays out of git status")
 	if compose.LegacyLayaBuildSelected(id) {
 		p.ProposedChanges = append(p.ProposedChanges, "recognized legacy Hermes/Laya build stack: install backs up compose.before-core.yaml and generates the core runtime; all service data preserved")
@@ -298,9 +312,11 @@ func recognized(command string) bool {
 	return false
 }
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify> [--engineering] [--help]")
+	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify|start|stop|remove> [--engineering] [--help]")
 	fmt.Fprintln(w, "       hermes-repokit setup [--team]")
 	fmt.Fprintln(w, "       hermes-repokit verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)")
 	fmt.Fprintln(w, "       hermes-repokit <plan|install> [--docker-tests]")
+	fmt.Fprintln(w, "       hermes-repokit start | stop (start or stop the deployment; state is kept)")
+	fmt.Fprintln(w, "       hermes-repokit remove (deletes the deployment and .hermes after typed confirmation)")
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }

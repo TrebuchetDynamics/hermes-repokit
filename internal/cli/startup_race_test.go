@@ -43,7 +43,7 @@ func TestInstallRightAfterStartWaitsForHermes(t *testing.T) {
 	defer func() { nativeReadyTimeout = saved }()
 	nativeReadyTimeout = 30 * time.Second
 	code, out, diag := invoke(t, a, "install")
-	if code != 0 || !strings.Contains(out, "team setup pending") || strings.Contains(diag, "inspection unavailable") {
+	if code != 0 || !strings.Contains(out, "not set up yet") || strings.Contains(diag, "inspection unavailable") {
 		t.Fatalf("install during first boot: code=%d out=%s diag=%s", code, out, diag)
 	}
 	if boot.reads <= boot.failures || boot.scripts == 0 {

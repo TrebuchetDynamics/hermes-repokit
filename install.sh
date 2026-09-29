@@ -122,8 +122,9 @@ chmod 700 -- "$tmp" || fail 'cannot make built command executable'
 # whose name normalizes to `repokit` the `hermes-repokit` name is already a
 # generated launcher. That launcher, and any other unowned command, is preserved.
 owns_bootstrap() {
-    # A RepoKit-built binary embeds this exact usage string.
-    grep -aqF -- 'usage: hermes-repokit <plan|install|setup|verify>' "$1" 2>/dev/null
+    # A RepoKit-built binary embeds this usage prefix; later releases append
+    # commands (start|stop|remove), so match the prefix, not the full list.
+    grep -aqF -- 'usage: hermes-repokit <plan|install|setup|verify' "$1" 2>/dev/null
 }
 
 blocked=

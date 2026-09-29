@@ -14,7 +14,7 @@ func TestTeamResumeWithoutPrivateWizard(t *testing.T) {
 	input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10, team: `REPOKIT_TEAM={"status":"configured","drift":[]}`}
 	a.Initializer = input
 	a.Stdin = strings.NewReader("")
-	if code, out, diag := invoke(t, a, "setup", "--team"); code != 0 || input.pid != 11 || !strings.Contains(diag, "Optional memory") {
+	if code, out, diag := invoke(t, a, "setup", "--team"); code != 0 || input.pid != 11 || strings.Contains(strings.ToLower(diag), "memory") {
 		t.Fatalf("team-only resume: code=%d calls=%d out=%s diag=%s", code, input.calls, out, diag)
 	}
 	input.team = `REPOKIT_TEAM={"status":"pending-setup","drift":[]}`
@@ -49,7 +49,7 @@ func TestTeamSetupReportsPreservedOwnerProfilesAndActivates(t *testing.T) {
 	if code != 0 || input.pid != 11 {
 		t.Fatalf("owner customization blocked activation: code=%d out=%s diag=%s", code, out, diag)
 	}
-	if !strings.Contains(out, "Owner-customized profiles preserved: executor.") || !strings.Contains(out, "deferred while a card is running: reviewer.") {
+	if !strings.Contains(out, "owner-customized profiles preserved: executor (") || !strings.Contains(out, "deferred while a card is running: reviewer;") {
 		t.Fatalf("preserved profiles not reported:\n%s", out)
 	}
 }

@@ -25,6 +25,7 @@ type foundationRunner struct {
 	context, names, runtime string
 	lists                   int
 	onList                  func(int)
+	composeCalls            []string
 }
 
 func (r *foundationRunner) Run(ctx context.Context, program string, args ...string) process.Result {
@@ -78,7 +79,13 @@ func foundationApp(t *testing.T) (App, *foundationRunner) {
 		t.Fatal(err)
 	}
 	r := &foundationRunner{id: id, context: "local-test"}
-	return App{Directory: root, Runner: r, Initializer: r}, r
+	// Record Compose calls without starting anything; tests that need a
+	// running deployment set r.runtime themselves.
+	compose := func(_, _ io.Writer, args ...string) error {
+		r.composeCalls = append(r.composeCalls, strings.Join(args, " "))
+		return nil
+	}
+	return App{Directory: root, Runner: r, Initializer: r, ComposeExec: compose}, r
 }
 func invoke(t *testing.T, a App, args ...string) (int, string, string) {
 	t.Helper()
@@ -97,8 +104,8 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("install: %d %s", code, diag)
 	}
-	if !strings.Contains(out, "--context 'local-test'") || !strings.Contains(out, "up -d --build hermes") {
-		t.Fatalf("missing standalone handoff: %s", out)
+	if len(r.composeCalls) == 0 || !strings.Contains(r.composeCalls[len(r.composeCalls)-1], "--context local-test compose --env-file /dev/null -f "+r.id.Compose+" up -d --build hermes") {
+		t.Fatalf("install did not build and start the deployment: %v\n%s", r.composeCalls, out)
 	}
 	for _, name := range []string{"compose.yaml", "config.yaml", "bin/hermes-test-project"} {
 		if _, err := os.Stat(filepath.Join(a.Directory, ".hermes", name)); err != nil {

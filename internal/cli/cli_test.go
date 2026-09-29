@@ -18,12 +18,12 @@ func TestHelpListsOnlyInstallerCommands(t *testing.T) {
 			if code := Run(args, &out, &diagnostics); code != 0 || diagnostics.Len() != 0 {
 				t.Fatalf("code=%d stdout=%q stderr=%q", code, out.String(), diagnostics.String())
 			}
-			for _, command := range []string{"plan", "install", "setup", "verify"} {
+			for _, command := range []string{"plan", "install", "setup", "verify", "start", "stop", "remove"} {
 				if !strings.Contains(out.String(), command) {
 					t.Fatalf("help omitted %q: %q", command, out.String())
 				}
 			}
-			for _, extra := range []string{"chat", "status", "start", "stop", "uninstall"} {
+			for _, extra := range []string{"chat", "status", "uninstall", "daemon"} {
 				if strings.Contains(out.String(), extra) {
 					t.Fatalf("help exposed %q: %q", extra, out.String())
 				}
@@ -32,9 +32,9 @@ func TestHelpListsOnlyInstallerCommands(t *testing.T) {
 	}
 }
 
-func TestCommandsReturnsFourIndependentNames(t *testing.T) {
+func TestCommandsReturnsIndependentNames(t *testing.T) {
 	first := Commands()
-	if got, want := strings.Join(first, ","), "plan,install,setup,verify"; got != want {
+	if got, want := strings.Join(first, ","), "plan,install,setup,verify,start,stop,remove"; got != want {
 		t.Fatalf("commands = %q, want %q", got, want)
 	}
 	first[0] = "changed"
