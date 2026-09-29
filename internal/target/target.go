@@ -37,8 +37,12 @@ func Resolve(path string) (Identity, error) {
 		return Identity{}, fmt.Errorf("target is not a directory")
 	}
 	name := strings.Trim(separators.ReplaceAllString(strings.ToLower(filepath.Base(root)), "-"), "-")
+	container := name
+	if !strings.HasPrefix(container, "hermes-") {
+		container = "hermes-" + container
+	}
 	// Bound the complete public name to 128 bytes. Refusal never changes identity.
-	if name == "" || len("hermes-"+name) > 128 {
+	if name == "" || len(container) > 128 {
 		return Identity{}, fmt.Errorf("unsupported repository basename")
 	}
 	for _, r := range root {
@@ -47,8 +51,15 @@ func Resolve(path string) (Identity, error) {
 		}
 	}
 	sum := sha256.Sum256([]byte(root))
-	container := "hermes-" + name
 	return Identity{root, name, container, fmt.Sprintf("repokit-%x", sum[:12]), filepath.Join(root, ".hermes", "compose.yaml"), filepath.Join(root, ".hermes", "bin", container)}, nil
+}
+
+// PreviousNames retains the stable repository identity while reconstructing the
+// original public names for exact generated-deployment migration only.
+func PreviousNames(id Identity) Identity {
+	id.Container = "hermes-" + id.Name
+	id.Launcher = filepath.Join(id.Root, ".hermes", "bin", id.Container)
+	return id
 }
 
 // broadMountRoots are host paths whose recursive mount or SELinux relabel

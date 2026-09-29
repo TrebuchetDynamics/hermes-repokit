@@ -62,7 +62,7 @@ func isolatedDockerAcceptanceFixture(t *testing.T) (target.Identity, *dockerAcce
 	imageID := "sha256:" + strings.Repeat("d", 64)
 	hermes := map[string]any{
 		"id": strings.Repeat("a", 64), "status": "running", "service": "hermes", "project": id.Project,
-		"image": development.ImageName(id.Project, req), "imageID": imageID,
+		"image": development.ImageName(id.Container, req), "imageID": imageID,
 		"workspace": id.Root, "home": filepath.Join(id.Root, ".hermes"), "unexpectedMounts": "xx",
 		"mounts": []RuntimeMount{
 			{Type: "bind", Source: id.Root, Destination: "/workspace", RW: true},

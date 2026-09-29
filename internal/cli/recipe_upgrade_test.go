@@ -60,7 +60,7 @@ func TestPriorDevelopmentRecipeUpgrade(t *testing.T) {
 						if goTool {
 							hash = "617671ef605ee7a176cf809ae663eec87419d5f094897f9fabcf0120422e3335"
 						}
-						old = bytes.ReplaceAll(old, []byte(development.ImageName(r.id.Project, req)), []byte(r.id.Project+"-hermes-dev:"+hash[:24]))
+						old = bytes.ReplaceAll(old, []byte(development.ImageName(r.id.Container, req)), []byte(r.id.Project+"-hermes-dev:"+hash[:24]))
 						write := func(name string, data []byte) {
 							t.Helper()
 							if err := os.WriteFile(filepath.Join(a.Directory, ".hermes", name), data, 0600); err != nil {

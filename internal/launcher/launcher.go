@@ -30,6 +30,20 @@ func Render(id target.Identity, context string) ([]byte, error) {
 		"exec " + prefix + " exec -T --workdir /workspace hermes hermes \"$@\"\n"), nil
 }
 
+// InstallContext can recover the captured Docker context from the previous
+// command before its replacement has been published. Runtime checks require
+// Context, which never treats a missing current launcher as ready.
+func InstallContext(id target.Identity) (string, error) {
+	context, err := Context(id)
+	if os.IsNotExist(err) {
+		prior := target.PreviousNames(id)
+		if prior.Container != id.Container {
+			return Context(prior)
+		}
+	}
+	return context, err
+}
+
 // Context inspects only a byte-for-byte recognized launcher. Owner modifications
 // are allowed but make automatic context qualification unknown.
 func Context(id target.Identity) (string, error) {
@@ -38,13 +52,20 @@ func Context(id target.Identity) (string, error) {
 		return "", e
 	}
 	defer root.Close()
+	info, e := root.Lstat(".hermes/bin/" + id.Container)
+	if e != nil {
+		return "", e
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm()&0100 == 0 {
+		return "", fmt.Errorf("launcher is not an executable regular file")
+	}
 	f, e := root.Open(".hermes/bin/" + id.Container)
 	if e != nil {
 		return "", e
 	}
 	defer f.Close()
-	info, e := f.Stat()
-	if e != nil || !info.Mode().IsRegular() {
+	opened, e := f.Stat()
+	if e != nil || !os.SameFile(info, opened) {
 		return "", fmt.Errorf("launcher is not a regular file")
 	}
 	data, e := io.ReadAll(io.LimitReader(f, 65537))

@@ -64,6 +64,11 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		artifacts["development-image/"+name] = install.Artifact{Data: data, Mode: 0600}
 	}
 	var previous []install.StackUpgrade
+	priorID := target.PreviousNames(id)
+	priorLauncher := ""
+	if priorID.Container != id.Container {
+		priorLauncher = priorID.Container
+	}
 	oldRecipe, err := development.LegacyRecipe(report.Development)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
@@ -75,28 +80,35 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 				continue
 			}
 			for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
-				old, err := compose.LegacyDevelopment(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: memory, Development: &report.Development, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state})
+				opts := compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: memory, Development: &report.Development, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
+				old, err := compose.LegacyDevelopment(id, opts)
 				if err != nil {
 					fmt.Fprintln(stderr, err)
 					return 1
 				}
-				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-path.yaml", PreviousRecipe: oldRecipe})
+				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-path.yaml", PreviousRecipe: oldRecipe, PreviousLauncher: priorLauncher})
+				old, err = compose.PreviousNames(id, opts)
+				if err != nil {
+					fmt.Fprintln(stderr, err)
+					return 1
+				}
+				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-names.yaml", PreviousLauncher: priorLauncher})
 			}
 		}
 	}
-	legacy, err := compose.LegacyLayaBuild(id, os.Getuid(), os.Getgid())
+	legacy, err := compose.LegacyLayaBuild(priorID, os.Getuid(), os.Getgid())
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	previous = append(previous, install.StackUpgrade{Compose: legacy, BackupName: "compose.before-core.yaml"})
+	previous = append(previous, install.StackUpgrade{Compose: legacy, BackupName: "compose.before-core.yaml", PreviousLauncher: priorLauncher})
 	for _, memory := range []string{"", projectmemory.Image} {
-		old, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: memory, UID: os.Getuid(), GID: os.Getgid()})
+		old, err := compose.PreviousNames(id, compose.Options{HermesImage: qualification.FoundationImage, OpenVikingImage: memory, UID: os.Getuid(), GID: os.Getgid()})
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 			return 1
 		}
-		previous = append(previous, install.StackUpgrade{Compose: old, PrepareMemory: memory == ""})
+		previous = append(previous, install.StackUpgrade{Compose: old, PrepareMemory: memory == "", PreviousLauncher: priorLauncher})
 	}
 	if a.selinuxState().Enabled() {
 		// Recognize a previously generated development runtime without SELinux

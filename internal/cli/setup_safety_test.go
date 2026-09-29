@@ -58,7 +58,7 @@ func TestPrivateSetupChecksDeploymentBeforeWizard(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "foreign-image":
-				r.runtime = strings.Replace(r.runtime, "-hermes-dev:", "-foreign-dev:", 1)
+				r.runtime = strings.Replace(r.runtime, "repokit/", "foreign/", 1)
 			case "wrong-mount":
 				r.runtime = strings.ReplaceAll(r.runtime, r.id.Root, "/unrelated")
 			case "extra-mount":

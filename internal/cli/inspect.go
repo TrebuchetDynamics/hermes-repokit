@@ -60,6 +60,9 @@ func (a App) nativeRuntimeReady(id target.Identity, dockerContext string) (bool,
 	if observed.Err != nil || observed.Truncated || json.Unmarshal([]byte(observed.Output), &runtime) != nil || runtime.Status != "running" {
 		return false, nil
 	}
+	if runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && verify.RuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) && verify.PreviousNamedImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) {
+		return false, nil // Exact previous image name: recreate via printed Compose command.
+	}
 	if _, selected := compose.DevelopmentSelected(id); selected && runtime.Image == qualification.FoundationImage && runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && runtime.UnexpectedMounts == "" {
 		return false, nil
 	}
@@ -73,7 +76,7 @@ func (a App) nativeRuntimeReady(id target.Identity, dockerContext string) (bool,
 			}
 			delete(base, m.Destination)
 		}
-		if valid && len(base) == 0 && verify.HermesImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) {
+		if valid && len(base) == 0 && (verify.HermesImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) || verify.PreviousNamedImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner)) {
 			return false, nil
 		}
 	}

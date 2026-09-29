@@ -95,7 +95,7 @@ func TestDerivedImageRequiresRecipeContentIDAndBaseLayers(t *testing.T) {
 	imageID := "sha256:" + strings.Repeat("d", 64)
 	r := &devRunner{integrationRunner: base, derived: fmt.Sprintf(`{"id":%q,"os":"linux","arch":"amd64","recipe":%q,"base":%q,"layers":["sha256:%s","sha256:%s"]}`, imageID, development.Fingerprint(req), qualification.FoundationImage, strings.Repeat("e", 64), strings.Repeat("f", 64))}
 	check := func() bool {
-		return HermesImageMatches(context.Background(), id, "fixture", development.ImageName(id.Project, req), imageID, r)
+		return HermesImageMatches(context.Background(), id, "fixture", development.ImageName(id.Container, req), imageID, r)
 	}
 	if !check() {
 		t.Fatal("qualified image refused")

@@ -259,7 +259,7 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 	ctx := context.Background()
 	p.Collisions = append(p.Collisions, a.gitIssues(ctx, id)...)
 	if p.ExistingState {
-		captured, err := launcher.Context(id)
+		captured, err := launcher.InstallContext(id)
 		if err != nil {
 			p.Collisions = append(p.Collisions, "existing launcher context cannot be verified")
 			return p
@@ -286,8 +286,8 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 		p.Collisions = append(p.Collisions, "container names could not be inspected")
 	} else {
 		for _, name := range strings.Fields(containers.Output) {
-			if name == id.Container {
-				observed := a.Runner.Run(ctx, "docker", "--context", p.DockerContext, "container", "inspect", "--format", verify.InspectFormat, id.Container)
+			if name == id.Container || (p.ExistingState && name == target.PreviousNames(id).Container) {
+				observed := a.Runner.Run(ctx, "docker", "--context", p.DockerContext, "container", "inspect", "--format", verify.InspectFormat, name)
 				var state verify.Runtime
 				if !p.ExistingState || observed.Err != nil || observed.Truncated || json.Unmarshal([]byte(observed.Output), &state) != nil || state.Project != id.Project || state.Workspace != id.Root || state.Home != filepath.Join(id.Root, ".hermes") {
 					p.Collisions = append(p.Collisions, "container name already exists (running or stopped); native deployment ownership requires verification")

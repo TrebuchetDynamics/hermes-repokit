@@ -47,6 +47,9 @@ type StackUpgrade struct {
 	BackupName    string
 	// PreviousRecipe contains exact development-image filenames and bytes.
 	PreviousRecipe map[string][]byte
+	// PreviousLauncher is the exact earlier executable basename. Its bytes must
+	// match the current standalone launcher; the old command remains usable.
+	PreviousLauncher string
 }
 
 // PublishStackChecked upgrades any recognized preimage while preserving native state.
@@ -58,6 +61,9 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 	for _, prior := range previous {
 		if prior.BackupName != "" && (!fs.ValidPath(prior.BackupName) || strings.ContainsAny(prior.BackupName, "/\\") || prior.BackupName == ".") {
 			return false, fmt.Errorf("unsafe Compose backup name")
+		}
+		if prior.PreviousLauncher != "" && (!fs.ValidPath(prior.PreviousLauncher) || strings.ContainsAny(prior.PreviousLauncher, "/\\") || prior.PreviousLauncher == ".") {
+			return false, fmt.Errorf("unsafe previous launcher name")
 		}
 	}
 	for name, a := range files {
@@ -101,6 +107,33 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 		}
 	}
 	if _, e = root.Lstat(".hermes"); e == nil {
+		// Admit a renamed launcher only alongside an exact prior Compose. Check
+		// both names before any writes, including on interrupted upgrade retries.
+		b, readErr := root.ReadFile(".hermes/compose.yaml")
+		if readErr == nil && !bytes.Equal(b, files["compose.yaml"].Data) {
+			for _, prior := range previous {
+				if len(prior.Compose) == 0 || !bytes.Equal(b, prior.Compose) {
+					continue
+				}
+				name := id.Container
+				if prior.PreviousLauncher != "" {
+					name = prior.PreviousLauncher
+				}
+				if err := checkLauncher(root, ".hermes/bin/"+name, files["bin/"+id.Container].Data, false); err != nil {
+					return false, err
+				}
+				if name != id.Container {
+					if err := checkLauncher(root, ".hermes/bin/"+id.Container, files["bin/"+id.Container].Data, true); err != nil {
+						return false, err
+					}
+				}
+				info, err := root.Lstat(".hermes/config.yaml")
+				if err != nil || !info.Mode().IsRegular() {
+					return false, fmt.Errorf("required native configuration missing or unusable")
+				}
+				return upgradeCompose(root, id, rootInfo, lockInfo, prior.Compose, files, prior.PrepareMemory, prior.BackupName, prior.PreviousRecipe, prior.PreviousLauncher)
+			}
+		}
 		for _, name := range []string{"compose.yaml", "config.yaml", "bin/" + id.Container} {
 			info, err := root.Lstat(".hermes/" + name)
 			if err != nil || !info.Mode().IsRegular() || (strings.HasPrefix(name, "bin/") && info.Mode().Perm()&0100 == 0) {
@@ -111,13 +144,6 @@ func publish(id target.Identity, files map[string]Artifact, prepare, check func(
 		for _, name := range []string{"bin/" + id.Container, "compose.yaml"} {
 			b, e := root.ReadFile(".hermes/" + name)
 			if e != nil || !bytes.Equal(b, files[name].Data) {
-				if e == nil && name == "compose.yaml" {
-					for _, prior := range previous {
-						if len(prior.Compose) > 0 && bytes.Equal(b, prior.Compose) {
-							return upgradeCompose(root, id, rootInfo, lockInfo, prior.Compose, files, prior.PrepareMemory, prior.BackupName, prior.PreviousRecipe)
-						}
-					}
-				}
 				return false, fmt.Errorf("existing native deployment differs or is incomplete; refusing automatic adoption")
 			}
 		}

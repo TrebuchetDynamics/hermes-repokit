@@ -48,7 +48,7 @@ services:
   hermes:
 `, id.Project)
 	if o.Development != nil {
-		fmt.Fprintf(&s, "    image: %q\n    build:\n      context: ./development-image\n    platform: linux/amd64\n    pull_policy: build\n", development.ImageName(id.Project, *o.Development))
+		fmt.Fprintf(&s, "    image: %q\n    build:\n      context: ./development-image\n    platform: linux/amd64\n    pull_policy: build\n", development.ImageName(id.Container, *o.Development))
 	} else {
 		fmt.Fprintf(&s, "    image: %q\n", o.HermesImage)
 	}

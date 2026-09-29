@@ -11,7 +11,7 @@ import (
 
 // upgradeCompose executes under the publication lock, with an exact public
 // Compose preimage. It never opens or rewrites native configuration/credentials.
-func upgradeCompose(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInfo, previous []byte, files map[string]Artifact, prepareMemory bool, customBackupName string, previousRecipe map[string][]byte) (bool, error) {
+func upgradeCompose(root *os.Root, id target.Identity, rootInfo, lockInfo fs.FileInfo, previous []byte, files map[string]Artifact, prepareMemory bool, customBackupName string, previousRecipe map[string][]byte, previousLauncher string) (bool, error) {
 	state, err := root.OpenRoot(".hermes")
 	if err != nil {
 		return false, err
@@ -73,6 +73,17 @@ func upgradeCompose(root *os.Root, id target.Identity, rootInfo, lockInfo fs.Fil
 	}
 	if err := prepareDevelopmentArtifacts(state, files, previous, backupName, true, previousRecipe); err != nil {
 		return false, err
+	}
+	if previousLauncher != "" && previousLauncher != id.Container {
+		if err := syncRecipeDirectory(state, "."); err != nil {
+			return false, err
+		}
+		if err := checkLauncher(state, "bin/"+previousLauncher, files["bin/"+id.Container].Data, false); err != nil {
+			return false, err
+		}
+		if err := publishLauncher(state, "bin/"+id.Container, files["bin/"+id.Container]); err != nil {
+			return false, err
+		}
 	}
 	temp := ".compose-stage-" + rand.Text()
 	f, err := state.OpenFile(temp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)

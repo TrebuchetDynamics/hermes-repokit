@@ -17,7 +17,25 @@ func HermesImageMatches(ctx context.Context, id target.Identity, dc, image, imag
 	if !selected {
 		return image == qualification.FoundationImage
 	}
-	if image != development.ImageName(id.Project, *o.Development) || !compose.LocalImageID(imageID) || !compose.DevelopmentRecipeMatches(id, *o.Development) {
+	if image != development.ImageName(id.Container, *o.Development) {
+		return false
+	}
+	return developmentImageContentMatches(ctx, id, dc, image, imageID, *o.Development, r)
+}
+
+// PreviousNamedImageMatches is only an installation transition check. A proven
+// image with the old tag can await Compose recreation; it is never reported as
+// a ready current runtime and no native setup runs against it.
+func PreviousNamedImageMatches(ctx context.Context, id target.Identity, dc, image, imageID string, r Runner) bool {
+	o, selected := compose.DevelopmentSelected(id)
+	if !selected || image != id.Project+"-hermes-dev:"+development.Fingerprint(*o.Development)[:24] {
+		return false
+	}
+	return developmentImageContentMatches(ctx, id, dc, image, imageID, *o.Development, r)
+}
+
+func developmentImageContentMatches(ctx context.Context, id target.Identity, dc, image, imageID string, req development.Requirements, r Runner) bool {
+	if !compose.LocalImageID(imageID) || !compose.DevelopmentRecipeMatches(id, req) {
 		return false
 	}
 	const format = `{"id":{{json .Id}},"os":{{json .Os}},"arch":{{json .Architecture}},"recipe":{{json (index .Config.Labels "org.repokit.development.recipe")}},"base":{{json (index .Config.Labels "org.repokit.hermes.base")}},"layers":{{json .RootFS.Layers}}}`
@@ -26,7 +44,7 @@ func HermesImageMatches(ctx context.Context, id target.Identity, dc, image, imag
 		Layers                     []string
 	}
 	out := r.Run(ctx, "docker", "--context", dc, "image", "inspect", "--format", format, image)
-	if out.Err != nil || out.Truncated || json.Unmarshal([]byte(out.Output), &built) != nil || built.ID != imageID || built.OS != "linux" || built.Arch != "amd64" || built.Recipe != development.Fingerprint(*o.Development) || built.Base != qualification.FoundationImage {
+	if out.Err != nil || out.Truncated || json.Unmarshal([]byte(out.Output), &built) != nil || built.ID != imageID || built.OS != "linux" || built.Arch != "amd64" || built.Recipe != development.Fingerprint(req) || built.Base != qualification.FoundationImage {
 		return false
 	}
 	base := r.Run(ctx, "docker", "--context", dc, "image", "inspect", "--format", "{{json .RootFS.Layers}}", qualification.FoundationImage)

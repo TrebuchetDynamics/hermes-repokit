@@ -84,7 +84,11 @@ review still need live acceptance; a successful CLI canary cannot prove them.
 
 Live main-model work and memory recall remain unqualified. The repository basename
 determines the full launcher/container name; collisions refuse rather than silently
-adding suffixes.
+adding suffixes. RepoKit adds `hermes-` only when the normalized repository name
+does not already start with it: `my-project` becomes `hermes-my-project`, while
+`hermes-repokit` stays `hermes-repokit`. Development images use
+`repokit/<container-name>:<recipe-fingerprint>`. The stable Compose project ID
+continues to isolate each repository, and the image keeps its recipe fingerprint.
 
 ## Host command
 
@@ -105,15 +109,32 @@ When `~/.local/bin` is on PATH as an absolute directory, the command works from
 any working directory. For a repository named `hermes-repokit`:
 
 ```sh
-hermes-hermes-repokit
-hermes-hermes-repokit kanban list
-hermes-hermes-repokit profile list
-hermes-hermes-repokit setup
+hermes-repokit
+hermes-repokit kanban list
+hermes-repokit profile list
+hermes-repokit setup
 ```
 
 The link forwards native Hermes arguments to the generated Docker Compose
-launcher. Native `setup` configures Hermes; `hermes-repokit setup` also performs
-RepoKit team/integration reconciliation. The runtime must be started before use.
+launcher. Native `setup` configures Hermes; the bootstrap binary's `setup` also
+performs RepoKit team/integration reconciliation. The runtime must be started
+before use.
+
+In the `hermes-repokit` repository, the generated host command has the same name
+as the bootstrap binary. Invoke the bootstrap by its separate absolute path for
+`plan`, `install`, `setup --team`, or `verify`. RepoKit preserves an unrelated
+existing host executable and reports the collision; it never replaces the
+bootstrap binary with a launcher.
+
+For an exact earlier generated deployment, `install` saves the old Compose as
+`compose.before-names.yaml`, publishes the new launcher and image name, and leaves
+the old launcher and any existing host link usable. Native profiles, sessions,
+Kanban and memory data stay in the same directories. Interrupted publication can
+be retried; edited launchers, recipes, backups and conflicting names are preserved
+and refused. Run the printed Compose build/start command to recreate the existing
+service under its new name, then rerun the bootstrap's `install`. Do not manually
+rename the live container or edit generated Compose. Older recipe upgrades retain
+their version-specific backup names.
 
 If PATH lacks the directory, install still creates the link and prints its
 absolute path. If host exposure is unavailable, install warns and gives the

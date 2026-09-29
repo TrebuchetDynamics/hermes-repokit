@@ -30,7 +30,7 @@ func TestEmbeddedMemoryObservesHermesMountAndLoopbackHealth(t *testing.T) {
 	r := &devRunner{integrationRunner: base, derived: fmt.Sprintf(`{"id":%q,"os":"linux","arch":"amd64","recipe":%q,"base":%q,"layers":["sha256:%s","sha256:%s"]}`, imageID, development.Fingerprint(req), qualification.FoundationImage, strings.Repeat("e", 64), strings.Repeat("f", 64))}
 	var state map[string]any
 	json.Unmarshal([]byte(r.hermes), &state)
-	state["image"], state["imageID"] = development.ImageName(id.Project, req), imageID
+	state["image"], state["imageID"] = development.ImageName(id.Container, req), imageID
 	mounts := []RuntimeMount{{Type: "bind", Source: id.Root, Destination: "/workspace", RW: true}, {Type: "bind", Source: id.Root + "/.hermes", Destination: "/opt/data", RW: true}}
 	update := func() { state["mounts"] = mounts; b, _ := json.Marshal(state); r.hermes = string(b) }
 	update()

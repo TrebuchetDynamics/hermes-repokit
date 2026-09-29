@@ -97,6 +97,6 @@ func Recipe(req Requirements) (map[string][]byte, error) {
 	return files, nil
 }
 
-func ImageName(project string, req Requirements) string {
-	return project + "-hermes-dev:" + Fingerprint(req)[:24]
+func ImageName(container string, req Requirements) string {
+	return "repokit/" + container + ":" + Fingerprint(req)[:24]
 }

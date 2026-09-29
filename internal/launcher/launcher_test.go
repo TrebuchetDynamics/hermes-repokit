@@ -102,3 +102,27 @@ func TestContextInspectionRejectsOwnerEditedOrMissingLauncher(t *testing.T) {
 		t.Fatal("claimed edited launcher context was verified")
 	}
 }
+
+func TestRuntimeContextRequiresCurrentLauncherAfterNameChange(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "hermes-repokit")
+	if err := os.Mkdir(path, 0700); err != nil {
+		t.Fatal(err)
+	}
+	id, err := target.Resolve(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(id.Launcher), 0700); err != nil {
+		t.Fatal(err)
+	}
+	data, err := Render(id, "default")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(id.Launcher), "hermes-hermes-repokit"), data, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Context(id); err == nil {
+		t.Fatal("runtime reported current launcher ready using only the old command")
+	}
+}

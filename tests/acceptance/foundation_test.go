@@ -135,7 +135,7 @@ esac
 		cmd.Dir = root
 		cmd.Env = append(installerEnv, "PATH="+bin+":"+os.Getenv("PATH"))
 		if command == "setup" {
-			runtime, err := json.Marshal(map[string]any{"status": "running", "service": "hermes", "unexpectedMounts": "", "image": development.ImageName(id.Project, development.Requirements{}), "imageID": "sha256:" + strings.Repeat("d", 64), "project": id.Project, "workspace": id.Root, "home": filepath.Join(id.Root, ".hermes"), "mounts": []map[string]any{{"Type": "bind", "Source": id.Root, "Destination": "/workspace", "RW": true}, {"Type": "bind", "Source": filepath.Join(id.Root, ".hermes"), "Destination": "/opt/data", "RW": true}}})
+			runtime, err := json.Marshal(map[string]any{"status": "running", "service": "hermes", "unexpectedMounts": "", "image": development.ImageName(id.Container, development.Requirements{}), "imageID": "sha256:" + strings.Repeat("d", 64), "project": id.Project, "workspace": id.Root, "home": filepath.Join(id.Root, ".hermes"), "mounts": []map[string]any{{"Type": "bind", "Source": id.Root, "Destination": "/workspace", "RW": true}, {"Type": "bind", "Source": filepath.Join(id.Root, ".hermes"), "Destination": "/opt/data", "RW": true}}})
 			if err != nil {
 				t.Fatal(err)
 			}
