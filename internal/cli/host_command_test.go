@@ -15,7 +15,7 @@ func TestInstallExposesHostCommandAndPreservesItOnRerun(t *testing.T) {
 	link := filepath.Join(bin, "hermes-test-project")
 	for i := 0; i < 2; i++ {
 		code, out, diag := invoke(t, a, "install")
-		if code != 0 || !strings.Contains(out, link) {
+		if code != 0 || !strings.Contains(out, tildePath(link)) {
 			t.Fatalf("install %d: %d %s %s", i, code, out, diag)
 		}
 		if got, err := os.Readlink(link); err != nil || got != r.id.Launcher {
@@ -48,7 +48,7 @@ func TestInstallReportsHostCommandMissingFromPATH(t *testing.T) {
 	a, _ := foundationApp(t)
 	code, out, diag := invoke(t, a, "install")
 	link := filepath.Join(os.Getenv("HOME"), ".local/bin/hermes-test-project")
-	if code != 0 || !strings.Contains(diag, "not on PATH") || !strings.Contains(diag, link) {
+	if code != 0 || !strings.Contains(diag, "not on PATH") || !strings.Contains(diag, tildePath(link)) {
 		t.Fatalf("install: %d %s %s", code, out, diag)
 	}
 	if _, err := os.Readlink(link); err != nil {

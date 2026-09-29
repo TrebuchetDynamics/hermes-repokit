@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"time"
 
@@ -21,22 +20,24 @@ func (a App) finishSetup(id target.Identity, dc string, code int, out, diag io.W
 	if runner == nil {
 		runner = process.Runner{Timeout: 3 * time.Minute}
 	}
+	u := newUI(out, diag)
 	state, err := native.ConvergeGateway(context.Background(), id, dc, runner, a.startGateway)
 	if err != nil {
-		fmt.Fprintln(diag, "Native state saved; automatic dispatch not enabled:", err)
+		u.fail("native state saved; automatic dispatch not enabled: %v", err)
 		return 1
 	}
 	switch state {
 	case "current":
-		fmt.Fprintln(out, "Automatic dispatch already configured on the running default gateway; nothing changed.")
+		u.ok("Dispatch", "automatic dispatch already configured; nothing changed")
 	case "restarted":
-		fmt.Fprintln(out, "Configured native automatic dispatch on default (review dispatch, seven-profile allowlist, max_in_progress=1, auto_decompose=false) and restarted the gateway.")
-		fmt.Fprintln(out, "Start a fresh conversation (/new in Telegram) so sessions see current tools.")
+		u.ok("Dispatch", "native automatic dispatch configured on default (review, seven-profile allowlist, one card at a time)")
+		u.ok("Gateway", "restarted")
+		u.note("start a fresh conversation (/new in Telegram) so sessions see current tools")
 	case "started":
-		fmt.Fprintln(out, "Started the default gateway; Hermes keeps it running across container restarts.")
+		u.ok("Gateway", "default gateway started; Hermes keeps it running across restarts")
 	case "not-running":
-		fmt.Fprintf(out, "Automatic dispatch is configured, but the default gateway is not running; messaging and dispatch start with it: %s -p default gateway start\n", id.Container)
+		u.pending("Gateway", "not running; start it: "+id.Container+" -p default gateway start")
 	}
-	fmt.Fprintln(out, "No worker has been exercised by setup. Prove the loop with `hermes-repokit verify --dispatch-check` (one researcher card, model cost) or a real reviewed task.")
+	u.note("no worker has run yet; prove the loop with repokit verify --dispatch-check or a real task")
 	return 0
 }

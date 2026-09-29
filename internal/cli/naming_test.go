@@ -181,7 +181,7 @@ func TestRunningImageRenameWaitsForComposeRecreation(t *testing.T) {
 				}
 				code, out, diag := invoke(t, a, args...)
 				if strings.HasPrefix(kind, "qualified") {
-					if code != 0 || !strings.Contains(out, "Native initialization pending") || len(r.composeCalls) == 0 || !strings.HasSuffix(r.composeCalls[len(r.composeCalls)-1], " up -d --build hermes") {
+					if code != 0 || !strings.Contains(out, "initialization pending") || len(r.composeCalls) == 0 || !strings.HasSuffix(r.composeCalls[len(r.composeCalls)-1], " up -d --build hermes") {
 						t.Fatalf("install did not recreate the renamed deployment: %d %v %s %s", code, r.composeCalls, out, diag)
 					}
 				} else if code == 0 {

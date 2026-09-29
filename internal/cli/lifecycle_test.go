@@ -48,7 +48,7 @@ func TestInstallBuildsStartsAndInitializes(t *testing.T) {
 	a, r := foundationApp(t)
 	liveCompose(&a, r)
 	code, out, diag := invoke(t, a, "install")
-	if code != 0 || len(r.composeCalls) != 1 || !strings.Contains(out, "Started hermes-test-project") || !strings.Contains(out, "team setup pending") {
+	if code != 0 || len(r.composeCalls) != 1 || !strings.Contains(out, "hermes-test-project running") || !strings.Contains(out, "not set up yet") {
 		t.Fatalf("install did not start and initialize: code=%d calls=%v out=%s diag=%s", code, r.composeCalls, out, diag)
 	}
 	if _, err := os.Stat(filepath.Join(a.Directory, ".hermes/kanban.db")); err != nil {
@@ -85,14 +85,14 @@ func TestStopAndStartRoundTrip(t *testing.T) {
 	}
 	a.Initializer = &statsInput{foundationRunner: r}
 	code, out, diag := invoke(t, a, "stop")
-	if code != 0 || !strings.HasSuffix(r.composeCalls[len(r.composeCalls)-1], "-f "+r.id.Compose+" --profile docker-tests stop") || !strings.Contains(out, "State is preserved") {
+	if code != 0 || !strings.HasSuffix(r.composeCalls[len(r.composeCalls)-1], "-f "+r.id.Compose+" --profile docker-tests stop") || !strings.Contains(out, "state is preserved") {
 		t.Fatalf("stop: code=%d calls=%v out=%s diag=%s", code, r.composeCalls, out, diag)
 	}
 	if _, err := os.Stat(filepath.Join(a.Directory, ".hermes/compose.yaml")); err != nil {
 		t.Fatal("stop deleted state")
 	}
 	code, out, diag = invoke(t, a, "start")
-	if code != 0 || !strings.HasSuffix(r.composeCalls[len(r.composeCalls)-1], " up -d --build hermes") || !strings.Contains(out, "Hermes is answering") {
+	if code != 0 || !strings.HasSuffix(r.composeCalls[len(r.composeCalls)-1], " up -d --build hermes") || !strings.Contains(out, "answering") {
 		t.Fatalf("start: code=%d calls=%v out=%s diag=%s", code, r.composeCalls, out, diag)
 	}
 	calls := len(r.composeCalls)

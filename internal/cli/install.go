@@ -23,6 +23,8 @@ import (
 )
 
 func (a App) install(id target.Identity, report Plan, engineering bool, stdout, stderr io.Writer) int {
+	u := newUI(stdout, stderr)
+	u.title("install", id.Name, id.Root)
 	if len(report.Unsupported) > 0 {
 		fmt.Fprintln(stderr, "installation qualification incomplete:", strings.Join(report.Unsupported, "; "))
 		return 1
@@ -158,65 +160,70 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		return 1
 	}
 	if err := a.excludeInstallLock(context.Background(), id); err != nil {
-		fmt.Fprintf(stderr, "Warning: .hermes-repokit.lock may appear in git status (%v). Add %s to .git/info/exclude.\n", err, lockExcludeEntry)
+		u.warn(".hermes-repokit.lock may appear in git status (%v); add %s to .git/info/exclude", err, lockExcludeEntry)
 	}
 	if created {
-		fmt.Fprintln(stdout, "Created Hermes bootstrap artifacts; native setup is pending.")
+		u.ok("Deployment", "created private .hermes state, Compose file and launcher")
 	} else {
-		fmt.Fprintln(stdout, "Preserved existing Hermes deployment and native configuration.")
+		u.ok("Deployment", "existing deployment and native configuration preserved")
 	}
 	home, homeErr := os.UserHomeDir()
 	if homeErr != nil {
-		fmt.Fprintf(stderr, "Warning: host command unavailable: %v. Use %s directly.\n", homeErr, id.Launcher)
+		u.warn("host command unavailable (%v); use %s directly", homeErr, tildePath(id.Launcher))
 	} else if command, err := launcher.Expose(id, home); err != nil {
-		fmt.Fprintf(stderr, "Warning: host command unavailable: %v. Use %s directly.\n", err, id.Launcher)
+		u.warn("host command unavailable (%v); use %s directly", err, tildePath(id.Launcher))
 	} else {
-		fmt.Fprintf(stdout, "Host command: %s -> %s\n", command, id.Launcher)
+		u.ok("Host command", tildePath(command)+" → "+tildePath(id.Launcher))
 		if !launcher.OnPath(command, a.Path) {
-			fmt.Fprintf(stderr, "Warning: %s is not on PATH as an absolute directory; use %s directly or add that directory to your shell environment.\n", filepath.Dir(command), command)
+			u.warn("%s is not on PATH; add it to your shell's PATH or run %s directly", tildePath(filepath.Dir(command)), tildePath(command))
 		}
 	}
-	state := a.selinuxState()
-	relabel := "disabled"
-	if state.Enabled() {
-		relabel = "enabled (private Z)"
+	if state := a.selinuxState(); state.Enabled() {
+		u.ok("Host security", "SELinux "+string(state)+"; private Z relabeling on repository mounts")
+	} else {
+		u.ok("Host security", "SELinux "+string(state)+"; no bind relabeling needed")
 	}
-	fmt.Fprintf(stdout, "Host security: SELinux %s; bind relabeling %s.\n", state, relabel)
 	if code := a.startDeployment(id, report.DockerContext, stdout, stderr); code != 0 {
 		return code
 	}
 	if code := a.initialize(id, report.DockerContext, false, stdout, stderr); code != 0 {
 		return code
 	}
-	// Only a complete scaffold can yield a generation. Initial publication and
-	// pending native setup still report pending without starting any service.
+	// Only a complete scaffold can yield a generation.
 	complete := true
 	for _, probe := range verify.Profiles(id) {
 		complete = complete && probe.Status == verify.Healthy
 	}
-	if ready, _ := a.nativeRuntimeReady(id, report.DockerContext); complete && ready {
+	ready, _ := a.nativeRuntimeReady(id, report.DockerContext)
+	if complete && ready {
 		if code := a.finishSetup(id, report.DockerContext, 0, stdout, stderr); code != 0 {
 			return code
 		}
 	}
 	if report.DockerTests {
-		fmt.Fprintln(stdout, "Docker acceptance is opt-in and privileged; its daemon owns only disposable test storage, not the host Docker socket.")
-		fmt.Fprintln(stdout, strings.TrimSuffix(launcher.StartCommand(id.Compose, report.DockerContext), " up -d hermes)")+" --profile docker-tests up -d docker-test)")
-		fmt.Fprintln(stdout, "After activation, authorized workers can run repokit-docker-test from /workspace; normal coding never needs this daemon.")
+		u.pending("Docker tests", "opt-in privileged test daemon (no host Docker socket) not started")
+		u.note("start it: " + strings.TrimSuffix(launcher.StartCommand(id.Compose, report.DockerContext), " up -d hermes)") + " --profile docker-tests up -d docker-test)")
 	}
-	fmt.Fprintln(stdout, "Run hermes-repokit setup in your private terminal for native default and team setup.")
-	fmt.Fprintln(stdout, "Resume team provisioning with setup --team. Rerun install to reconcile existing generated profiles.")
+	switch {
+	case !ready:
+		u.next([2]string{"repokit start", "start the deployment, then rerun repokit install"})
+	case !complete:
+		u.next([2]string{"repokit setup", "choose the model provider and create the team (in your own terminal)"})
+	default:
+		u.next([2]string{"repokit verify", "check readiness"}, [2]string{id.Container, "talk to your team"})
+	}
 	return 0
 }
 
 func (a App) initialize(id target.Identity, dockerContext string, afterSetup bool, stdout, stderr io.Writer) int {
+	u := newUI(stdout, stderr)
 	ready, err := a.nativeRuntimeReady(id, dockerContext)
 	if err != nil {
-		fmt.Fprintln(stderr, "native initialization refused:", err)
+		u.fail("native initialization refused: %v", err)
 		return 1
 	}
 	if !ready {
-		fmt.Fprintln(stdout, "Native initialization pending: start the existing Compose service, then rerun install.")
+		u.pending("Kanban", "initialization pending: the container is not running")
 		if afterSetup {
 			return 1
 		}
@@ -229,24 +236,26 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 		runner = process.Runner{Timeout: 10 * time.Minute}
 	}
 	if err := a.waitForNativeCLI(id, dockerContext); err != nil {
-		fmt.Fprintln(stderr, "native initialization deferred:", err)
+		u.fail("native initialization deferred: %v", err)
 		return 1
 	}
 	teamReport, err := native.Initialize(context.Background(), id, dockerContext, afterSetup, runner)
 	if err != nil {
 		if errors.Is(err, native.ErrTeamPending) && !afterSetup {
-			fmt.Fprintln(stdout, "Native shared Kanban checked; team setup pending. After native default setup, run hermes-repokit setup --team without repeating login.")
+			u.ok("Kanban", "native board ready")
+			u.pending("Team", "not set up yet")
 			return 0
 		}
-		fmt.Fprintln(stderr, err)
+		u.fail("%v", err)
 		return 1
 	}
-	fmt.Fprintln(stdout, "Native shared Kanban and seven-profile team reconciled. Memory and model-driven acceptance are separate stages.")
+	u.ok("Kanban", "native board ready")
+	u.ok("Team", "seven profiles reconciled")
 	if len(teamReport.Customized) > 0 {
-		fmt.Fprintf(stdout, "Owner-customized profiles preserved: %s. RepoKit does not overwrite owner identity; newer RepoKit defaults are not applied to them.\n", strings.Join(teamReport.Customized, ", "))
+		u.note("owner-customized profiles preserved: " + strings.Join(teamReport.Customized, ", ") + " (RepoKit does not overwrite them or apply newer defaults)")
 	}
 	if len(teamReport.Deferred) > 0 {
-		fmt.Fprintf(stdout, "Managed SOUL upgrades deferred while a card is running: %s. Rerun install when the board is idle.\n", strings.Join(teamReport.Deferred, ", "))
+		u.pending("Team", "SOUL upgrades deferred while a card is running: "+strings.Join(teamReport.Deferred, ", ")+"; rerun install when the board is idle")
 	}
 	return 0
 }

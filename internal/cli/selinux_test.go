@@ -27,7 +27,7 @@ func TestPlanAndInstallReflectSELinuxRelabel(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("install: %d %s", code, diag)
 	}
-	if !strings.Contains(out, "Host security: SELinux enforcing; bind relabeling enabled (private Z).") {
+	if !strings.Contains(out, "SELinux enforcing; private Z relabeling on repository mounts") {
 		t.Fatalf("install diagnostics missing host security: %s", out)
 	}
 	data, err := os.ReadFile(r.id.Compose)

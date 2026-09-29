@@ -49,7 +49,7 @@ func TestTeamSetupReportsPreservedOwnerProfilesAndActivates(t *testing.T) {
 	if code != 0 || input.pid != 11 {
 		t.Fatalf("owner customization blocked activation: code=%d out=%s diag=%s", code, out, diag)
 	}
-	if !strings.Contains(out, "Owner-customized profiles preserved: executor.") || !strings.Contains(out, "deferred while a card is running: reviewer.") {
+	if !strings.Contains(out, "owner-customized profiles preserved: executor (") || !strings.Contains(out, "deferred while a card is running: reviewer;") {
 		t.Fatalf("preserved profiles not reported:\n%s", out)
 	}
 }

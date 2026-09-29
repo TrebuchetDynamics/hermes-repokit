@@ -31,7 +31,9 @@ func (a App) composeProject(id target.Identity, dc string, stdout, stderr io.Wri
 		return a.Runner.Run(context.Background(), "docker", argv...).Err
 	}
 	cmd := exec.Command("docker", argv...)
-	cmd.Env = process.CleanEnvironment(os.Environ())
+	// Compose's own progress display would break RepoKit's aligned status
+	// lines; quiet mode still reports errors. Inherited COMPOSE_* are cleared.
+	cmd.Env = append(process.CleanEnvironment(os.Environ()), "COMPOSE_PROGRESS=quiet")
 	cmd.Stdout, cmd.Stderr = stdout, stderr
 	return cmd.Run()
 }
@@ -53,17 +55,19 @@ func (a App) containerState(id target.Identity, dc string) (string, error) {
 // running current deployment is left alone. Recreating a running deployment
 // for an upgraded image is deferred while a Kanban card is running.
 func (a App) startDeployment(id target.Identity, dc string, stdout, stderr io.Writer) int {
+	u := newUI(stdout, stderr)
 	ready, err := a.nativeRuntimeReady(id, dc)
 	if err != nil {
-		fmt.Fprintln(stderr, "start refused:", err)
+		u.fail("start refused: %v", err)
 		return 1
 	}
 	if ready {
+		u.ok("Container", id.Container+" running (up to date)")
 		return 0
 	}
 	state, err := a.containerState(id, dc)
 	if err != nil {
-		fmt.Fprintln(stderr, "start refused:", err)
+		u.fail("start refused: %v", err)
 		return 1
 	}
 	if state == "running" {
@@ -72,17 +76,21 @@ func (a App) startDeployment(id target.Identity, dc string, stdout, stderr io.Wr
 			runner = process.Runner{Timeout: 30 * time.Second}
 		}
 		if busy, err := native.RunningWork(context.Background(), id, dc, runner); err == nil && busy {
-			fmt.Fprintln(stdout, "An upgraded image is ready, but a Kanban card is running; the container was not recreated.")
-			fmt.Fprintf(stdout, "Recreate it when the work finishes: hermes-repokit start (or %s)\n", buildCommand(id, dc))
+			u.pending("Container", "upgraded image ready; not recreated while a Kanban card is running")
+			u.note("recreate it when the work finishes: repokit start")
 			return 0
 		}
 	}
-	fmt.Fprintf(stdout, "Building and starting %s (the first build can take several minutes)...\n", id.Container)
+	if a.imageBuilt(id, dc) {
+		u.working("Container", "starting "+id.Container)
+	} else {
+		u.working("Container", "building and starting "+id.Container+" (the first build can take several minutes)")
+	}
 	if err := a.composeProject(id, dc, stdout, stderr, "up", "-d", "--build", "hermes"); err != nil {
-		fmt.Fprintf(stderr, "Docker Compose could not start the deployment; native state is preserved. Retry with: %s\n", buildCommand(id, dc))
+		u.fail("Docker Compose could not start %s; native state is preserved. Retry with: %s", id.Container, buildCommand(id, dc))
 		return 1
 	}
-	fmt.Fprintf(stdout, "Started %s.\n", id.Container)
+	u.ok("Container", id.Container+" running")
 	return 0
 }
 
@@ -110,41 +118,61 @@ func (a App) lifecycleTarget(id target.Identity) (string, error) {
 // stop stops the deployment's containers; all state and the container stay,
 // so `start` resumes where it left off.
 func (a App) stop(id target.Identity, stdout, stderr io.Writer) int {
+	u := newUI(stdout, stderr)
+	u.title("stop", id.Name, id.Root)
 	dc, err := a.lifecycleTarget(id)
 	if err == nil {
 		_, err = a.containerState(id, dc)
 	}
 	if err != nil {
-		fmt.Fprintln(stderr, "stop refused:", err)
+		u.fail("stop refused: %v", err)
 		return 1
 	}
 	if err := a.composeProject(id, dc, stdout, stderr, "--profile", "docker-tests", "stop"); err != nil {
-		fmt.Fprintln(stderr, "Docker Compose could not stop the deployment; inspect it with docker compose.")
+		u.fail("Docker Compose could not stop the deployment; inspect it with docker compose")
 		return 1
 	}
-	fmt.Fprintf(stdout, "Stopped %s. State is preserved; run hermes-repokit start to resume.\n", id.Container)
+	u.ok("Container", id.Container+" stopped; state is preserved")
+	u.next([2]string{"repokit start", "resume"})
 	return 0
 }
 
 // start brings a stopped deployment back and waits for Hermes to answer.
 // Hermes restarts gateways that were running before the stop.
 func (a App) start(id target.Identity, stdout, stderr io.Writer) int {
+	u := newUI(stdout, stderr)
+	u.title("start", id.Name, id.Root)
 	dc, err := a.lifecycleTarget(id)
 	if err != nil {
-		fmt.Fprintln(stderr, "start refused:", err)
+		u.fail("start refused: %v", err)
 		return 1
 	}
 	if ready, err := a.nativeRuntimeReady(id, dc); err == nil && ready {
-		fmt.Fprintf(stdout, "%s is already running.\n", id.Container)
+		u.ok("Container", id.Container+" is already running")
 		return 0
 	}
 	if code := a.startDeployment(id, dc, stdout, stderr); code != 0 {
 		return code
 	}
 	if err := a.waitForNativeCLI(id, dc); err != nil {
-		fmt.Fprintln(stderr, "The container started, but", err)
+		u.fail("the container started, but %v", err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "Hermes is answering. Check the team with: %s -p default gateway status\n", id.Container)
+	u.ok("Hermes", "answering")
+	u.next([2]string{id.Container + " -p default gateway status", "check the team's gateway"})
 	return 0
+}
+
+// imageBuilt reports whether the image named in the generated Compose file
+// already exists locally, so the first-build warning is shown only when true.
+func (a App) imageBuilt(id target.Identity, dc string) bool {
+	data, err := os.ReadFile(id.Compose)
+	if err != nil {
+		return false
+	}
+	m := composeImage.FindSubmatch(data)
+	if m == nil {
+		return false
+	}
+	return a.Runner.Run(context.Background(), "docker", "--context", dc, "image", "inspect", "--format", "{{.Id}}", string(m[1])).Err == nil
 }

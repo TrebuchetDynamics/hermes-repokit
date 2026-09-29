@@ -71,10 +71,10 @@ func TestGatewayFinalizationNeverRunsAfterFailedStage(t *testing.T) {
 	if got := app.finishSetup(r.id, r.context, 7, &out, &diag); got != 7 || input.calls != 0 {
 		t.Fatal("failed stage finalized")
 	}
-	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got != 0 || !strings.Contains(out.String(), "restarted the gateway") {
+	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got != 0 || !strings.Contains(out.String(), "native automatic dispatch configured") {
 		t.Fatalf("finish: %d %s %s", got, &out, &diag)
 	}
-	if strings.Contains(out.String(), "canary completed") || !strings.Contains(out.String(), "No worker has been exercised") {
+	if strings.Contains(out.String(), "canary completed") || !strings.Contains(out.String(), "no worker has run yet") {
 		t.Fatalf("setup claimed unexercised work: %s", &out)
 	}
 	input.kanban, input.err = `{"dispatch_in_gateway":false}`, fmt.Errorf("private-native-error")
@@ -110,7 +110,7 @@ func TestSetupStartsStoppedGatewayButInstallOnlyPrintsCommand(t *testing.T) {
 	a.Initializer = input
 	a.Stdin = strings.NewReader("")
 	code, out, diag := invoke(t, a, "setup", "--team")
-	if code != 0 || input.starts != 1 || input.pid == 0 || !strings.Contains(out, "Started the default gateway") {
+	if code != 0 || input.starts != 1 || input.pid == 0 || !strings.Contains(out, "default gateway started") {
 		t.Fatalf("setup --team left a fresh gateway stopped: code=%d starts=%d out=%s diag=%s", code, input.starts, out, diag)
 	}
 	var buf, errs bytes.Buffer
