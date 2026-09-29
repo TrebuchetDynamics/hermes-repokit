@@ -19,7 +19,9 @@ shared Kanban, embedded OpenViking and ordinary Compose/native lifecycle.
 - [ ] OpenViking shutdown: the upstream entrypoint's TERM wait race is no longer patched. Not reproducible while memory is unconfigured (pending server only); re-check after `setup --memory`.
 - [x] Prove originating-channel task/result delivery: Telegram → default → automatic executor → automatic same-card reviewer approval → result in the same chat (live dogfood, `t_6641c2b0`), surviving `docker restart`.
 - [ ] Prove a same-card request-changes correction cycle (approval is proven; a reviewer rejection → executor revision was not exercised).
-- [ ] Prove a fresh, unrelated-repository bootstrap through the same Telegram loop.
+- [ ] Prove a fresh, unrelated-repository bootstrap through the same Telegram loop. PMB clone trial BLOCKED by an upstream Hermes worker import collision ([record](docs/qualification/fresh-repo-pmb-2026-09-29.md)); `verify` now detects it.
+- [ ] File and track the upstream Hermes issue for worker `python -m` import shadowing ([draft](docs/qualification/python-import-collision.md)).
+- [ ] Fresh-install follow-ups from the PMB trial: collision remediation text, 775-root gate, `.hermes-repokit.lock` ignore, printing the one-time `gateway start` command, env-only channel observation.
 - [ ] Qualify coordinator behavior for vague requests (for example "Improve readme"), not only bounded tasks.
 - [ ] Prove cross-profile memory write/recall, restart persistence and repository isolation.
 - [ ] Complete integrated removal-first acceptance and bounded self-dogfood.

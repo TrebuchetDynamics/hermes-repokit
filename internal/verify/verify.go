@@ -129,7 +129,7 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 			runtime = Probe{"hermes", Degraded, "running container does not match selected development image or expected writable mounts; recreation may be pending"}
 		}
 	}
-	probes := []Probe{artifact, runtime, config, launch, board}
+	probes := []Probe{artifact, runtime, config, launch, board, PythonImports(id)}
 	if issues := target.Inspect(id, ""); len(issues) > 0 {
 		probes = append(probes, Probe{"filesystem", Degraded, "unsafe or ambiguous repository/native state"})
 	}
@@ -205,7 +205,7 @@ func Profiles(id target.Identity) []Probe {
 func coreComponent(name string) bool {
 	switch name {
 	case "compose", "hermes", "config", "launcher", "kanban", "filesystem", "git", "gateway",
-		"kanban:dispatch", "kanban:notifications", "channels", "selinux", "access":
+		"kanban:dispatch", "kanban:notifications", "channels", "selinux", "access", "python-imports":
 		return true
 	}
 	for _, prefix := range []string{"profile:", "development:", "channel:"} {
