@@ -31,7 +31,7 @@ against a fresh clone.
 - [x] **Gateway never started on fresh setup.** Explicit `setup` / `setup --team`
       now starts a stopped default gateway through the native `gateway start`
       and waits for a running PID; Hermes keeps it running across restarts.
-      `install` reruns and `setup --memory` never start an owner-stopped gateway
+      `install` reruns never start an owner-stopped gateway
       and print `hermes-<repo> -p default gateway start` instead (#6).
 - [x] **`.hermes-repokit.lock` hygiene.** The lock must stay at the root (it
       guards creation of `.hermes` and is shared with the container flock), so
