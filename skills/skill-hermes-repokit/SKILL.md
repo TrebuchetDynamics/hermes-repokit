@@ -113,16 +113,16 @@ repokit remove       (owner, typed)  delete the deployment and .hermes
 
 ## Readiness
 
-`verify` prints a JSON array: `CORE_READY` first, then `MEMORY` (always
-`inactive`, user-managed), then one probe per component. `CORE_READY` is:
+`verify` prints a JSON array: `CORE_READY` first, then one probe per component.
+Memory is not reported; it is a Hermes feature RepoKit does not own. `CORE_READY` is:
 
 - `healthy` — configuration, runtime, toolchain, dispatch policy, gateway and
-  channel tools are healthy **and** native card history shows same-card
+  channel Kanban tools are healthy **and** native card history shows same-card
   executor→tester→reviewer completion.
 - `unqualified` — configured, but that review loop has not been observed yet.
 - `degraded` — a core component is broken; the only nonzero exit.
 
 Container health is not readiness, and passive `verify` proves no model work,
 channel delivery, reviewer independence or removal-first acceptance. Report
-bootstrap, host command, default chat, profiles, dispatch, toolchain, channels
-and memory (user-managed) separately, each with evidence and the next action.
+bootstrap, host command, default chat, profiles, dispatch, toolchain and
+channels separately, each with evidence and the next action.

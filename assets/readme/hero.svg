@@ -1,18 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="380" viewBox="0 0 1200 380" role="img" aria-labelledby="heroTitle heroDesc">
   <title id="heroTitle">Hermes RepoKit — one repository-specific Hermes development container</title>
-  <desc id="heroDesc">Hermes RepoKit bootstraps a single Docker Hermes container holding seven coordinated profiles, a shared Kanban board and embedded memory.</desc>
+  <desc id="heroDesc">Hermes RepoKit bootstraps a single Docker Hermes container holding seven coordinated profiles, a shared Kanban board and same-card test and review.</desc>
 
   <rect width="1200" height="380" rx="24" fill="#0A0D0F"/>
   <rect x="0.5" y="0.5" width="1199" height="379" rx="23.5" fill="none" stroke="#1E2A31"/>
 
   <!-- identity -->
   <g id="title-block">
-    <text x="56" y="84" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="15" letter-spacing="2.4" fill="#F0B24A">ONE CONTAINER · SEVEN PROFILES · EMBEDDED MEMORY</text>
+    <text x="56" y="84" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="15" letter-spacing="2.4" fill="#F0B24A">ONE CONTAINER · SEVEN PROFILES · NATIVE KANBAN</text>
     <text x="56" y="162" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="60" font-weight="700" fill="#E8EEF2">Hermes RepoKit</text>
     <rect x="58" y="182" width="72" height="4" rx="2" fill="#F0B24A"/>
     <text x="56" y="224" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="20" fill="#AAB9C4">Bootstrap one repository-specific Hermes development</text>
     <text x="56" y="252" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="20" fill="#AAB9C4">container — seven profiles, a shared task board and</text>
-    <text x="56" y="280" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="20" fill="#AAB9C4">embedded memory, generated as ordinary Compose.</text>
+    <text x="56" y="280" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="20" fill="#AAB9C4">same-card review, generated as ordinary Compose.</text>
     <rect x="56" y="304" width="452" height="48" rx="10" fill="#12181C" stroke="#26333B"/>
     <text x="76" y="334" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="15" fill="#5BD1A8">$ hermes-repokit install</text>
     <text x="492" y="334" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#7F909C"># then setup · verify</text>
@@ -59,6 +59,6 @@
     </g>
 
     <circle cx="684" cy="312" r="4" fill="#5BD1A8"/>
-    <text x="698" y="316" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#7F909C">shared Kanban · embedded memory · loopback only</text>
+    <text x="698" y="316" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#7F909C">shared Kanban · same-card review · loopback only</text>
   </g>
 </svg>

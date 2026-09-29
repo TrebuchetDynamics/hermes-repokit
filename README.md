@@ -148,9 +148,10 @@ the gateway once. It refuses while a card is running, preserves an owner-changed
 policy and never claims a worker ran. Memory is user-managed and never blocks
 core work.
 
-`verify` is observational and leads with `CORE_READY`; it reports memory as
-user-managed and does not configure or verify any provider. Core is `healthy` only when configuration, runtime, worker-shell
-toolchain, dispatch policy, gateway and per-channel tools are healthy and native
+`verify` is observational and reports `CORE_READY`: whether RepoKit produced the
+team it promises. It does not report Hermes features RepoKit does not own, such
+as memory. Core is `healthy` only when configuration, runtime, worker-shell
+toolchain, dispatch policy, gateway and per-channel Kanban tools are healthy and native
 card history shows same-card executor→tester→reviewer completion; otherwise
 `unqualified` (not yet exercised) or `degraded`. It exits 0 unless core is
 degraded. `verify --dispatch-check` is the explicit, paid proof: one no-write
@@ -159,7 +160,6 @@ dispatch.
 
 | Area | Remaining evidence |
 | --- | --- |
-| User-managed memory | Operator-owned provider setup and behavior; RepoKit does not verify it |
 | Team work | Reviewer request-changes correction cycle |
 | Runtime independence | Removal-first acceptance with real work |
 | Optional plugins | Native scanner admission and owner configuration |

@@ -197,8 +197,8 @@ func Profiles(id target.Identity) []Probe {
 	return probes
 }
 
-// coreComponents must all be healthy for CORE_READY. Optional features (memory,
-// Docker acceptance) and descriptive rollups are deliberately excluded.
+// coreComponents must all be healthy for CORE_READY. Optional features (Docker
+// acceptance) and descriptive rollups are deliberately excluded.
 func coreComponent(name string) bool {
 	switch name {
 	case "compose", "hermes", "config", "launcher", "kanban", "filesystem", "git", "gateway",
@@ -213,8 +213,9 @@ func coreComponent(name string) bool {
 	return false
 }
 
-// Readiness summarizes observations into CORE_READY. Memory is user-managed,
-// so it is reported as inactive rather than configured or verified by RepoKit.
+// Readiness summarizes observations into CORE_READY: whether RepoKit produced
+// the repository team it promises. Hermes features RepoKit does not own, such
+// as memory, are not reported.
 // Healthy means configured, running AND behavior observed; core configured and
 // running without observed reviewed work is Unqualified.
 func Readiness(probes []Probe) []Probe {
@@ -235,8 +236,7 @@ func Readiness(probes []Probe) []Probe {
 	} else if review != Healthy {
 		core = Probe{"CORE_READY", Unqualified, "configured and running; no automatic executor/tester/reviewer loop observed yet"}
 	}
-	mem := Probe{"MEMORY", Inactive, "memory is user-managed; RepoKit does not configure or verify it"}
-	return []Probe{core, mem}
+	return []Probe{core}
 }
 
 // CoreUsable is verify's exit criterion: nothing core is broken or missing,

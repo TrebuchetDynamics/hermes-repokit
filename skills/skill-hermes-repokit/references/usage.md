@@ -76,7 +76,6 @@ never gates engineering work, and is no reason to restart the runtime.
 ```json
 [
   {"component": "CORE_READY", "status": "unqualified", "detail": "configured and running; no automatic executor/tester/reviewer loop observed yet"},
-  {"component": "MEMORY", "status": "inactive", "detail": "memory is user-managed; RepoKit does not configure or verify it"},
   {"component": "...", "status": "healthy", "detail": "..."}
 ]
 ```
@@ -99,7 +98,6 @@ core team            7 profiles healthy
 dispatch             policy on; dispatch-check PASS
 development runtime  go 1.26 in /workspace
 channels             telegram → default, tools healthy
-memory               user-managed (not verified by RepoKit)
 readiness            CORE_READY unqualified — no reviewed card yet
 ```
 

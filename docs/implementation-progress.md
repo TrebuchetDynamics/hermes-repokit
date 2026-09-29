@@ -38,8 +38,8 @@ Setup preflight checks private-state Git protection, generated artifacts and the
 qualified running image/project/service/mounts before entering a native wizard.
 Owner changes, foreign mounts/images and unknown runtime metadata refuse safely.
 Native identity reconciliation uses repository-scoped SOULs and preserves drift.
-Default's configured interactive channels receive native preset tools plus Kanban
-and memory. A fresh native conversation is required to refresh cached tool schemas.
+Default's configured interactive channels receive native preset tools plus Kanban;
+memory and other optional tools are left to the owner. A fresh native conversation is required to refresh cached tool schemas.
 
 Operational setup separates dispatch-off bootstrap from automatic default gateway
 execution/review. After checks pass, setup writes the native dispatch policy with

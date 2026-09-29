@@ -43,7 +43,7 @@ func TestKanbanObservesPolicyNotificationsAndChannelTools(t *testing.T) {
 	id, base := integrationFixture(t)
 	r := &hermesRunner{integrationRunner: base, replies: map[string]string{
 		"config get kanban --json":            operationalKanban,
-		"config get platform_toolsets --json": `{"cli":["kanban","memory","file"],"telegram":["file","terminal"],"api_server":["file"]}`,
+		"config get platform_toolsets --json": `{"cli":["kanban","file"],"telegram":["file","terminal"],"api_server":["file"]}`,
 	}}
 	probes := DefaultKanban(context.Background(), id, r)
 	if status(probes, "kanban:dispatch") != Healthy || status(probes, "kanban:notifications") != Healthy ||
@@ -102,7 +102,7 @@ func TestGatewayAndReviewEvidenceFromPublicCLI(t *testing.T) {
 func TestReadinessSeparatesConfiguredFromProved(t *testing.T) {
 	healthy := []Probe{{"compose", Healthy, ""}, {"gateway", Healthy, ""}, {"kanban:dispatch", Healthy, ""}, {"development:go", Healthy, ""}, {"docker_acceptance", Inactive, ""}, {"memory", Inactive, ""}}
 	got := Readiness(append(healthy, Probe{"review:evidence", Unqualified, ""}))
-	if got[0].Status != Unqualified || got[1].Status != Inactive || !CoreUsable(got) {
+	if len(got) != 1 || got[0].Status != Unqualified || !CoreUsable(got) {
 		t.Fatalf("configured core must be usable but unproved: %+v", got)
 	}
 	got = Readiness(append(healthy, Probe{"review:evidence", Healthy, ""}))

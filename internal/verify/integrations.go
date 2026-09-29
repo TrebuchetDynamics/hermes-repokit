@@ -34,14 +34,3 @@ func integrationRuntime(ctx context.Context, id target.Identity, r Runner) (stri
 	}
 	return dc, s.ID, nil
 }
-
-// RuntimeIntegrations reports only what the pinned runtime establishes. Memory
-// is user-managed, so passive verification does not certify it from files or
-// service health.
-func RuntimeIntegrations(ctx context.Context, id target.Identity, r Runner) []Probe {
-	memory := Probe{"memory", Inactive, "memory is user-managed; RepoKit does not configure or verify it"}
-	if _, _, err := integrationRuntime(ctx, id, r); err != nil {
-		memory = Probe{"memory", Unknown, "pinned runtime unavailable; memory remains user-managed"}
-	}
-	return []Probe{memory}
-}

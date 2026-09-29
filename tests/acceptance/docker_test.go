@@ -257,7 +257,6 @@ func TestDockerFoundation(t *testing.T) {
 		seen[p.Component] = true
 		expected := map[string]verify.Status{
 			"CORE_READY":              verify.Unqualified, // no reviewed work yet
-			"MEMORY":                  verify.Inactive,
 			"review:evidence":         verify.Unqualified,
 			"development_environment": verify.Unqualified,
 		}
@@ -272,11 +271,9 @@ func TestDockerFoundation(t *testing.T) {
 			}
 			continue
 		}
-		if p.Component == "memory" {
-			if p.Status == verify.Healthy || p.Status == verify.Active {
-				t.Fatal("integration falsely certified")
-			}
-			continue
+		// Memory is a Hermes feature RepoKit does not own or report.
+		if strings.Contains(strings.ToLower(p.Component+p.Detail), "memory") {
+			t.Fatalf("verify reported memory: %+v", p)
 		}
 		if p.Status != verify.Healthy {
 			t.Fatalf("scaffold probe: %+v", p)

@@ -40,7 +40,7 @@ func Gateway(ctx context.Context, id target.Identity, r Runner) []Probe {
 var nonInteractive = map[string]bool{"acp": true, "api_server": true, "cron": true, "webhook": true}
 
 // DefaultKanban observes the native dispatch policy, completion notifications
-// and the default profile's per-channel Kanban/memory tools through `config get`.
+// and the default profile's per-channel Kanban tool through `config get`.
 func DefaultKanban(ctx context.Context, id target.Identity, r Runner) []Probe {
 	dispatch := Probe{"kanban:dispatch", Unknown, "native dispatch configuration unavailable"}
 	notify := Probe{"kanban:notifications", Unknown, "completion notification configuration unavailable"}
@@ -74,8 +74,9 @@ func DefaultKanban(ctx context.Context, id target.Identity, r Runner) []Probe {
 	return append([]Probe{dispatch, notify}, channels...)
 }
 
-// channelTools requires Kanban and memory on every saved human-facing channel
-// of default so Telegram and CLI can create and follow the same work.
+// channelTools requires Kanban on every saved human-facing channel of default
+// so Telegram and CLI can create and follow the same work. Memory and other
+// optional tools are owner-managed and not checked.
 func channelTools(selections map[string]any) []Probe {
 	var result []Probe
 	for platform, raw := range selections {
@@ -89,9 +90,9 @@ func channelTools(selections map[string]any) []Probe {
 				have[s] = true
 			}
 		}
-		p := Probe{"channel:" + platform, Healthy, "default has kanban and memory tools on this channel"}
-		if !have["kanban"] || !have["memory"] {
-			p = Probe{"channel:" + platform, Degraded, "default lacks kanban or memory here; run: hermes-<repo> -p default tools enable kanban memory --platform " + platform}
+		p := Probe{"channel:" + platform, Healthy, "default has the kanban tool on this channel"}
+		if !have["kanban"] {
+			p = Probe{"channel:" + platform, Degraded, "default lacks the kanban tool here; run: hermes-<repo> -p default tools enable kanban --platform " + platform}
 		}
 		result = append(result, p)
 	}
