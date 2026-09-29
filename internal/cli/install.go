@@ -43,9 +43,12 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
+	// The seed keeps Hermes's native CLI preset and opts into Kanban, which
+	// Hermes leaves off by default. Memory and every other native tool stay as
+	// Hermes ships them; RepoKit neither adds nor removes them.
 	artifacts := map[string]install.Artifact{
 		"compose.yaml":        {Data: data, Mode: 0600},
-		"config.yaml":         {Data: []byte("kanban:\n  dispatch_in_gateway: false\n  auto_decompose: false\n  orchestrator_profile: default\n  max_in_progress: 1\ntoolsets: [kanban, memory]\nplatform_toolsets:\n  cli: [kanban, memory]\nterminal:\n  backend: local\n  cwd: /workspace\nskills:\n  trusted_project_dirs: [/workspace]\n"), Mode: 0600},
+		"config.yaml":         {Data: []byte("kanban:\n  dispatch_in_gateway: false\n  auto_decompose: false\n  orchestrator_profile: default\n  max_in_progress: 1\ntoolsets: [hermes-cli, kanban]\nplatform_toolsets:\n  cli: [hermes-cli, kanban]\nterminal:\n  backend: local\n  cwd: /workspace\nskills:\n  trusted_project_dirs: [/workspace]\n"), Mode: 0600},
 		"bin/" + id.Container: {Data: script, Mode: 0700},
 	}
 	recipe, err := development.Recipe(report.Development)
