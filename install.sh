@@ -1,0 +1,85 @@
+#!/bin/sh
+# Build and install the RepoKit bootstrap CLI from this checkout.
+set -eu
+
+fail() {
+    printf 'repokit install: %s\n' "$1" >&2
+    exit 1
+}
+
+[ "$#" -eq 0 ] || fail 'usage: ./install.sh (no arguments)'
+[ "$(uname -s)" = Linux ] || fail 'the bootstrap CLI currently targets Linux'
+command -v go >/dev/null 2>&1 || fail 'Go 1.26 or newer is required to build from source'
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P) || fail 'cannot locate source checkout'
+[ -f "$root/go.mod" ] && [ -d "$root/cmd/hermes-repokit" ] || fail 'install.sh must be run from a RepoKit source checkout'
+
+case ${HOME:-} in
+    /*) ;;
+    *) fail 'HOME must be an absolute directory' ;;
+esac
+
+safe_directory() {
+    [ -d "$1" ] && [ ! -L "$1" ] || fail "unsafe installation directory: $1"
+    [ "$(stat -c %u -- "$1")" = "$(id -u)" ] || fail "installation directory is not owned by this user: $1"
+    mode=$(stat -c %a -- "$1") || fail "cannot inspect installation directory: $1"
+    case $mode in
+        ''|*[!0-7]*) fail "invalid installation directory permissions: $1" ;;
+    esac
+    [ $((0$mode & 022)) -eq 0 ] || fail "installation directory is group/other writable: $1"
+}
+
+safe_directory "$HOME"
+for directory in "$HOME/.local" "$HOME/.local/bin"; do
+    if [ ! -e "$directory" ] && [ ! -L "$directory" ]; then
+        mkdir -m 755 -- "$directory" || fail "cannot create installation directory: $directory"
+    fi
+    safe_directory "$directory"
+done
+
+bin=$HOME/.local/bin
+temp_root=$(CDPATH='' cd -- "${TMPDIR:-/tmp}" && pwd -P) || fail 'cannot use TMPDIR'
+build_dir=$(mktemp -d "$temp_root/repokit-install.XXXXXXXX") || fail 'cannot create build directory'
+tmp=
+trap 'if [ -n "$tmp" ]; then rm -f -- "$tmp"; fi; rm -rf -- "$build_dir"' 0
+
+printf 'Building RepoKit bootstrap from %s with %s...\n' "$root" "$(go version)"
+(cd "$root" && TMPDIR="$temp_root" CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$build_dir/repokit" ./cmd/hermes-repokit) || fail 'Go build failed'
+
+# Work relative to the checked directory, so a later path swap cannot redirect
+# the final hard link into a different destination.
+printf 'Checking installation target: %s/repokit\n' "$bin"
+cd -P -- "$bin" || fail 'cannot enter installation directory'
+safe_directory .
+tmp=$(mktemp ./.repokit.XXXXXXXX) || fail 'cannot create temporary command'
+cp -- "$build_dir/repokit" "$tmp" || fail 'cannot copy built command'
+chmod 700 -- "$tmp" || fail 'cannot make built command executable'
+
+if [ -e ./repokit ] || [ -L ./repokit ]; then
+    if [ -f ./repokit ] && [ ! -L ./repokit ] && cmp -s -- "$tmp" ./repokit; then
+        printf 'RepoKit bootstrap already installed: %s/repokit\n' "$bin"
+    else
+        fail "existing command at $bin/repokit differs; preserved unchanged. Remove or relocate it, then rerun ./install.sh"
+    fi
+else
+    ln -- "$tmp" ./repokit 2>/dev/null || fail "cannot publish command at $bin/repokit without replacing an existing entry"
+    printf 'Installed RepoKit bootstrap: %s/repokit\n' "$bin"
+fi
+
+run_command=repokit
+case :${PATH:-}: in
+    *:"$bin":*)
+        resolved=$(command -v repokit 2>/dev/null || :)
+        if [ "$resolved" != "$bin/repokit" ]; then
+            printf 'Warning: %s shadows %s/repokit on PATH; use the absolute command or reorder PATH.\n' "$resolved" "$bin" >&2
+            run_command=$bin/repokit
+        fi
+        ;;
+    *)
+        printf 'Add %s to PATH, or run %s/repokit directly.\n' "$bin" "$bin" >&2
+        run_command=$bin/repokit
+        ;;
+esac
+printf '\nNext, from the repository you want to prepare:\n'
+printf '  %s plan\n  %s install\n' "$run_command" "$run_command"
+printf 'Run the printed Compose start command, then rerun %s install and complete %s setup in your private terminal.\n' "$run_command" "$run_command"

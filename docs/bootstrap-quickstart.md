@@ -10,15 +10,18 @@ and explicit routing; it neither merges nor manages the application's stack.
 Use the printed start command so the intended Compose file and context are selected.
 Building the pure-Go bootstrap with `CGO_ENABLED=0 go build ./cmd/hermes-repokit`
 requires Go, not a host C compiler. Race tests are contributor validation.
+From a RepoKit source checkout, `./install.sh` builds it with Go 1.26+ and
+installs the bootstrap as `~/.local/bin/repokit`; it does not download a release.
+The commands below use that bootstrap name.
 
 ```sh
 cd my-project
-hermes-repokit plan
-hermes-repokit install
+repokit plan
+repokit install
 # Run the printed Compose build/start command for Hermes.
-hermes-repokit install          # native Kanban initialization
-hermes-repokit setup
-hermes-repokit verify
+repokit install          # native Kanban initialization
+repokit setup
+repokit verify
 .hermes/bin/hermes-my-project
 ```
 
@@ -32,7 +35,7 @@ conversation after reconciliation to refresh the skill index.
 
 `--engineering` is a legacy alias. Plain `setup` explicitly selects default and requires
 a real interactive terminal for private provider setup. If native setup was already
-completed through the launcher, run `hermes-repokit setup --team` to provision
+completed through the launcher, run `repokit setup --team` to provision
 the seven-role team from the saved default model without repeating login. This
 stage does not run a private wizard or configure memory. Existing
 profile edits are preserved and reported as drift. `default` is the normal user
@@ -233,7 +236,7 @@ Plain `setup` completes default/team setup before entering this memory flow.
 To resume memory setup alone in your own terminal:
 
 ```sh
-hermes-repokit setup --memory
+repokit setup --memory
 ```
 
 This delegates to native `openviking-server init` only when `ov.conf` is absent,
@@ -324,8 +327,8 @@ from memory and model-driven acceptance.
 For a repository that needs Docker integration tests, explicitly select:
 
 ```sh
-hermes-repokit plan --docker-tests
-hermes-repokit install --docker-tests
+repokit plan --docker-tests
+repokit install --docker-tests
 # Run the printed development-image build/recreation command.
 # Run the printed --profile docker-tests daemon start command.
 ```

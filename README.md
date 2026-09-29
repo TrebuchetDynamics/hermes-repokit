@@ -38,17 +38,26 @@ a RepoKit daemon.
 
 ## Quickstart
 
-Needs Docker Compose, Git and a POSIX shell — no host Go, Python, Node or Hermes.
-Run from the repository you want a team for:
+From a RepoKit source checkout, install the bootstrap CLI with Go 1.26+:
+
+```sh
+./install.sh              # installs ~/.local/bin/repokit
+```
+
+The script builds locally; it does not download an unpublished release. It
+preserves a conflicting `repokit` command and reports if `~/.local/bin` is not
+on PATH or another command shadows it. The installed CLI needs no host Go,
+Python, Node or Hermes. To prepare a repository, you also need Docker Compose,
+Git and a POSIX shell. Run these commands from the target repository:
 
 ```sh
 cd my-project
-hermes-repokit plan      # inspect; writes nothing
-hermes-repokit install   # publish Compose, launcher, host command and private state
+repokit plan              # inspect; writes nothing
+repokit install           # publish Compose, launcher, host command and private state
 # run the printed Compose build/start command
-hermes-repokit install   # initialize native Kanban after the runtime is running
-hermes-repokit setup     # private provider, team, memory and activation
-hermes-repokit verify    # observational CORE/MEMORY/FULL readiness report
+repokit install           # initialize native Kanban after the runtime is running
+repokit setup             # private provider, team, memory and activation
+repokit verify            # observational CORE/MEMORY/FULL readiness report
 hermes-my-project        # native Hermes CLI as default, when ~/.local/bin is on PATH
 ```
 

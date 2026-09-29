@@ -1,5 +1,14 @@
 # Development binaries and release qualification
 
+For a source checkout on Linux with Go 1.26+, run `./install.sh` to build the
+current source and install `~/.local/bin/repokit`. It accepts an identical rerun,
+but preserves a different existing command; remove or relocate that command
+deliberately before installing. It reports when `~/.local/bin` is absent from
+PATH or an earlier `repokit` command shadows it. The bootstrap name `repokit`
+stays distinct from generated `hermes-<repo>` launchers, including this
+repository's `hermes-repokit` launcher.
+The script does not install a release binary or start a deployment.
+
 The current source builds one static Go executable for Linux amd64 and arm64:
 
 ```sh
