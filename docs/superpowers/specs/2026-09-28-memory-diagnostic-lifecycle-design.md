@@ -25,9 +25,9 @@ Implementing code and authorizing a live model-backed run are separate decisions
 
 Current RepoKit evidence and command behavior:
 
-- [Memory self-check qualification](../../qualification/memory-self-check.md):
+- Memory self-check qualification (`docs/qualification/memory-self-check.md`, removed; see [decision](../../decisions/2026-09-29-hermes-owns-hermes-features.md)):
   inspected Hermes write, recall, forget and initialization limitations.
-- [Shared memory qualification](../../qualification/generic-team-memory.md):
+- Shared memory qualification (`docs/qualification/generic-team-memory.md`, removed):
   immutable images and recorded source revisions.
 - [Development recipe](../../../internal/development/recipe.go): `recipeInputs`
   and `Fingerprint` cover packaged assets and generated build inputs.

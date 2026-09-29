@@ -57,10 +57,9 @@ launcher. It initializes one native board when the existing container is running
 private setup. Noninteractive setup cannot authorize team provisioning. After
 interactive setup returns successfully and a saved model exists, RepoKit
 provisions missing specialists through native config cloning. Plain `setup` then
-runs private OpenViking configuration/linking and operational activation;
-`setup --team` provisions missing specialists after a saved default model is
+runs operational activation; `setup --team` provisions missing specialists after a saved default model is
 available, without reopening private setup. This also supports users who completed
-native setup through the standalone launcher. `setup --memory` resumes memory setup separately.
+native setup through the standalone launcher. There is no memory stage.
 
 The initial native config trusts `/workspace` for repository-local skills. New
 profiles inherit that trust; native `skills trust /workspace` adds it to existing
@@ -102,7 +101,7 @@ change a cached session schema: start a fresh conversation after reconciliation.
 Setup starts or converges the native gateway only after its activation gates pass;
 saving Telegram credentials alone does not establish operational readiness.
 
-Sources: [native provisioning](../internal/native/team.py),
+Sources: [native provisioning](../internal/native/team.go),
 [setup delegation](../internal/native/setup.go),
 [CLI wiring](../internal/cli/cli.go).
 
@@ -167,7 +166,7 @@ complete capability isolation. Review effective tools before enabling dispatch.
 
 `default` is one profile across human-facing channels; platform and session are
 conversation surfaces/history, not new team identities. All primary channels
-share repository SOUL, roster, board and OpenViking identity.
+share repository SOUL, roster and board.
 Routing to another profile is reported separately. Saved core selections do not
 prove credentials, connected adapters or a fresh session's loaded tools.
 
@@ -197,27 +196,19 @@ pairing and native policy, so a declared allowlist is not certified safe access.
 An outbound home-channel destination is not inbound profile-routing evidence.
 No reconciliation weakens gateway authentication or sender authorization.
 
-## Identity and shared memory
+## Identity and memory
 
-SOUL defines identity. OpenViking holds durable project knowledge. Kanban holds
-work state. The permanent team and future specialists should share one
-repository OpenViking process inside Hermes and account `repokit`, the same repository user,
-and endpoint `http://127.0.0.1:1933`, with no per-profile peer. Built-in local
-memory stays enabled alongside native extraction. Check every environment,
-YAML and linked-configuration override before activating the connection.
+SOUL defines identity. Kanban holds work state. Memory is a native Hermes feature:
+built-in profile memory stays enabled, and any shared memory provider is configured
+by the owner through native Hermes (`hermes-<repo> -p default memory setup`,
+`hermes memory status`). RepoKit does not configure, link or verify a provider;
+future specialists cloned from default inherit whatever native configuration
+default has. Optional plugins remain owner-managed native Hermes components.
 
-The installer embeds official OpenViking inside Hermes. Private `setup --memory`
-checks the effective connection under every profile's native secret scope, requires
-a normal repository user key and links the shared native connection across all seven
-roles. Future specialists cloned from default inherit that link; steward must check
-their effective identity and peer overrides before use. Optional plugins remain
-owner-managed native Hermes components.
-
-`verify` reports scaffold readiness, native integration configuration and authenticated
-memory health. Memory `active` means the shared identity matches, not that recall has
-passed. Review remains `unqualified` until actual same-card work is accepted. See
-[memory wiring](qualification/openviking-wiring.md), [memory qualification](qualification/generic-team-memory.md)
-and [acceptance matrix](qualification/generic-team.md).
+`verify` reports scaffold readiness and native integration configuration as
+`CORE_TEAM` and `DISPATCH`. `DISPATCH` remains `unqualified` until actual same-card
+work is accepted. See the [acceptance matrix](qualification/generic-team.md) and
+the [decision record](decisions/2026-09-29-hermes-owns-hermes-features.md).
 
 Source: [read-only integration probes](../internal/verify/integrations.go).
 
@@ -239,7 +230,6 @@ no card is running. Any other owner-changed policy is only observed.
 Dispatch is off during bootstrap and incomplete setup. Successful setup activates
 one default gateway dispatcher with review dispatch enabled, concurrency one,
 automatic decomposition disabled and the explicit seven-profile allowlist.
-OpenViking readiness is reported separately and does not block core activation.
 Specialists keep dispatch disabled. SOUL distinguishes persistent profiles
 from running workers and requires inspection of live dispatch before promising
 progress; it never uses one-shot dispatch to bypass incomplete activation.
@@ -270,10 +260,7 @@ strong host-kernel isolation. Neither Pi nor Codex is a mandatory coding harness
 ## Runtime-aware assignments and truthful outcomes
 
 The managed team operates inside `hermes-<repo>`. The native Hermes command is
-`/opt/hermes/bin/hermes`; embedded OpenViking is managed through
-`/usr/local/bin/repokit-openviking`, with private configuration at
-`/opt/data/openviking` and health on `127.0.0.1:1933`. Pending initialization is
-separate from an absent runtime. The ordinary runtime has no host Docker socket;
+`/opt/hermes/bin/hermes`. The ordinary runtime has no host Docker socket;
 local observation does not require one. Multi-deployment acceptance requires
 its own authorized test environment. Terminal secrets are filtered, so missing
 shell variables cannot establish missing native provider authentication.

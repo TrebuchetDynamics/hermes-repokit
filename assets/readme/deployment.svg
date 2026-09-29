@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="depTitle depDesc">
   <title id="depTitle">What RepoKit leaves behind: a private .hermes directory beside one Compose-owned Hermes container</title>
-  <desc id="depDesc">The installer writes a private .hermes directory (Compose file, launcher, config, development image, memory data, gitignore) and one Hermes container supervised by s6, running a default gateway, seven native profiles, a shared Kanban board and embedded memory on loopback with no published host ports.</desc>
+  <desc id="depDesc">The installer writes a private .hermes directory (Compose file, launcher, config, development image, gitignore) and one Hermes container supervised by s6, running a default gateway, seven native profiles, a shared Kanban board and the repository development toolchain, with no published host ports.</desc>
 
   <rect width="1200" height="520" rx="24" fill="#0A0D0F"/>
   <rect x="0.5" y="0.5" width="1199" height="519" rx="23.5" fill="none" stroke="#1E2A31"/>
@@ -20,8 +20,7 @@
       <text x="80" y="212">├── bin/hermes-my-project</text>
       <text x="80" y="240">├── config.yaml</text>
       <text x="80" y="268">├── development-image/</text>
-      <text x="80" y="296">├── openviking/</text>
-      <text x="80" y="324">└── .gitignore</text>
+      <text x="80" y="296">└── .gitignore</text>
     </g>
     <line x1="80" y1="352" x2="424" y2="352" stroke="#26333B"/>
     <text x="80" y="382" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#7F909C">Private native state, ignored by git.</text>
@@ -38,7 +37,7 @@
     <text x="1120" y="136" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#7F909C">one container</text>
 
     <rect x="516" y="168" width="604" height="30" rx="8" fill="#172128" stroke="#26333B"/>
-    <text x="532" y="188" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#F0B24A">s6 supervisor — starts and drains the local services</text>
+    <text x="532" y="188" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#F0B24A">s6 supervisor — native Hermes gateway services</text>
 
     <text x="516" y="224" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#7F909C">Seven permanent native profiles</text>
     <g font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="11" fill="#E8EEF2" text-anchor="middle">
@@ -63,8 +62,8 @@
       <text x="700" y="304" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" fill="#AAB9C4">dispatch + review · max in-progress 1</text>
       <text x="516" y="336" fill="#E8EEF2">shared Kanban</text>
       <text x="700" y="336" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" fill="#AAB9C4">claims, runs and same-card review</text>
-      <text x="516" y="368" fill="#E8EEF2">embedded memory</text>
-      <text x="700" y="368" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" fill="#AAB9C4">127.0.0.1:1933 · private persistent storage</text>
+      <text x="516" y="368" fill="#E8EEF2">development toolchain</text>
+      <text x="700" y="368" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" fill="#AAB9C4">pinned repository tools at /workspace</text>
     </g>
   </g>
 
@@ -74,7 +73,6 @@
     <text x="80" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#5BD1A8">bind mounts</text>
     <text x="190" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">repository &#8594; /workspace</text>
     <text x="392" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">.hermes &#8594; /opt/data</text>
-    <text x="590" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">openviking/ &#8594; /opt/data/openviking</text>
     <text x="1120" y="460" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#7F909C">no published host ports</text>
   </g>
 </svg>

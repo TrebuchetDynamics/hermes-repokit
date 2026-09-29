@@ -16,7 +16,7 @@ Images and build cache persist across test runs. The daemon receives no checkout
 `.hermes`, operator home, or host Docker socket mount. It listens only on
 `unix:///docker-test/run/docker.sock`; no TCP API or published ports are configured.
 It uses a separate `docker-test` network, with outbound access for image pulls and
-build dependencies, and does not join the Hermes/OpenViking network.
+build dependencies, and does not join the Hermes network.
 
 Docker-in-Docker uses `privileged: true`. This provides a separate daemon and
 storage lifecycle, **not strong isolation from the host kernel**. The user must
@@ -53,8 +53,8 @@ repokit-docker-test --timeout 3600 -- go test -tags docker ./...
 ```
 
 The default command runs the foundation, channel and maintenance Docker suite
-(and other `REPOKIT_DOCKER_TESTS` fixtures, including pending OpenViking and
-development-runtime checks) in a fresh Git repository below `/docker-tests`.
+(and other `REPOKIT_DOCKER_TESTS` fixtures, including development-runtime
+checks) in a fresh Git repository below `/docker-tests`.
 
 Snapshot selection includes dirty tracked files and non-ignored
 untracked source. It excludes `.hermes`, `.git`, installer staging/lock paths,

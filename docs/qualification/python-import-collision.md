@@ -44,7 +44,7 @@ Same profile, same `--toolsets file,memory,web`, `HERMES_KANBAN_TASK` set:
 `verify` lists repository-root entries that Python would import in place of a
 pinned Hermes module (`qualification.HermesImportNames`, derived from the pinned
 image's worker entry points; requalify on every image change) and reports
-`python-imports` degraded, which makes `CORE_READY` degraded. It follows Python
+`python-imports` degraded, which makes `CORE_TEAM` degraded. It follows Python
 precedence: `name.py`, `name.pyc`, extension modules and `name/` directories with
 `__init__` collide; nested paths, namespace directories without `__init__`, and
 names Hermes does not import at runtime (for example `setup.py`) do not.

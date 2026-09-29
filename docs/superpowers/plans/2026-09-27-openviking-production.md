@@ -1,4 +1,4 @@
-> Historical sidecar implementation record. Current normal deployment embeds memory in Hermes; see [embedded topology](../../qualification/embedded-openviking.md). Earlier fixture results do not qualify the current image.
+> Historical sidecar implementation record. RepoKit no longer deploys or manages OpenViking (neither sidecar nor embedded); see [decision](../../decisions/2026-09-29-hermes-owns-hermes-features.md). Earlier fixture results do not qualify the current image.
 
 # OpenViking production integration
 

@@ -70,7 +70,7 @@ install. Activation is explicit because the daemon is privileged. It has only
 project-scoped test data, scratch and Unix-socket volumes: no host daemon socket,
 repository checkout or Hermes private-state mount, and no public TCP endpoint.
 A dedicated network allows outgoing image/dependency retrieval; it is separate
-from the Hermes/OpenViking application network. Privileged DinD shares the host
+from the Hermes application network. Privileged DinD shares the host
 kernel and is not VM-grade containment for hostile workloads.
 
 After activation, an authorized task can run `repokit-docker-test` inside Hermes.

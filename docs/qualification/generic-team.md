@@ -44,23 +44,20 @@ the board. The test harness is an observer, not a generated runtime dependency.
 | Six roles, descriptions and SOULs | Passed native fixture |
 | Fresh curated memories and preserved rerun state | Passed sentinels |
 | Shared board, handoffs and review transitions | Passed separate-process native API fixture |
-| Shared memory connection | Native configuration/linking passed; live recall pending |
+| Shared memory connection | Historical native linking passed; memory is now a native Hermes feature outside RepoKit |
 | Real executor/reviewer work and channel delivery | Pending model-driven acceptance |
 | Current image and integrated removal-first operation | Pending live qualification |
 
 ## Outstanding configuration and implementation
 
-OpenViking still needs actual embedding/extraction model endpoints, model
-identities, matching vector dimensions and private native credentials where
-required. No host credentials were borrowed. See
-[precise requirements](generic-team-memory.md). Configuration and authenticated
-health do not establish real recall or cross-repository isolation.
+Memory providers are configured through native Hermes and are not RepoKit
+qualification gates ([decision](../decisions/2026-09-29-hermes-owns-hermes-features.md)). No host credentials were borrowed.
 
 ## Update triggers
 
 Requalify when the Hermes image, native clone/setup/toolset behavior, roster,
-SOULs, profile reconciliation, embedded runtime image/dependencies, memory
-provider schema, or installer wiring changes. Keep credential-free/API fixture
+SOULs, profile reconciliation, runtime image/dependencies or installer wiring
+changes. Keep credential-free/API fixture
 claims separate from real agent work and complete-team acceptance.
 
 ## Historical scaffold validation

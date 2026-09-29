@@ -27,7 +27,7 @@ replacement must have healthy adapters, changed identity, unchanged input hash,
 its own singleton dispatcher lock and native startup logs showing concurrency one.
 
 Fresh/incomplete installs keep dispatch off. After provider/profile/tool/routing
-gates pass, with optional OpenViking reported independently, the default gateway
+gates pass, the default gateway
 runs automatic dispatch and review with the six-role allowlist. Confirmed stopped
 gateways can be prepared without restarting an absent process, then started through
 native Hermes. `setup --team` requires no credential wizard. A real researcher

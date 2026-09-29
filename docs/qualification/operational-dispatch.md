@@ -6,8 +6,7 @@
 
 RepoKit now separates bootstrap dispatch-off from operational automatic dispatch.
 Setup requires all six native identities, provider resolution, channel tool parity,
-default routing and initialized Kanban. Shared OpenViking readiness is independent
-and does not block core dispatch. It activates only the default gateway, with
+default routing and initialized Kanban. It activates only the default gateway, with
 review dispatch, concurrency one and no decomposition. Activation initially admits
 only researcher; the six-profile allowlist is released after the canary passes
 and its worker exits.
@@ -101,8 +100,7 @@ Independent source review identified and corrected the native PID projection,
 string-config coercion, residual-worker and stopped-gateway recovery defects.
 
 Apply from a Docker-enabled owner terminal using the new build's
-`setup --team` after the default provider is configured; optional memory setup
-can be resumed separately with `setup --memory`.
+`setup --team` after the default provider is configured.
 No provider wizard is repeated by that command. Use a fresh Telegram `/new`
 session after successful activation. Live canary and Telegram acceptance must
 pass before calling this deployment operational; no manual dispatch is a substitute.
