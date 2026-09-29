@@ -59,7 +59,7 @@ A new temporary binary was built and public read-only `verify` run. Docker
 subprocess metadata remains unavailable; existing historical identities await
 `setup --team` migration. No live reconciliation or Telegram acceptance was
 performed from a build whose mandatory offline gate remains blocked. Private
-OpenViking setup still blocks memory acceptance. No commit/push occurred.
+Memory acceptance remains blocked. No commit/push occurred.
 
 ## Follow-up channel parity and self-maintenance directive
 

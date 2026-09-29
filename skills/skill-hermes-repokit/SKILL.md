@@ -1,6 +1,6 @@
 ---
 name: skill-hermes-repokit
-description: Use when installing, resuming, verifying, migrating, or operating Hermes RepoKit in a repository, including the generated launcher, seven-profile team, Kanban dispatch, embedded OpenViking, channel parity, and repository development runtime. Not for unrelated Hermes installations or developing RepoKit features.
+description: Use when installing, resuming, verifying, migrating, or operating Hermes RepoKit in a repository, including the generated launcher, seven-profile team, Kanban dispatch, user-managed memory, channel parity, and repository development runtime. Not for unrelated Hermes installations or developing RepoKit features.
 ---
 
 # Hermes RepoKit in repositories
@@ -15,17 +15,17 @@ Report capabilities independently; container health is not component readiness:
 
 - **Core team:** Hermes, seven profiles, shared Kanban, routing and dispatcher.
 - **Development runtime:** repository mounted at `/workspace` with its required toolchain.
-- **Memory:** embedded OpenViking, reported as healthy, degraded, pending or unknown.
+- **Memory:** user-managed and outside RepoKit's readiness model; never configured or verified by this workflow.
 - **Channels:** CLI and configured human-facing adapters route to `default`.
 
-`verify` prints `CORE_READY`, `MEMORY_READY` and `FULL_READY` first. Core is
+`verify` prints `CORE_READY` first and reports memory as user-managed. Core is
 `healthy` only when configuration, runtime, toolchain, dispatch policy, gateway and
 channel tools are healthy and native card history shows same-card executor→tester→reviewer
 completion; `unqualified` means configured but the loop is not yet observed.
 Passive verify never proves memory. End-to-end channel delivery still needs
 behavioral evidence.
 
-Core readiness must not depend on OpenViking availability. An observed working
+Core readiness must not depend on memory availability. An observed working
 project may be `CORE_READY` with memory degraded or pending. If the selected
 version still blocks dispatch on memory, report the implementation gap and actual
 dispatch failure; do not claim readiness or bypass activation. See [version and
@@ -56,7 +56,7 @@ versions differ. Do not assume `--version` or release binaries exist.
 
 - Normal production topology is exactly one RepoKit runtime container per
   repository: `hermes-<repo>`, using the normalized name printed by `plan`.
-  OpenViking is an internal supervised process, not a Compose sidecar.
+  Memory is user-managed and runs outside the RepoKit contract.
 - Repository root mounts at `/workspace`; private `<repo>/.hermes` mounts at
   `/opt/data`, with `HERMES_HOME=/opt/data`. Preserve this generated layout.
 - Existing repository Compose files and services coexist with RepoKit's explicit
@@ -81,7 +81,7 @@ versions differ. Do not assume `--version` or release binaries exist.
   capability can remain available while its service is reported degraded.
 - Kanban is canonical. Setup enables native dispatch on `default` through
   `hermes config set` and one gateway restart after the team reconciles. It never
-  runs a worker itself. OpenViking readiness never blocks core team execution.
+  runs a worker itself. Memory readiness never blocks core team execution.
 
 ```text
 install → dispatch off
@@ -110,8 +110,8 @@ gap and required migration work; never invent a migration command or teardown.
 | Intent | Interface |
 | --- | --- |
 | Inspect/publish repository deployment | `hermes-repokit plan` / `install` |
-| Private default setup, team and memory | `hermes-repokit setup` |
-| Resume an integration | `hermes-repokit setup --team` or `hermes-repokit setup --memory` |
+| Private default and team setup | `hermes-repokit setup` |
+| Resume team provisioning | `hermes-repokit setup --team` |
 | Observe installation | `hermes-repokit verify` |
 | Open native default chat | Generated `hermes-<repo>` with no arguments |
 | Native Hermes setup only | `hermes-<repo> setup` |
@@ -131,4 +131,4 @@ history with different implementation and approval actors; `done` alone is
 insufficient. Leave Git delivery to an explicit commit/push request.
 
 RepoKit prepares; Hermes operates; Docker contains; Kanban coordinates;
-OpenViking remembers; Git remains under owner control.
+memory stays user-managed; Git remains under owner control.

@@ -8,7 +8,7 @@ from offline fixtures. No provider credentials were changed or printed.
 ## Observed failures and source repairs
 
 - The research card was ready with no worker run because native gateway dispatch
-  was disabled. Core setup also incorrectly required OpenViking readiness.
+  was disabled. Core setup also incorrectly required memory readiness.
   Core activation now reports memory independently.
 - The exact historical local-build Laya Compose was outside the upgrade set.
   The installer now recognizes that generated preimage, backs it up and preserves
@@ -42,7 +42,7 @@ The native full backup completed before migration. Original Compose, profiles,
 credentials, memories, Kanban history, model caches and owner plugins were
 preserved. The generated development image built successfully and replaced the
 old Hermes runtime through ordinary Compose. The repository now has one runtime
-container with embedded OpenViking awaiting private configuration.
+container with user-managed memory awaiting private configuration.
 
 The host command resolves through `~/.local/bin` to the repository launcher and
 works outside the repository. Its native profile, Kanban and setup interfaces
@@ -52,7 +52,7 @@ skill discovery. The gateway reports connected Telegram and API adapters;
 that is not a human message round-trip qualification.
 
 The bundled maintenance plugin passed the native scanner. This does not prove
-an agent-initiated restart. OpenViking remains pending and cross-profile recall
+an agent-initiated restart. Memory remains pending and cross-profile recall
 is unqualified. Independent executor/reviewer acceptance remains unqualified.
 
 `setup --team` completed successfully. Gateway PID 9452 automatically claimed
@@ -105,7 +105,7 @@ assignee) were unchanged; the dispatch policy was intact; `hermes-repokit` ran
 from `/tmp`. The native main-wrapper re-registered the s6 gateway services: the
 default gateway was running about 5 seconds after recreation and again after
 `docker restart`. `verify` then reported `CORE_READY` healthy (same-card review
-evidence `t_b170ab94`) and `MEMORY_READY` inactive (OpenViking not configured).
+evidence `t_b170ab94`) and memory inactive (not configured).
 
 `verify --dispatch-check` on the restarted gateway passed in 80 seconds: card
 `t_ee305797` went created → claimed → spawned → completed → archived with no

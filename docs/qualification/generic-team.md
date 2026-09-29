@@ -4,7 +4,7 @@ The current directive is six permanent profiles: default, researcher, planner,
 executor, reviewer and steward. Earlier five-role and engineering-profile
 records are historical. **The complete team acceptance gate is not passed.**
 The current deployment/setup evidence is in the
-[runtime integration record](runtime-integrations.md). The older scaffold runs
+[runtime observations record](runtime-observations.md). The older scaffold runs
 below are historical. This qualification did not deploy RepoKit to itself or perform self-dogfood.
 Git delivery is a separate, subsequently authorized operation.
 
@@ -50,10 +50,9 @@ the board. The test harness is an observer, not a generated runtime dependency.
 
 ## Outstanding configuration and implementation
 
-OpenViking still needs actual embedding/extraction model endpoints, model
+Memory still needs actual embedding/extraction model endpoints, model
 identities, matching vector dimensions and private native credentials where
-required. No host credentials were borrowed. See
-[precise requirements](generic-team-memory.md). Configuration and authenticated
+required. No host credentials were borrowed. Configuration and authenticated
 health do not establish real recall or cross-repository isolation.
 
 ## Update triggers
@@ -67,7 +66,7 @@ claims separate from real agent work and complete-team acceptance.
 
 The final six-profile Docker run passed in **120.56 seconds** after the explicit
 default launcher selection and unknown integration-status reporting changes.
-It asserts that `verify` exits nonzero for unestablished OpenViking
+It asserts that `verify` exits nonzero for unestablished memory
 acceptance while all native scaffold probes are healthy. Native lifecycle,
 restart/recreation and copied-installer removal checks passed in the same run.
 

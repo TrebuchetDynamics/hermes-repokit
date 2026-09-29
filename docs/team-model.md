@@ -57,10 +57,11 @@ launcher. It initializes one native board when the existing container is running
 private setup. Noninteractive setup cannot authorize team provisioning. After
 interactive setup returns successfully and a saved model exists, RepoKit
 provisions missing specialists through native config cloning. Plain `setup` then
-runs private OpenViking configuration/linking and operational activation;
+runs operational activation;
 `setup --team` provisions missing specialists after a saved default model is
 available, without reopening private setup. This also supports users who completed
-native setup through the standalone launcher. `setup --memory` resumes memory setup separately.
+native setup through the standalone launcher. Memory setup is user-managed and is
+not part of RepoKit's setup stages.
 
 The initial native config trusts `/workspace` for repository-local skills. New
 profiles inherit that trust; native `skills trust /workspace` adds it to existing
@@ -167,7 +168,8 @@ complete capability isolation. Review effective tools before enabling dispatch.
 
 `default` is one profile across human-facing channels; platform and session are
 conversation surfaces/history, not new team identities. All primary channels
-share repository SOUL, roster, board and OpenViking identity.
+share repository SOUL, roster and board. Memory is user-managed and is not part
+of RepoKit's team identity model.
 Routing to another profile is reported separately. Saved core selections do not
 prove credentials, connected adapters or a fresh session's loaded tools.
 
@@ -199,25 +201,15 @@ No reconciliation weakens gateway authentication or sender authorization.
 
 ## Identity and shared memory
 
-SOUL defines identity. OpenViking holds durable project knowledge. Kanban holds
-work state. The permanent team and future specialists should share one
-repository OpenViking process inside Hermes and account `repokit`, the same repository user,
-and endpoint `http://127.0.0.1:1933`, with no per-profile peer. Built-in local
-memory stays enabled alongside native extraction. Check every environment,
-YAML and linked-configuration override before activating the connection.
+SOUL defines identity and Kanban holds work state. Memory is user-managed: the
+operator chooses and configures any memory provider the repository needs, and
+RepoKit neither links nor certifies it. Built-in local memory remains a native
+Hermes concern.
 
-The installer embeds official OpenViking inside Hermes. Private `setup --memory`
-checks the effective connection under every profile's native secret scope, requires
-a normal repository user key and links the shared native connection across all seven
-roles. Future specialists cloned from default inherit that link; steward must check
-their effective identity and peer overrides before use. Optional plugins remain
-owner-managed native Hermes components.
-
-`verify` reports scaffold readiness, native integration configuration and authenticated
-memory health. Memory `active` means the shared identity matches, not that recall has
-passed. Review remains `unqualified` until actual same-card work is accepted. See
-[memory wiring](qualification/openviking-wiring.md), [memory qualification](qualification/generic-team-memory.md)
-and [acceptance matrix](qualification/generic-team.md).
+`verify` reports scaffold readiness and native integration configuration, but it
+does not configure or verify a memory provider. Review remains `unqualified`
+until actual same-card work is accepted. See
+[acceptance matrix](qualification/generic-team.md).
 
 Source: [read-only integration probes](../internal/verify/integrations.go).
 
@@ -239,7 +231,7 @@ no card is running. Any other owner-changed policy is only observed.
 Dispatch is off during bootstrap and incomplete setup. Successful setup activates
 one default gateway dispatcher with review dispatch enabled, concurrency one,
 automatic decomposition disabled and the explicit seven-profile allowlist.
-OpenViking readiness is reported separately and does not block core activation.
+Memory is user-managed and does not block core activation.
 Specialists keep dispatch disabled. SOUL distinguishes persistent profiles
 from running workers and requires inspection of live dispatch before promising
 progress; it never uses one-shot dispatch to bypass incomplete activation.
@@ -270,9 +262,8 @@ strong host-kernel isolation. Neither Pi nor Codex is a mandatory coding harness
 ## Runtime-aware assignments and truthful outcomes
 
 The managed team operates inside `hermes-<repo>`. The native Hermes command is
-`/opt/hermes/bin/hermes`; embedded OpenViking is managed through
-`/usr/local/bin/repokit-openviking`, with private configuration at
-`/opt/data/openviking` and health on `127.0.0.1:1933`. Pending initialization is
+`/opt/hermes/bin/hermes`. Memory is user-managed and lives outside RepoKit's
+runtime contract. Pending initialization is
 separate from an absent runtime. The ordinary runtime has no host Docker socket;
 local observation does not require one. Multi-deployment acceptance requires
 its own authorized test environment. Terminal secrets are filtered, so missing

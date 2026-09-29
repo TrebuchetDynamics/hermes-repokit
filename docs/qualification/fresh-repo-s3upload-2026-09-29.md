@@ -11,14 +11,14 @@ owner's existing checkout and its gitignored Azure credential file were not used
    `install` failed once when run under a second after start ("native team
    inspection unavailable") and succeeded on retry: a startup race (finding).
 3. Owner ran `setup` privately: own provider login (`gpt-6.1-sol`) and a **new**
-   Telegram bot, allowlisted to the owner; OpenViking skipped. No authentication
+   Telegram bot, allowlisted to the owner; memory setup skipped. No authentication
    was copied from another deployment. RepoKit provisioned six profiles and the
    full dispatch policy; the wizard had removed Kanban from Telegram and RepoKit's
    saved-channel reconciliation restored it.
 4. The gateway was never started by setup; started once with
    `hermes-s3upload -p default gateway start` (finding). New bot connected.
 5. `verify`: exit 0; `CORE_READY` unqualified (no reviewed work yet),
-   `MEMORY_READY` inactive, every configuration/runtime probe healthy including
+   memory inactive, every configuration/runtime probe healthy including
    Go 1.26.6 and `python-imports`.
 6. `verify --dispatch-check`: PASS (researcher `t_5a5e0add`, no manual dispatch).
 
@@ -46,7 +46,7 @@ deployment's worker login shell: `go test`, `go test -race -count=1`, gofmt and
 Telegram reconnected at 20:43:38, both cards and the dispatch policy were
 unchanged, and the worktree change was preserved. A new `verify --dispatch-check`
 passed (`t_7b964ddb`). Final `verify`: `CORE_READY` **healthy** citing
-`t_af6758f3`, `MEMORY_READY` inactive, exit 0.
+`t_af6758f3`, memory inactive, exit 0.
 
 Hermes posted a native "shutting down" notice to the chat on restart.
 

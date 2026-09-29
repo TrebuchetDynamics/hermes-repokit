@@ -70,7 +70,7 @@ install. Activation is explicit because the daemon is privileged. It has only
 project-scoped test data, scratch and Unix-socket volumes: no host daemon socket,
 repository checkout or Hermes private-state mount, and no public TCP endpoint.
 A dedicated network allows outgoing image/dependency retrieval; it is separate
-from the Hermes/OpenViking application network. Privileged DinD shares the host
+from the Hermes application network. Privileged DinD shares the host
 kernel and is not VM-grade containment for hostile workloads.
 
 After activation, an authorized task can run `repokit-docker-test` inside Hermes.
@@ -122,7 +122,7 @@ Telegram/CLI coding parity, model-driven review and full dogfood remain pending.
 | `go test -race -count=1 ./...` | All packages pass |
 | `go vet ./...` and `go vet -tags docker ./...` | Pass |
 | Formatting and `gofmt` | Pass |
-| Docker fixtures, ordinary gate (`REPOKIT_DOCKER_TESTS=1`) | `TestDockerDevelopmentRuntime`, `TestDockerFoundation`, `TestDockerDefaultKanbanChannels`, `TestDockerMaintenanceNativePackage` and `TestDockerOpenVikingPending` pass |
+| Docker fixtures, ordinary gate (`REPOKIT_DOCKER_TESTS=1`) | `TestDockerDevelopmentRuntime`, `TestDockerFoundation`, `TestDockerDefaultKanbanChannels`, `TestDockerMaintenanceNativePackage` pass |
 | Docker fixture, DinD gate (`REPOKIT_DIND_TESTS=1`) | Not run in this pass |
 | Existing source baseline | HEAD unchanged; all 197 baseline paths remain; skill files unchanged |
 

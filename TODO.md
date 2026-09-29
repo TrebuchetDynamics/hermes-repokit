@@ -30,8 +30,8 @@ against a fresh clone.
 - [x] **Gateway never started on fresh setup.** Explicit `setup` / `setup --team`
       now starts a stopped default gateway through the native `gateway start`
       and waits for a running PID; Hermes keeps it running across restarts.
-      `install` reruns and `setup --memory` never start an owner-stopped gateway
-      and print `hermes-<repo> -p default gateway start` instead (#6).
+      `install` reruns never start an owner-stopped gateway and print
+      `hermes-<repo> -p default gateway start` instead (#6).
 - [x] **`.hermes-repokit.lock` hygiene.** The lock must stay at the root (it
       guards creation of `.hermes` and is shared with the container flock), so
       `install` adds `/.hermes-repokit.lock` to the local, never-committed
@@ -63,23 +63,10 @@ against a fresh clone.
       enabling them.
 - [ ] Decide: do specialists keep narrow role toolsets or get the full set?
 
-## Separate work waiting for review (uncommitted in the local checkout)
+## Memory boundary
 
-- [ ] `verify --memory-check` OpenViking exact-file diagnostic (card `t_c476e463`,
-      never reviewed). Review as its own PR.
-- [ ] `install.sh` and the `repokit` command rename. Review as its own PR; the
-      name must not collide with a `hermes-<repo>` host command.
-
-## 0.2.0: OpenViking as an optional service
-
-- [ ] [#2](https://github.com/TrebuchetDynamics/hermes-repokit/issues/2): extract
-      embedded OpenViking into an optional `openviking-<repo>` Compose service
-      (one Hermes container per repository; single writer during migration; no
-      silent credential rewrites; `CORE_READY` independent of memory). Acceptance
-      criteria live in the issue.
-- [ ] Until then: the embedded OpenViking shutdown race is unpatched (s6 can
-      report the service down while the server still writes). Re-check after
-      `setup --memory`; #2 removes it.
+- [x] Remove the embedded shared-memory provider. RepoKit neither configures nor
+      verifies memory; the operator owns provider setup and behavior.
 
 ## Upstream
 
@@ -100,8 +87,6 @@ Live and Docker proof that has not been exercised yet.
       revises on the same card → reviewer approves → result in the same chat.
 - [ ] **Vague requests:** "Improve readme" produced a reply but no card; qualify
       how `default` scopes open-ended requests.
-- [ ] **Memory (`MEMORY_READY`):** cross-profile write/recall, restart
-      persistence and repository isolation. Health is not proof.
 - [ ] **Removal-first:** delete the RepoKit binary, then run a real Telegram task
       and a restart; everything must keep working.
 - [ ] **More fresh repositories:** a Python repository without colliding root

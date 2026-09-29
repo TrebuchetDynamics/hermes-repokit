@@ -13,15 +13,16 @@
 part of the runtime. It handles the delicate host/bootstrap work—safe private
 state, ownership and symlink checks, deterministic Compose, mounts and
 installation—then hands control to Hermes for profiles, models, channels, Kanban
-and agent execution, and to embedded OpenViking for memory. The result is one
-repository-specific container, seven native profiles, a shared board and private
-memory state. After bootstrap, ordinary Compose and the generated launcher work
-without RepoKit installed.
+and agent execution. The result is one repository-specific container, seven native
+profiles and a shared board. Memory is user-managed: the operator configures and
+operates whatever provider the repository needs; RepoKit does not. After
+bootstrap, ordinary Compose and the generated launcher work without RepoKit
+installed.
 
 The [v1 architecture rule](docs/architecture.md) is: **RepoKit configures
 capabilities; it does not implement them.** Production bootstrap uses Go and
-public Hermes/OpenViking interfaces. A capability that those interfaces cannot
-safely establish remains unqualified.
+public Hermes interfaces. A capability that those interfaces cannot safely
+establish remains unqualified.
 
 It is for repository owners who want a persistent, role-based team to work on
 code or other repository artifacts while keeping deployment state isolated from
@@ -32,8 +33,8 @@ a RepoKit daemon.
 > **Status · pre-v1.** Live dogfood proved the core loop: a Telegram request to
 > `default` was executed by `executor`, approved by `reviewer` on the same card and
 > reported back to the same chat, and the team kept working after `docker restart`.
-> The same loop passed on a fresh clone of an unrelated Go repository. Memory
-> recall remains open. See
+> The same loop passed on a fresh clone of an unrelated Go repository. Memory is
+> user-managed and outside RepoKit's scope. See
 > [remaining gates](#running-and-remaining-gates).
 
 ## Quickstart
@@ -105,15 +106,14 @@ RepoKit does not run as a supervisor or mediate ongoing agent work.
 ## What it leaves behind
 
 <p align="center">
-  <img src="./assets/readme/deployment.svg" width="100%" alt="RepoKit writes a private .hermes directory and one Compose-owned Hermes container running an s6 supervisor, a default gateway, seven profiles, a shared Kanban board and embedded memory on loopback at 127.0.0.1:1933.">
+  <img src="./assets/readme/deployment.svg" width="100%" alt="RepoKit writes a private .hermes directory and one Compose-owned Hermes container running an s6 supervisor, a default gateway, seven profiles and a shared Kanban board.">
 </p>
 
 RepoKit writes a private `.hermes/` directory (Compose file, `bin/hermes-<repo>`
-launcher, config, pinned development image, private `openviking/` data and a
-`.gitignore`) and one Compose-owned container. It mounts the repository at
-`/workspace` and all native state (including embedded memory) at `/opt/data`;
-OpenViking runs inside under the native s6 supervisor on loopback with no published
-host port and can extract memory automatically. Credentials stay in private setup,
+launcher, config, pinned development image and a `.gitignore`) and one
+Compose-owned container. It mounts the repository at `/workspace` and all native
+state at `/opt/data`. Memory is user-managed and is not configured by RepoKit.
+Credentials stay in private setup,
 and optional `install --docker-tests` adds an isolated acceptance daemon without
 mounting the host Docker socket. On SELinux-enabled Linux hosts it requests
 Docker's private `Z` relabeling for the repository and `.hermes` mounts as normal
@@ -130,10 +130,11 @@ Fresh installs keep dispatch off. After the seven profiles reconcile, setup writ
 the native Kanban policy on `default` (automatic review, concurrency one, no
 auto-decomposition, seven-profile allowlist) with `hermes config set` and restarts
 the gateway once. It refuses while a card is running, preserves an owner-changed
-policy and never claims a worker ran. OpenViking never blocks core work.
+policy and never claims a worker ran. Memory is user-managed and never blocks
+core work.
 
-`verify` is observational and leads with `CORE_READY`, `MEMORY_READY` and
-`FULL_READY`. Core is `healthy` only when configuration, runtime, worker-shell
+`verify` is observational and leads with `CORE_READY`; it reports memory as
+user-managed and does not configure or verify any provider. Core is `healthy` only when configuration, runtime, worker-shell
 toolchain, dispatch policy, gateway and per-channel tools are healthy and native
 card history shows same-card executor→tester→reviewer completion; otherwise
 `unqualified` (not yet exercised) or `degraded`. It exits 0 unless core is
@@ -141,19 +142,11 @@ degraded. `verify --dispatch-check` is the explicit, paid proof: one no-write
 researcher card must be claimed and completed by the gateway without manual
 dispatch.
 
-`verify --memory-check` is an explicit bounded OpenViking file check. Once the
-embedded service and six native profile settings pass preflight, RepoKit uses
-OpenViking's public CLI to create a unique memory file, read and search it,
-delete that exact file, and check its absence. It reports Hermes agent recall
-and asynchronous extraction as `unqualified`; a successful file check alone
-does not establish `MEMORY_READY` or `FULL_READY`. It exits 1 while those gates
-remain open. See [memory self-check safety](docs/qualification/memory-self-check.md).
-
 | Area | Remaining evidence |
 | --- | --- |
-| Embedded memory | Live write/recall, restart persistence and cross-repository denial |
+| User-managed memory | Operator-owned provider setup and behavior; RepoKit does not verify it |
 | Team work | Reviewer request-changes correction cycle |
-| Runtime independence | Removal-first acceptance with real work and memory |
+| Runtime independence | Removal-first acceptance with real work |
 | Optional plugins | Native scanner admission and owner configuration |
 
 Credential-free fixtures demonstrated native profiles, Kanban persistence and
@@ -179,8 +172,8 @@ for Claude Code. Installing it does not start a deployment.
   printed by `install` and rerun `install` for native Kanban initialization.
 - Missing `hermes-<repo>` on `PATH`? Use `.hermes/bin/hermes-<repo>` directly;
   RepoKit does not edit shell startup files. See [host command and recovery](docs/bootstrap-quickstart.md#host-command).
-- A pending/degraded memory service is separate from core team readiness. Resume
-  with `setup --memory`; see [bootstrap and memory setup](docs/bootstrap-quickstart.md#openviking-configuration).
+- Memory is user-managed and separate from core team readiness; RepoKit does
+  not configure or verify a provider.
 - `verify` is passive and cannot qualify model work, memory recall or review.
   See [qualification boundaries](docs/bootstrap-quickstart.md#qualification-boundaries)
   and the [remaining release gates](TODO.md).
@@ -207,11 +200,11 @@ Ordinary tests are offline; Docker acceptance is opt-in:
 
 ```sh
 REPOKIT_DOCKER_TESTS=1 go test -tags=docker ./tests/acceptance -run TestDockerFoundation -v
-REPOKIT_DOCKER_TESTS=1 go test -tags=docker ./tests/acceptance -run TestDockerOpenVikingPending -v
 ```
 
 The full offline and race suites, including the Unix-socket fixtures, pass.
-Live memory, independent review and channel round-trip acceptance remain open. See the
+Memory behavior is user-managed; independent review and channel round-trip
+acceptance remain open. See the
 [design](docs/superpowers/specs/2026-09-27-repokit-bootstrap-design.md),
 [plan](docs/superpowers/plans/2026-09-27-repokit-bootstrap.md) and
 [remaining work](TODO.md).

@@ -10,7 +10,7 @@ observations, never runtime control state.
 
 Normal installation creates one Hermes development container. The repository is
 mounted at `/workspace`, private `.hermes` state at `/opt/data`, and the official
-OpenViking runtime's persistent state at `/opt/data/openviking`. OpenViking runs
+user-managed memory state at `/opt/data/memory`. Memory runs
 inside Hermes under the native s6 supervisor and binds loopback, with no host port.
 The generated development image carries qualified tools and repository-required
 Go. An optional, explicitly selected Docker acceptance daemon uses dedicated test
@@ -45,11 +45,11 @@ and originating-channel delivery require live acceptance.
 ## Setup and memory
 
 Private native default setup runs in the owner's terminal. Plain setup continues
-with native team provisioning and OpenViking setup/linking. `setup --team` resumes
-reconciliation without another login; `setup --memory` resumes native memory setup.
+with native team provisioning and memory setup/linking. `setup --team` resumes
+reconciliation without another login.
 No credentials are collected into RepoKit logs, receipts or generated public files.
 
-OpenViking uses account `repokit`, the repository user identity and one shared
+Memory uses account `repokit`, the repository user identity and one shared
 connection, with no per-profile peer. Built-in local memory remains enabled.
 Native synchronization and extraction are intended behavior; owner-selected model
 providers determine external processing. Configuration and authenticated health do

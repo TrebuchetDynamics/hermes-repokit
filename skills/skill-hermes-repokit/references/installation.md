@@ -24,16 +24,16 @@ An existing valid deployment is a resume, not a second installation.
 ## Legacy topology migration
 
 Inventory the generated topology, version, captured Docker context and persistent
-mounts before mutating an older OpenViking/Laya sidecar deployment. Preserve owner
+mounts before mutating an older Laya sidecar deployment. Preserve owner
 profiles, credentials, sessions, board and memory. Use the selected RepoKit
 revision's documented reconciliation path to generate replacement configuration;
 there is no assumed `migrate` command.
 
 Do not manually delete legacy containers before replacement configuration exists.
-If the supported path requires quiescing a legacy memory writer before publication,
+If the supported path requires quiescing a legacy writer before publication,
 use its original Compose/native lifecycle within the authorized migration scope;
 stopping a writer is not permission to delete its data or containers. Never run two
-memory processes against the same database. Backups, replacement routing and
+writers against the same database. Backups, replacement routing and
 rollback/recovery must be concrete before any separately authorized destructive step.
 
 An installer refusal is evidence that this topology is not safely reconciled by
@@ -89,7 +89,7 @@ If an older RepoKit revision rejects a root Compose file, use a compatible revis
 within the authorized source-selection scope instead of modifying the owner's stack.
 
 If safe, run `install`. It publishes `.hermes/compose.yaml`, native defaults,
-`.hermes/bin/hermes-<repo>`, embedded OpenViking storage scaffolding and
+`.hermes/bin/hermes-<repo>` and
 the pinned development-image recipe. It preserves recognized prior state and refuses
 ambiguous changes. It does not start services.
 
@@ -102,7 +102,7 @@ including context, absolute file, `--env-file /dev/null`, and selector cleanup.
 This may download/build the pinned development image. Inspect the same project's
 `compose ps`, then rerun `install` for native Kanban initialization and existing
 team reconciliation. Do not handwrite a competing Compose deployment, change
-memory provider or create a RepoKit runtime daemon.
+the operator's memory provider or create a RepoKit runtime daemon.
 
 ## Private setup and resumption
 
@@ -113,24 +113,12 @@ not transcripts, screenshots, tokens, or keys. Keep the binary available until
 bootstrap is complete. Do not use a captured PTY to conduct private setup.
 
 Plain `setup` is the private full-configuration entry point. Resume team reconciliation
-with `setup --team`, or memory setup with `setup --memory`;
-those flags are mutually exclusive. Preserve existing profiles, memories,
+with `setup --team`. Preserve existing profiles, memories,
 credentials, and owner choices on every rerun.
 
 The intended core-only path is team reconciliation from an already configured default.
-Memory configuration is a separate stage; confirm the selected version implements
-the separation described below before promising that core setup will succeed.
-
-For OpenViking, follow the selected revision's `docs/bootstrap-quickstart.md`:
-native server init/doctor; real owner-selected embedding and extraction/VLM
-models; persistent `/opt/data/openviking/data`; private API-key authentication.
-Use the native account `repokit` and normal repository user derived from `plan`.
-OpenViking runs inside the Hermes container under native s6 supervision.
-Hermes connects at `http://127.0.0.1:1933` using that user's key, not a root/admin
-key, and no agent/peer partition. Existing native accounts/connections must be
-inspected rather than recreated. Local Hermes memory remains enabled; native
-OpenViking extraction/synchronization is intended behavior. Doctor may call the
-configured providers; `verify` does not.
+Memory is user-managed; RepoKit does not configure or verify a provider, so core
+setup does not depend on a memory stage.
 
 Core setup reconciles the seven profiles, then sets the native dispatch policy and
 restarts the gateway. It does not prove a worker ran: use the explicit
@@ -142,11 +130,10 @@ admission. Respect scanner refusal and preserve existing plugin choices.
 
 ## Readiness and version gaps
 
-OpenViking is an independent capability. Pending private setup or a memory outage
-does not by itself disqualify observed core engineering readiness. Report the
-failing memory component and its recovery step while keeping working team
-execution available; do not change providers, disable dispatch or demand memory
-credentials merely to clear a warning.
+Memory is user-managed and independent of core capability. It does not by itself
+disqualify observed core engineering readiness. Keep working team execution
+available; do not change providers, disable dispatch or demand memory credentials
+merely to clear a warning.
 
 Check the selected revision's actual setup order and activation checks. A version
 that blocks dispatch activation when memory fails does not implement this contract.
@@ -160,8 +147,8 @@ After setup, run `verify` and classify each component. A current result of
 `review: unqualified` keeps its exit status nonzero even when other components
 are healthy. Inspect the component output rather than using the exit code as the
 entire readiness decision. `CORE_READY` requires evidenced core/team, dispatch,
-toolchain and configured-channel readiness; `FULL_READY` additionally requires
-authenticated memory readiness. Neither label proves full live acceptance.
+toolchain and configured-channel readiness; memory is user-managed and is not
+part of these labels. They do not prove full live acceptance.
 
 Configured human-facing channels must route to `default` and have the same core
 development, Kanban and memory capabilities as CLI, retaining channel-specific
@@ -189,7 +176,7 @@ modules, relabel unrelated host paths, or hand-edit `.hermes/compose.yaml` to wo
 around a denial; ask the owner before any of those. For an existing deployment
 whose generated Compose lacks the relabel option, detect the drift, regenerate
 through `install`, and recreate the Hermes container; preserve repository source,
-`.hermes` state, credentials, profiles, Kanban and OpenViking data.
+`.hermes` state, credentials, profiles, Kanban and memory data.
 
 ## Automatic host command
 

@@ -1,12 +1,12 @@
 # Maintained RepoKit implementation plan
 
 Scope: the Go bootstrapper generates one Hermes development container, six native
-profiles, shared Kanban and embedded OpenViking. Ordinary Compose and native Hermes
+profiles, shared Kanban and user-managed memory. Ordinary Compose and native Hermes
 own the installed lifecycle. See the [design](../specs/2026-09-27-repokit-bootstrap-design.md).
 
 1. Preserve ownership inspection, private-state protection, no-clobber publication
    and the standalone launcher. Keep the four commands: plan, install, setup, verify.
-2. Generate the pinned development image with the official OpenViking runtime
+2. Generate the pinned development image with the user-managed memory runtime
    embedded under native s6; persist its configuration/data on the existing mount.
 3. Provision default/researcher/planner/executor/reviewer/steward through native
    APIs, preserve owner edits and learned memory, and keep Kanban authoritative.

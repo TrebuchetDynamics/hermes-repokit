@@ -27,7 +27,7 @@ replacement must have healthy adapters, changed identity, unchanged input hash,
 its own singleton dispatcher lock and native startup logs showing concurrency one.
 
 Fresh/incomplete installs keep dispatch off. After provider/profile/tool/routing
-gates pass, with optional OpenViking reported independently, the default gateway
+gates pass, with optional memory reported independently, the default gateway
 runs automatic dispatch and review with the six-role allowlist. Confirmed stopped
 gateways can be prepared without restarting an absent process, then started through
 native Hermes. `setup --team` requires no credential wizard. A real researcher
@@ -101,7 +101,7 @@ No socket test was weakened or treated as passing.
 The review build at `/tmp/hermes-repokit-channel-parity` ran public read-only
 `verify`. Compose, launcher and filesystem observations remain healthy; all six
 historical managed SOULs await source-driven identity migration. Docker subprocess
-metadata is unavailable in this sandbox; native OpenViking configuration remains
+metadata is unavailable in this sandbox; native memory configuration remains
 pending. The build was not applied to the existing deployment. Native scanner and
 registry fixtures, real remote coding, authorized channel delivery and self-restart
 remain NOT TESTED here. Existing README and skill file hashes match the preserved

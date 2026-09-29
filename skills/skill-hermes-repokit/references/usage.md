@@ -16,7 +16,7 @@ hermes-design-notes gateway status
 
 No-argument launch selects `default`; explicit arguments pass through unchanged.
 `hermes-design-notes setup` is native Hermes setup only. It does not run RepoKit's
-team or OpenViking sequence. Use the bootstrapper from the target
+team sequence. Use the bootstrapper from the target
 root when those steps are needed. Native command syntax is version-sensitive:
 inspect scoped `--help` or matching upstream documentation before dispatch,
 profile mutations, or memory commands. Do not invent RepoKit `chat`, `start`,
@@ -32,15 +32,12 @@ profiles, credentials, or board state as a recovery shortcut.
 
 If only a service is stopped, start that service in the existing project.
 Recreate the single Hermes service using generated pins/build inputs and inspect
-health afterward. Embedded OpenViking's configuration/data remain in their persistent
-mount. An unconfigured service is pending private setup, not a reason to invent
-embedding models or bypass authentication.
+health afterward. User-managed memory state remains in its own persistent mount;
+RepoKit does not configure or verify it.
 
-If core execution works and only OpenViking is unhealthy, keep the engineering
-team working and report memory degraded/pending. Use the selected revision's native
-memory-only recovery when authorized; avoid a whole-runtime restart solely to
-clear memory status. If that revision couples memory recovery to dispatcher
-suspension, report the version gap before attempting it. Durable repairs use
+Memory is user-managed, so it never gates engineering work. Keep the team working
+and report memory as operator-owned; avoid a whole-runtime restart solely to
+change memory status. Durable repairs use
 RepoKit source or native Hermes configuration, never hand-edited generated files
 or `.hermes` artifacts to force a passing result. See [version gaps and
 migration](installation.md).
@@ -62,7 +59,7 @@ gateway dispatcher with automatic review, concurrency one and no automatic
 decomposition through native configuration and one gateway restart. Prove it
 with the explicit `verify --dispatch-check` (a no-write researcher card the
 gateway must claim without manual dispatch) or with real reviewed work.
-OpenViking readiness is reported separately and does not gate core work.
+Memory is user-managed and does not gate core work.
 Inspect configured and live dispatch separately before promising progress. If
 activation is incomplete, resume `setup --team`; do not bypass it with one-shot
 dispatch. Keep default responsible for the task graph and preserve queued work.
@@ -78,7 +75,7 @@ a rejection to satisfy a test. Do not commit or push generated work unless asked
 ## Observation versus acceptance
 
 Container health is not component readiness. Verify Hermes/team, dispatch,
-development toolchain, OpenViking and configured channels independently. Coding
+development toolchain and configured channels independently. Coding
 requires the repository's needed compiler/runtime and workdir inside `/workspace`,
 not merely terminal/file tools. Configured human-facing adapters must route to
 `default` with core development, Kanban and memory capabilities; users should not
@@ -97,7 +94,7 @@ following behavioral results; perform them only within an authorized live test:
 | Development runtime | Target manifest requirements match available toolchain, `/workspace` and mount access |
 | Channels | Configured adapters route to default with CLI core capability parity; actual task/result delivery tested separately |
 | Same-card review | Real artifact review with distinct executor/tester/reviewer run identities |
-| Shared memory | Unique durable project fact written through OpenViking, recalled in another fresh profile/session, then recalled after restart |
+| User-managed memory | Operator-owned provider setup and behavior; RepoKit does not verify it |
 | Repository isolation | Normally configured second disposable repo cannot retrieve that fact; different user headers alone are insufficient |
 | Runtime independence | Remove only the test-owned bootstrap binary; launcher/native commands and raw Compose restart work with profiles, board and memory preserved |
 
@@ -113,9 +110,9 @@ memory              pending
 readiness           CORE_READY
 ```
 
-`FULL_READY` adds authenticated OpenViking readiness. These summary labels do not
-replace raw component evidence or certify memory recall/isolation, independent
-review or removal-first acceptance. If dispatch is actually off, the dispatch check
+Memory is user-managed and is not part of these summary labels. They do not
+replace raw component evidence or certify independent review or removal-first
+acceptance. If dispatch is actually off, the dispatch check
 never passed, a required compiler is missing or configured channels fail, report the core
 blocker instead of inferring readiness from a healthy container.
 

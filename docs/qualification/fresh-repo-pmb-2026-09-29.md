@@ -22,7 +22,7 @@ changed during the run.
    profiles and configured dispatch. The gateway had never run, so it was started
    once with `hermes-pmb-repokit-trial -p default gateway start`; Telegram connected.
 6. `verify`: all configuration/runtime probes healthy; `CORE_READY` unqualified
-   (no reviewed work yet); `MEMORY_READY` inactive.
+   (no reviewed work yet); memory inactive.
 7. `verify --dispatch-check` failed three times (`t_dd42b4b9`, `t_d6a97fc6`,
    `t_c4dcde67`). The gateway claimed each card automatically, but the researcher
    had no file tools and blocked. Moving `AGENTS.md` aside did not change the

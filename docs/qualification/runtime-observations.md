@@ -22,13 +22,6 @@ Native command executed without a TTY or force:
 
 Result: exit 1, CAUTION, 229 findings, plugin refused. Exact scanner output is [superpowers-8ca22dba-scan.txt](superpowers-8ca22dba-scan.txt). Findings include documentation/test references to persistence, environment access, supply-chain operations and fixture tokens. These are scanner findings, not a claim that the plugin is malicious. User approval of this exact SHA/report is required before admission. No `--force` was used.
 
-## OpenViking
-
-Official candidate:
-`ghcr.io/volcengine/openviking@sha256:569193efd49ad15a818c98ca66bfb566d1726713f1f3ec9c488b97fa66757d05`.
-OCI version v0.4.21, revision `3fca2577520f00b7f580d85d4ac6ae42bb9ba6f1`.
-Image was pulled; setup, doctor and actual memory operation are not yet qualified.
-
 ## Outstanding gates
 
 ## Additional executed evidence
@@ -42,14 +35,6 @@ from unrelated cwd and board file identity across raw Compose restart.
 `hermes memory setup --help` also succeeded. The official exec shim source
 inside the selected image exports HOME=/opt/data and drops root to `hermes`;
 the resulting board/profile files are owned by host UID/GID 1000:1000.
-
-OpenViking v0.4.21 started with its official entrypoint and no host-published
-port. **`openviking-server init --help` enters the wizard at this version**;
-it does not behave as a read-only help probe. It reported durable workspace
-`/app/.openviking/data`, cancelled without an API key, and reported missing
-configuration/embedding/VLM through its doctor output. No credentials were
-provided and no model operation was executed. This command must never be used
-by `verify`.
 
 ## Four-command foundation and removal evidence
 

@@ -1,6 +1,6 @@
 # Bootstrap quickstart and native handoff
 
-The single-container Hermes deployment with embedded OpenViking is implemented in source. `plan` inspects without writing;
+The single-container Hermes deployment is implemented in source. `plan` inspects without writing;
 `install` publishes Compose, native defaults and a standalone launcher. It prints
 the exact Compose start command, including the selected Docker context.
 
@@ -43,17 +43,14 @@ the seven-role team from the saved default model without repeating login. This
 stage does not run a private wizard or configure memory. Existing
 profile edits are preserved and reported as drift. `default` is the normal user
 entry point; it delegates team changes to steward. See the [team model](team-model.md).
-Plain `setup` activates the core team, then continues with optional private shared-memory setup. Failed steps
-preserve native state. Resume individual stages with `setup --team`,
-`setup --memory`; these flags are mutually exclusive.
+Plain `setup` activates the core team. Memory setup is user-managed and separate.
+Failed steps preserve native state. Resume team provisioning with `setup --team`.
 Team reconciliation on an operational team (dispatch already on) observes and
 reports drift; it never rewrites profiles under live workers. It only completes
-`default`'s own Kanban/memory tools on saved channels. The one exception is an
+`default`'s own Kanban tools on saved channels. The one exception is an
 unmodified six-profile release: when no card is running, `setup --team` creates
 `tester`, upgrades the six managed SOULs and then widens the allowlist with one
-gateway restart. Owner-edited profiles or policy are still only reported. `setup --memory` never
-touches dispatch; a failed memory stage keeps its nonzero result without taking
-core work offline.
+gateway restart. Owner-edited profiles or policy are still only reported.
 
 Fresh installation keeps `dispatch_in_gateway=false`. After the seven profiles
 reconcile without drift, setup writes the native Kanban policy on `default` with
@@ -64,7 +61,7 @@ reconcile without drift, setup writes the native Kanban policy on `default` with
 Setup refuses (and leaves dispatch off) while any card is running. An
 already-matching policy is left untouched with no restart; an owner-changed
 policy is preserved and reported, never overwritten. A stopped gateway is not
-started by setup. OpenViking is reported independently and never gates core work.
+started by setup. Memory is user-managed and never gates core work.
 
 Setup does not run a model or claim that a worker executed. Prove the loop with
 the explicit, paid `hermes-repokit verify --dispatch-check`: it creates one
@@ -75,17 +72,17 @@ RepoKit) with no changed files. A passing card is archived; a failing card is
 preserved for inspection.
 
 `verify` is observational. It uses public `hermes config get`, `gateway status`
-and `kanban list/show --json` and reports `CORE_READY`, `MEMORY_READY` and
-`FULL_READY` first. `CORE_READY` is `healthy` only when configuration, runtime,
+and `kanban list/show --json` and reports `CORE_READY` first, marking memory as
+user-managed. `CORE_READY` is `healthy` only when configuration, runtime,
 toolchain, dispatch policy, gateway and channel tools are healthy **and** a
 recent done card shows same-card review (an implementation run requesting review,
 a later tester run forwarding it, and reviewer completing the card last). Without that evidence it is `unqualified`.
-`verify` exits 0 unless core is `degraded`. Passive verify never proves memory,
-so `MEMORY_READY` and `FULL_READY` are never `healthy` from it. A fresh
+`verify` exits 0 unless core is `degraded`. Passive verify does not configure or
+prove memory. A fresh
 Telegram conversation (`/new`) refreshes the coordinator's tools; actual
 originating-channel delivery is not observed by verify.
 
-Live main-model work and memory recall remain unqualified. The repository basename
+Live main-model work remains unqualified; memory is user-managed. The repository basename
 determines the full launcher/container name; collisions refuse rather than silently
 adding suffixes. RepoKit adds `hermes-` only when the normalized repository name
 does not already start with it: `my-project` becomes `hermes-my-project`, while
@@ -201,103 +198,23 @@ available before credentials exist. Successful native setup activates the gatewa
 actual model work and channel delivery still need full release qualification.
 
 `down` preserves mounted state. Do not use `down -v` as routine recovery.
-The generated development image pins its Hermes and embedded OpenViking inputs.
+The generated development image pins its Hermes input.
 Recreate the single Hermes service when replacing the image; updating pins requires
-new qualification. Private memory configuration and data stay in their mount.
+new qualification. User-managed memory state stays in its own mount.
 
 ## Legacy deployment migration
 
-`plan` recognizes the exact historical Hermes/OpenViking/Laya local-build stack
+`plan` recognizes the exact historical Hermes/Laya local-build stack
 generated by `ce7b6c8`. After a native backup and quiescing work, stop its legacy
-memory writer through the original Compose lifecycle. `install` then preserves
+services through the original Compose lifecycle. `install` then preserves
 the original Compose as `compose.before-core.yaml` and generates the development
 runtime. Build/recreate Hermes with the printed command, then run `setup --team`.
-Profiles, credentials, board history, memory and model caches remain in place.
+Profiles, credentials, board history and model caches remain in place.
 The installer never stops/deletes legacy containers or removes owner-installed plugins.
 
 Edited or other unrecognized legacy Compose still refuses automatic adoption.
 Preserve it and establish a supported migration path. Do not hand-patch generated
 Compose or private state to bypass checks, or delete data to force an installation.
-
-## OpenViking configuration
-
-Normal installation embeds the pinned official v0.4.21 runtime inside
-`hermes-<repo>`, supervised by the existing native s6 supervisor. The private
-`.hermes/openviking` directory is the durable state root at
-`/opt/data/openviking` inside Hermes. OpenViking binds to loopback; no host port or independent Compose
-service is created. Installation never starts services or activates the Hermes memory provider.
-The official entrypoint returns HTTP 503 until native configuration exists.
-
-Before upgrading an old sidecar installation, stop its OpenViking service
-through its original generated Compose file. `install` refuses a running old
-sidecar so two processes cannot write the same memory database. Keep all private
-state. Exact recognized legacy Compose files can be upgraded with a backup;
-owner-edited files and earlier development recipes are refused, never replaced
-silently. Existing private connections using the old `http://openviking:1933`
-endpoint require native `setup --memory` relinking to loopback. Existing server
-configuration is preserved; the installed wrapper forces the runtime listener
-to loopback. See [embedded-memory qualification](qualification/embedded-openviking.md).
-Plain `setup` completes default/team setup before entering this memory flow.
-To resume memory setup alone in your own terminal:
-
-```sh
-repokit setup --memory
-```
-
-This delegates to native `openviking-server init` only when `ov.conf` is absent,
-then native `openviking-server doctor`, validates the server configuration,
-restarts only the embedded OpenViking s6 service and waits for `/health` before invoking
-`hermes -p default memory setup openviking`. Existing server configuration is
-preserved. Doctor may call your configured model services; this is deliberate
-setup behavior. `verify` never performs those calls. A failed or cancelled step
-leaves native state available for inspection and a later rerun.
-
-During native server setup, select **Remote** mode, port `1933` and
-API-key authentication. The native wizard only creates a root key in Remote
-mode; the installed service wrapper overrides its configured binding to
-`127.0.0.1` for both pending and configured servers. Decline the wizard's offer to start a second server;
-the native s6 supervisor owns that process inside Hermes. Configure actual embedding and extraction/VLM providers
-and credentials. Confirm `storage.workspace` is `/opt/data/openviking/data`; all
-service data must stay in that persistent mount. No model or budget is selected
-by RepoKit. Keep automatic extraction enabled. Local storage does not imply
-that your chosen models run locally.
-
-Before completing the Hermes wizard, use OpenViking's native admin API inside
-the service network to create account `repokit` and a normal user whose ID is
-the repository identity printed by `plan` and `setup --memory`. The selected
-server exposes `POST /api/v1/admin/accounts` with `account_id` and
-`admin_user_id`, followed by `POST /api/v1/admin/accounts/repokit/users` with
-`user_id` and `role: user`. These are native admin operations using the private
-server root/admin key; their returned keys stay in your terminal/native state.
-Do not give the root or account-admin key to Hermes. Existing accounts/users
-must be inspected rather than recreated or silently rotated. See the pinned
-[upstream admin API](https://github.com/volcengine/OpenViking/blob/3fca2577520f00b7f580d85d4ac6ae42bb9ba6f1/openviking/server/routers/admin.py).
-
-In the Hermes wizard, choose **Custom URL**, endpoint
-`http://127.0.0.1:1933`, the normal repository user key and **Mirror to
-OpenViking store**. Use no agent/peer. On reruns select the existing shared
-connection instead of making another one. The private native connection file
-lives below `/opt/data/.openviking` and remains authoritative after RepoKit is
-removed. RepoKit links its path through native config commands; it does not
-copy keys into seven profile files.
-
-Before updating specialists, RepoKit checks all six effective native secret
-scopes and the server-derived account/user/role. Owner-selected providers or
-conflicting connection paths cause refusal. Built-in local memory remains
-enabled. Partial native config writes are preserved and can be inspected with
-native commands; RepoKit does not roll back credential state.
-
-To repair server configuration manually, use the same captured Docker context:
-
-```sh
-docker compose --env-file /dev/null -f .hermes/compose.yaml exec --user hermes hermes repokit-openviking server init
-docker compose --env-file /dev/null -f .hermes/compose.yaml exec --user hermes hermes repokit-openviking server doctor
-```
-
-Native synchronization and automatic extraction are intended behavior. Successful
-setup, a healthy service or a working resolver is not proof of durable recall.
-Real cross-profile write/recall, restart persistence and cross-repository denial
-remain the [live qualification gate](qualification/generic-team-memory.md).
 
 ## Qualification boundaries
 
@@ -305,8 +222,8 @@ remain the [live qualification gate](qualification/generic-team-memory.md).
 Hermes commands that might initialize a database, migrate state, refresh auth,
 dispatch work or perform inference/extraction. Owner-edited launchers are
 preserved, but their Docker context is reported unknown unless their routing
-can be proved. The receipt is not consulted. Memory health uses authenticated
-read-only `GET /health`. These observations do not load
+can be proved. The receipt is not consulted. Memory is user-managed and is not
+probed by `verify`. These observations do not load
 plugins or invoke models. `review` remains `unqualified`, so a healthy stack does
 not produce a successful whole-deployment verification exit status.
 

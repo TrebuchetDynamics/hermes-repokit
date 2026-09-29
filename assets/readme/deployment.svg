@@ -20,7 +20,6 @@
       <text x="80" y="212">├── bin/hermes-my-project</text>
       <text x="80" y="240">├── config.yaml</text>
       <text x="80" y="268">├── development-image/</text>
-      <text x="80" y="296">├── openviking/</text>
       <text x="80" y="324">└── .gitignore</text>
     </g>
     <line x1="80" y1="352" x2="424" y2="352" stroke="#26333B"/>
@@ -74,7 +73,6 @@
     <text x="80" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#5BD1A8">bind mounts</text>
     <text x="190" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">repository &#8594; /workspace</text>
     <text x="392" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">.hermes &#8594; /opt/data</text>
-    <text x="590" y="460" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#AAB9C4">openviking/ &#8594; /opt/data/openviking</text>
     <text x="1120" y="460" text-anchor="end" font-family="ui-monospace,SFMono-Regular,Menlo,monospace" font-size="13" fill="#7F909C">no published host ports</text>
   </g>
 </svg>

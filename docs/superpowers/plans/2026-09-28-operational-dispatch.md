@@ -4,7 +4,7 @@ User-approved contract: bootstrap remains dispatch-off; successful setup must ac
 
 Implementation sequence:
 1. Add pure dispatch policy and read-only live evidence tests (config versus gateway generation, singleton lock ownership, native startup settings).
-2. Extend native setup with safe suspension/reconciliation and gated activation. Require current six-role identity/tool contracts, native provider resolution, shared authenticated OpenViking. Preserve drift and active work. Native config commands and graceful gateway restart own changes.
+2. Extend native setup with safe suspension/reconciliation and gated activation. Require current six-role identity/tool contracts, native provider resolution, shared authenticated memory. Preserve drift and active work. Native config commands and graceful gateway restart own changes.
 3. Update the coordinator contract and support exact historical SOUL migration. Keep specialist dispatch disabled. Report configured/live dispatch separately through read-only verify.
 4. Add an explicit native gateway-only researcher canary during setup, checking real actor/result evidence and archiving only successful canaries. No inference in verify.
 5. Run offline tests/race/vet/format checks. Run live canary and Telegram/coding acceptance only where Docker access exists; never report fixture results as live acceptance.

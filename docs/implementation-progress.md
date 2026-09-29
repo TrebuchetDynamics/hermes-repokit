@@ -5,11 +5,11 @@ archived a no-write researcher canary, and core dispatch remains enabled with
 memory pending. See the [dogfood record](qualification/live-dogfood-2026-09-28.md).
 
 RepoKit's maintained runtime is one Hermes development container with seven native
-profiles, shared Kanban and embedded OpenViking. The optional Docker acceptance
+profiles, shared Kanban and user-managed memory. The optional Docker acceptance
 daemon remains an explicit testing feature. Optional plugins are owner-managed.
 
 The source implements private-state/ownership checks, a standalone launcher,
-conservative profile reconciliation, shared-memory setup/linking, operational
+conservative profile reconciliation, operational
 activation and passive verification. Full v1 acceptance remains incomplete.
 
 ## Preserved historical evidence
@@ -21,11 +21,11 @@ a later package run recorded 120.67 seconds. Those fixtures used synthetic provi
 configuration, not live model workers. Ordinary Compose restart/recreation and
 removal of copied installer artifacts preserved the board and profiles.
 
-Native OpenViking configuration/linking fixtures also passed historically.
-Configuration and pending-service observations do not qualify the current embedded
-image, actual extraction/recall or cross-repository isolation. See [runtime
-observations](qualification/runtime-observations.md), [team evidence](qualification/generic-team.md)
-and [memory wiring](qualification/openviking-wiring.md).
+Native memory configuration/linking fixtures also passed historically.
+Configuration and pending-service observations do not qualify actual
+extraction/recall or cross-repository isolation. See [runtime
+observations](qualification/runtime-observations.md) and
+[team evidence](qualification/generic-team.md).
 
 The historical development self-install had six profiles and successful fresh
 default/researcher model sessions. That narrower authentication/identity evidence
@@ -53,11 +53,9 @@ suites passed every package, including the six
 `setsockopt`. Vet, formatting and diff-whitespace checks passed.
 
 The credential-free Docker fixtures also ran with `REPOKIT_DOCKER_TESTS=1`: the
-embedded pending-OpenViking fixture, development runtime, foundation, default Kanban
+development runtime, foundation, default Kanban
 channels and native maintenance package all pass. The privileged nested-daemon
-fixture (`REPOKIT_DIND_TESTS=1`) was not run. The embedded OpenViking persistent
-root is `/opt/data/openviking`, backed by `.hermes/openviking` through the
-`/opt/data` bind.
+fixture (`REPOKIT_DIND_TESTS=1`) was not run.
 
 This pass also repaired pre-existing defects in the uncommitted verification work:
 the npm probe's duplicate `/dev/null` config, the standalone Kanban fixture's
@@ -92,10 +90,9 @@ qualify private memory, independent review or human-facing channel delivery.
 
 1. Prove originating-channel task/result delivery after the completed researcher run.
 2. Prove an actual executor/reviewer correction cycle with distinct same-card actors.
-3. Prove cross-profile memory write/recall, restart persistence and repository denial.
-4. Complete the integrated removal-first fixture, future-specialist qualification
+3. Complete the integrated removal-first fixture, future-specialist qualification
    and bounded self-dogfood before release.
-5. Resolve the recorded Superpowers scanner candidate separately if selected.
+4. Resolve the recorded Superpowers scanner candidate separately if selected.
 
 See [operational dispatch evidence](qualification/operational-dispatch.md),
 [gateway evidence](qualification/gateway-convergence.md),
