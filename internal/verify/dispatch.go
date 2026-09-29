@@ -1,6 +1,10 @@
 package verify
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
+)
 
 type dispatchObservation struct {
 	Configured string   `json:"configured"`
@@ -34,8 +38,12 @@ func dispatchProbes(d dispatchObservation) []Probe {
 		live.Detail = "paused by native emergency stop; owner pause preserved"
 		live.Status = Inactive
 	}
-	policy := Probe{"kanban:dispatch-policy", Degraded, "expected default owner, six-profile allowlist, review_dispatch=true, auto_decompose=false, max_in_progress=1"}
-	expected := "default,researcher,planner,executor,reviewer,steward"
+	policy := Probe{"kanban:dispatch-policy", Degraded, "expected default owner, seven-profile allowlist, review_dispatch=true, auto_decompose=false, max_in_progress=1"}
+	names := []string{}
+	for _, role := range team.Roster() {
+		names = append(names, role.Name)
+	}
+	expected := strings.Join(names, ",")
 	if d.Policy && d.Owner == "default" && d.Max == 1 && d.Auto != nil && !*d.Auto && d.Review != nil && *d.Review && strings.Join(d.Allowlist, ",") == expected {
 		policy = Probe{policy.Component, Healthy, "owner=default; max_in_progress=1; auto_decompose=disabled; review_dispatch=enabled; worker_allowlist=" + expected}
 	}

@@ -186,7 +186,7 @@ func Profiles(id target.Identity) []Probe {
 			} else {
 				soul, e := io.ReadAll(io.LimitReader(f, 65537))
 				f.Close()
-				if e == nil && (string(soul) == role.LegacySoul || (role.PreviousSoul != "" && string(soul) == role.PreviousSoul)) {
+				if e == nil && string(soul) != role.Soul && managedHistory(role, string(soul)) {
 					probe.Status = PendingSetup
 					probe.Detail = "historical managed SOUL needs repository identity upgrade; run setup --team"
 				} else if e != nil || string(soul) != role.Soul {
@@ -234,11 +234,11 @@ func Readiness(probes []Probe) []Probe {
 		}
 	}
 	sort.Strings(failing)
-	core := Probe{"CORE_READY", Healthy, "Hermes, six profiles, toolchain, Kanban, dispatch policy and gateway observed; same-card independent review observed"}
+	core := Probe{"CORE_READY", Healthy, "Hermes, seven profiles, toolchain, Kanban, dispatch policy and gateway observed; same-card tester and reviewer acceptance observed"}
 	if len(failing) > 0 {
 		core = Probe{"CORE_READY", Degraded, "not ready: " + strings.Join(failing, ", ")}
 	} else if review != Healthy {
-		core = Probe{"CORE_READY", Unqualified, "configured and running; no automatic executor/reviewer loop observed yet"}
+		core = Probe{"CORE_READY", Unqualified, "configured and running; no automatic executor/tester/reviewer loop observed yet"}
 	}
 	mem := Probe{"MEMORY_READY", Unqualified, "passive verify cannot prove memory behavior; run verify --memory-check"}
 	if memory == Inactive {
@@ -255,4 +255,15 @@ func Readiness(probes []Probe) []Probe {
 // even if the loop has not yet been exercised.
 func CoreUsable(readiness []Probe) bool {
 	return len(readiness) > 0 && readiness[0].Component == "CORE_READY" && readiness[0].Status != Degraded
+}
+
+// managedHistory reports whether soul is an earlier RepoKit-managed generation
+// of role, which setup --team upgrades in place.
+func managedHistory(role team.Role, soul string) bool {
+	for _, s := range append([]string{role.LegacySoul, role.PreviousSoul, role.PreviousRepositorySoul, role.PreviousRepositoryOriginalSoul}, role.PreviousManagedSouls...) {
+		if s != "" && s == soul {
+			return true
+		}
+	}
+	return false
 }

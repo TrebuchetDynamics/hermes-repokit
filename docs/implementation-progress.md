@@ -4,7 +4,7 @@ Latest live repair: native setup completed, the gateway automatically ran and
 archived a no-write researcher canary, and core dispatch remains enabled with
 memory pending. See the [dogfood record](qualification/live-dogfood-2026-09-28.md).
 
-RepoKit's maintained runtime is one Hermes development container with six native
+RepoKit's maintained runtime is one Hermes development container with seven native
 profiles, shared Kanban and embedded OpenViking. The optional Docker acceptance
 daemon remains an explicit testing feature. Optional plugins are owner-managed.
 

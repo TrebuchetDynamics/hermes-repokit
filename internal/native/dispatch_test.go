@@ -87,6 +87,28 @@ func TestOperationalDispatchIsObservedWithoutRestart(t *testing.T) {
 	}
 }
 
+func TestSixRolePolicyUpgradesAllowlistAndRestarts(t *testing.T) {
+	k := operational()
+	k["dispatch_profiles"] = []any{"default", "researcher", "planner", "executor", "reviewer", "steward"}
+	g := &nativeGateway{kanban: k, pid: 42, restart: 77, stats: `{"by_status":{"done":3}}`}
+	state, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, false, 3, 0)
+	if err != nil || state != "restarted" || len(g.scripts) != 1 || !strings.Contains(g.scripts[0], `"tester"`) {
+		t.Fatalf("six-role policy not upgraded: %q %v %d", state, err, len(g.scripts))
+	}
+	// An owner who edited the six-role allowlist is still preserved.
+	k["dispatch_profiles"] = []any{"default", "executor", "reviewer"}
+	g = &nativeGateway{kanban: k, pid: 42, restart: 77, stats: `{"by_status":{"done":3}}`}
+	if _, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, false, 3, 0); err == nil || len(g.scripts) != 0 {
+		t.Fatal("owner allowlist overwritten")
+	}
+	// The upgrade never restarts over a running card.
+	k["dispatch_profiles"] = []any{"default", "researcher", "planner", "executor", "reviewer", "steward"}
+	g = &nativeGateway{kanban: k, pid: 42, restart: 77, stats: `{"by_status":{"running":1}}`}
+	if _, err := convergeGateway(context.Background(), dispatchTestIdentity(t), "local", g, false, 3, 0); err == nil || len(g.scripts) != 0 {
+		t.Fatal("upgrade restarted over a running card")
+	}
+}
+
 func TestOwnerChangedPolicyIsPreserved(t *testing.T) {
 	k := operational()
 	k["max_in_progress"] = float64(3)
@@ -108,7 +130,7 @@ func TestActivationSetsPolicyLastAndRestartsIdleGateway(t *testing.T) {
 	}
 	script := g.scripts[0]
 	last := strings.Index(script, "'kanban.dispatch_in_gateway' 'true'")
-	for _, want := range []string{"'kanban.review_dispatch' 'true'", "'kanban.max_in_progress' '1'", "'kanban.auto_decompose' 'false'", "'kanban.orchestrator_profile' 'default'", `'kanban.dispatch_profiles' '["default","researcher","planner","executor","reviewer","steward"]'`} {
+	for _, want := range []string{"'kanban.review_dispatch' 'true'", "'kanban.max_in_progress' '1'", "'kanban.auto_decompose' 'false'", "'kanban.orchestrator_profile' 'default'", `'kanban.dispatch_profiles' '["default","researcher","planner","executor","tester","reviewer","steward"]'`} {
 		if i := strings.Index(script, want); i < 0 || i > last {
 			t.Fatalf("%s missing or written after enabling dispatch:\n%s", want, script)
 		}

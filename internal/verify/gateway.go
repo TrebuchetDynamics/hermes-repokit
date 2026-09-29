@@ -53,7 +53,9 @@ func DefaultKanban(ctx context.Context, id target.Identity, r Runner) []Probe {
 	if out, ok := hermesCLI(ctx, r, dc, container, "config", "get", "kanban", "--json"); ok && json.Unmarshal([]byte(out), &kanban) == nil && kanban != nil {
 		switch {
 		case native.OperationalPolicy(kanban):
-			dispatch = Probe{"kanban:dispatch", Healthy, "automatic dispatch configured on default: review dispatch, six-profile allowlist, max_in_progress=1, auto_decompose=false"}
+			dispatch = Probe{"kanban:dispatch", Healthy, "automatic dispatch configured on default: review dispatch, seven-profile allowlist, max_in_progress=1, auto_decompose=false"}
+		case native.UpgradablePolicy(kanban):
+			dispatch = Probe{"kanban:dispatch", PendingSetup, "six-profile dispatch policy; run setup --team to add tester and widen the allowlist"}
 		case kanban["dispatch_in_gateway"] == true:
 			dispatch = Probe{"kanban:dispatch", Degraded, "dispatch enabled with an owner-changed policy; RepoKit preserves it"}
 		case kanban["dispatch_in_gateway"] == false || kanban["dispatch_in_gateway"] == nil:
@@ -100,9 +102,10 @@ func channelTools(selections map[string]any) []Probe {
 	return result
 }
 
-// ReviewEvidence searches recent completed cards for native same-card review:
-// an implementation run that requested review followed by a completed run of
-// the reviewer profile, with distinct actors. Read-only public Kanban output.
+// ReviewEvidence searches recent completed cards for the native same-card
+// acceptance chain: an implementation run requested review, a later tester run
+// forwarded it, and reviewer completed the card, with three distinct actors.
+// Read-only public Kanban output.
 func ReviewEvidence(ctx context.Context, id target.Identity, r Runner) Probe {
 	probe := Probe{"review:evidence", Unknown, "Kanban history unavailable"}
 	dc, container, err := integrationRuntime(ctx, id, r)
@@ -127,15 +130,34 @@ func ReviewEvidence(ctx context.Context, id target.Identity, r Runner) Probe {
 		if !ok || json.Unmarshal([]byte(out), &record) != nil {
 			continue
 		}
-		implementer := ""
-		for _, run := range record.Runs {
-			if run.Outcome == "review_requested" && run.Profile != "reviewer" {
-				implementer = run.Profile
-			}
-			if implementer != "" && run.Profile == "reviewer" && run.Outcome == "completed" {
-				return Probe{"review:evidence", Healthy, "card " + task.ID + ": " + implementer + " requested review and reviewer completed it on the same card"}
-			}
+		if chain := acceptanceChain(record.Runs); chain != "" {
+			return Probe{"review:evidence", Healthy, "card " + task.ID + ": " + chain + " on the same card"}
 		}
 	}
-	return Probe{"review:evidence", Unqualified, "no same-card executor→reviewer completion among recent done cards; run real work or verify --dispatch-check"}
+	return Probe{"review:evidence", Unqualified, "no same-card executor→tester→reviewer completion among recent done cards; run real work or verify --dispatch-check"}
+}
+
+// acceptanceChain describes a run history whose final run is reviewer's
+// completion and whose latest implementation run is followed by a tester
+// hand-off. A tester relay of reviewer-requested changes precedes the fix, so
+// it never counts as verification of that fix.
+func acceptanceChain(runs []struct{ Profile, Outcome string }) string {
+	if len(runs) == 0 || runs[len(runs)-1].Profile != "reviewer" || runs[len(runs)-1].Outcome != "completed" {
+		return ""
+	}
+	implementer, verified := "", false
+	for _, run := range runs[:len(runs)-1] {
+		switch {
+		case run.Profile == "tester" || run.Profile == "reviewer":
+			if run.Profile == "tester" && run.Outcome == "review_requested" && implementer != "" {
+				verified = true
+			}
+		case run.Outcome == "review_requested":
+			implementer, verified = run.Profile, false
+		}
+	}
+	if !verified {
+		return ""
+	}
+	return implementer + " requested review, tester verified and reviewer completed it"
 }

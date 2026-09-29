@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="Hermes RepoKit — bootstrap one repository-specific Docker Hermes container with six native profiles: default, researcher, planner, executor, reviewer and steward.">
+  <img src="./assets/readme/hero.svg" width="100%" alt="Hermes RepoKit — bootstrap one repository-specific Docker Hermes container with seven native profiles: default, researcher, planner, executor, tester, reviewer and steward.">
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.26-00ADD8?style=flat-square&amp;logo=go&amp;logoColor=white" alt="Go 1.26">
   <img src="https://img.shields.io/badge/runtime-Docker%20Compose-2496ED?style=flat-square&amp;logo=docker&amp;logoColor=white" alt="Docker Compose runtime">
-  <img src="https://img.shields.io/badge/profiles-6-F0B24A?style=flat-square" alt="Six native profiles">
+  <img src="https://img.shields.io/badge/profiles-7-F0B24A?style=flat-square" alt="Seven native profiles">
   <img src="https://img.shields.io/badge/status-pre--v1-D08A2E?style=flat-square" alt="Status: pre-v1">
 </p>
 
@@ -14,7 +14,7 @@ part of the runtime. It handles the delicate host/bootstrap work—safe private
 state, ownership and symlink checks, deterministic Compose, mounts and
 installation—then hands control to Hermes for profiles, models, channels, Kanban
 and agent execution, and to embedded OpenViking for memory. The result is one
-repository-specific container, six native profiles, a shared board and private
+repository-specific container, seven native profiles, a shared board and private
 memory state. After bootstrap, ordinary Compose and the generated launcher work
 without RepoKit installed.
 
@@ -71,8 +71,12 @@ It does not create shell aliases or edit shell startup files; see the
 | `researcher` | Resolve unknowns and gather evidence |
 | `planner` | Define a bounded execution contract |
 | `executor` | Produce the requested artifact |
-| `reviewer` | Independently verify the contract |
+| `tester` | Prove the behavior without modifying the repository |
+| `reviewer` | Decide whether the verified change is accepted |
 | `steward` | Maintain profile identities and the team lifecycle |
+
+Substantive work passes two review stages on the same card:
+executor → tester → reviewer. Every revision goes back through tester.
 
 Steward prefers a task-scoped skill before creating a specialist, retirement
 preserves history, and deletion needs explicit approval. See the
@@ -86,7 +90,7 @@ RepoKit does not run as a supervisor or mediate ongoing agent work.
 ## What it leaves behind
 
 <p align="center">
-  <img src="./assets/readme/deployment.svg" width="100%" alt="RepoKit writes a private .hermes directory and one Compose-owned Hermes container running an s6 supervisor, a default gateway, six profiles, a shared Kanban board and embedded memory on loopback at 127.0.0.1:1933.">
+  <img src="./assets/readme/deployment.svg" width="100%" alt="RepoKit writes a private .hermes directory and one Compose-owned Hermes container running an s6 supervisor, a default gateway, seven profiles, a shared Kanban board and embedded memory on loopback at 127.0.0.1:1933.">
 </p>
 
 RepoKit writes a private `.hermes/` directory (Compose file, `bin/hermes-<repo>`
@@ -107,16 +111,16 @@ own `.hermes/compose.yaml` and project namespace, with explicit file/context rou
 
 ## Running and remaining gates
 
-Fresh installs keep dispatch off. After the six profiles reconcile, setup writes
+Fresh installs keep dispatch off. After the seven profiles reconcile, setup writes
 the native Kanban policy on `default` (automatic review, concurrency one, no
-auto-decomposition, six-profile allowlist) with `hermes config set` and restarts
+auto-decomposition, seven-profile allowlist) with `hermes config set` and restarts
 the gateway once. It refuses while a card is running, preserves an owner-changed
 policy and never claims a worker ran. OpenViking never blocks core work.
 
 `verify` is observational and leads with `CORE_READY`, `MEMORY_READY` and
 `FULL_READY`. Core is `healthy` only when configuration, runtime, worker-shell
 toolchain, dispatch policy, gateway and per-channel tools are healthy and native
-card history shows same-card executor→reviewer completion; otherwise
+card history shows same-card executor→tester→reviewer completion; otherwise
 `unqualified` (not yet exercised) or `degraded`. It exits 0 unless core is
 degraded. `verify --dispatch-check` is the explicit, paid proof: one no-write
 researcher card must be claimed and completed by the gateway without manual

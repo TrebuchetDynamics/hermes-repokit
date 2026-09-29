@@ -28,7 +28,7 @@ func (r *hermesRunner) Run(ctx context.Context, command string, args ...string) 
 	return r.integrationRunner.Run(ctx, command, args...)
 }
 
-const operationalKanban = `{"dispatch_in_gateway":true,"review_dispatch":true,"max_in_progress":1,"auto_decompose":false,"orchestrator_profile":"default","dispatch_profiles":["default","researcher","planner","executor","reviewer","steward"],"auto_subscribe_on_create":true,"notify_in_gateway":true}`
+const operationalKanban = `{"dispatch_in_gateway":true,"review_dispatch":true,"max_in_progress":1,"auto_decompose":false,"orchestrator_profile":"default","dispatch_profiles":["default","researcher","planner","executor","tester","reviewer","steward"],"auto_subscribe_on_create":true,"notify_in_gateway":true}`
 
 func status(probes []Probe, component string) Status {
 	for _, p := range probes {
@@ -65,6 +65,7 @@ func TestKanbanDistinguishesOffOwnerChangedAndUnreadable(t *testing.T) {
 		`{}`:                            Inactive,
 		strings.Replace(operationalKanban, `"max_in_progress":1`, `"max_in_progress":4`, 1): Degraded,
 		`not json`: Unknown,
+		strings.Replace(operationalKanban, `"tester",`, "", 1): PendingSetup,
 	} {
 		r := &hermesRunner{integrationRunner: base, replies: map[string]string{"config get kanban --json": reply}}
 		if got := status(DefaultKanban(context.Background(), id, r), "kanban:dispatch"); got != want {
@@ -79,7 +80,7 @@ func TestGatewayAndReviewEvidenceFromPublicCLI(t *testing.T) {
 		"gateway status": "✓ Gateway is running (PID: 9)",
 		"kanban list --status done --sort completed-desc --json": `[{"id":"t_a"},{"id":"t_b"}]`,
 		"kanban show t_a --json":                                 `{"runs":[{"profile":"executor","outcome":"completed"}]}`,
-		"kanban show t_b --json":                                 `{"runs":[{"profile":"executor","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]}`,
+		"kanban show t_b --json":                                 `{"runs":[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]}`,
 	}}
 	if got := status(Gateway(context.Background(), id, r), "gateway"); got != Healthy {
 		t.Fatal(got)
@@ -111,5 +112,33 @@ func TestReadinessSeparatesConfiguredFromProved(t *testing.T) {
 	got = Readiness(append(healthy, Probe{"channel:telegram", Degraded, ""}, Probe{"review:evidence", Healthy, ""}))
 	if got[0].Status != Degraded || !strings.Contains(got[0].Detail, "channel:telegram") || CoreUsable(got) {
 		t.Fatalf("broken channel must block core: %+v", got)
+	}
+}
+
+func TestAcceptanceChainRequiresTesterAfterLatestImplementation(t *testing.T) {
+	type runs = []struct{ Profile, Outcome string }
+	rr := func(pairs ...string) runs {
+		out := runs{}
+		for i := 0; i < len(pairs); i += 2 {
+			out = append(out, struct{ Profile, Outcome string }{pairs[i], pairs[i+1]})
+		}
+		return out
+	}
+	for name, c := range map[string]struct {
+		runs runs
+		ok   bool
+	}{
+		"simple chain":                               {rr("executor", "review_requested", "tester", "review_requested", "reviewer", "completed"), true},
+		"tester rejection then pass":                 {rr("executor", "review_requested", "tester", "changes_requested", "executor", "review_requested", "tester", "review_requested", "reviewer", "completed"), true},
+		"reviewer rejection relayed and re-verified": {rr("executor", "review_requested", "tester", "review_requested", "reviewer", "changes_requested", "tester", "review_requested", "executor", "review_requested", "tester", "review_requested", "reviewer", "completed"), true},
+		"no tester":                                  {rr("executor", "review_requested", "reviewer", "completed"), false},
+		"relay without re-verify":                    {rr("executor", "review_requested", "tester", "review_requested", "reviewer", "changes_requested", "tester", "review_requested", "executor", "review_requested", "reviewer", "completed"), false},
+		"tester completed the card":                  {rr("executor", "review_requested", "tester", "completed"), false},
+		"tester is implementer":                      {rr("tester", "review_requested", "reviewer", "completed"), false},
+		"reviewer not last":                          {rr("executor", "review_requested", "tester", "review_requested", "reviewer", "completed", "executor", "completed"), false},
+	} {
+		if got := acceptanceChain(c.runs) != ""; got != c.ok {
+			t.Errorf("%s: accepted=%v", name, got)
+		}
 	}
 }

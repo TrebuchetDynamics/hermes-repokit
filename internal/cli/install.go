@@ -248,7 +248,7 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
-	fmt.Fprintln(stdout, "Native shared Kanban and six-profile team reconciled. Memory and model-driven acceptance are separate stages.")
+	fmt.Fprintln(stdout, "Native shared Kanban and seven-profile team reconciled. Memory and model-driven acceptance are separate stages.")
 	return 0
 }
 

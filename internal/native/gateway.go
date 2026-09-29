@@ -26,6 +26,22 @@ func DispatchPolicy() []struct {
 	for _, role := range team.Roster() {
 		profiles = append(profiles, role.Name)
 	}
+	return dispatchPolicy(profiles)
+}
+
+// sixRoleDispatchPolicy is the exact policy the six-profile release managed.
+// It is recognized only so that release can be upgraded, never installed.
+func sixRoleDispatchPolicy() []struct {
+	Key   string
+	Value any
+} {
+	return dispatchPolicy([]any{"default", "researcher", "planner", "executor", "reviewer", "steward"})
+}
+
+func dispatchPolicy(profiles []any) []struct {
+	Key   string
+	Value any
+} {
 	return []struct {
 		Key   string
 		Value any
@@ -42,7 +58,20 @@ func DispatchPolicy() []struct {
 // OperationalPolicy reports whether a decoded native `kanban` config section
 // holds the complete managed dispatch policy.
 func OperationalPolicy(kanban map[string]any) bool {
-	for _, field := range DispatchPolicy() {
+	return holdsPolicy(kanban, DispatchPolicy())
+}
+
+// UpgradablePolicy reports whether default holds the six-profile release's
+// complete managed policy, which RepoKit may upgrade in place.
+func UpgradablePolicy(kanban map[string]any) bool {
+	return holdsPolicy(kanban, sixRoleDispatchPolicy())
+}
+
+func holdsPolicy(kanban map[string]any, policy []struct {
+	Key   string
+	Value any
+}) bool {
+	for _, field := range policy {
 		if !reflect.DeepEqual(kanban[field.Key], field.Value) {
 			return false
 		}
@@ -135,6 +164,9 @@ func convergeGateway(ctx context.Context, id target.Identity, dc string, r Input
 	}
 	switch kanban["dispatch_in_gateway"] {
 	case true:
+		if UpgradablePolicy(kanban) {
+			break // rewrite the six-profile allowlist and restart below
+		}
 		if !OperationalPolicy(kanban) {
 			return "", errors.New("owner-changed dispatch policy preserved; inspect `kanban` configuration on default")
 		}

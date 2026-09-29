@@ -313,7 +313,7 @@ func TestDockerFoundation(t *testing.T) {
 		}
 	}
 	preserved := map[string][]byte{}
-	for _, name := range []string{"researcher", "planner", "executor", "reviewer", "steward"} {
+	for _, name := range []string{"researcher", "planner", "executor", "tester", "reviewer", "steward"} {
 		path := filepath.Join(root, ".hermes/profiles", name, "memories/MEMORY.md")
 		data := []byte("role lesson must survive rerun")
 		if err := os.WriteFile(path, data, 0600); err != nil {
@@ -353,7 +353,7 @@ func TestDockerFoundation(t *testing.T) {
 		}
 		docker("exec", "-T", "--user", "hermes", "--env", "HOME=/opt/data", "--env", "HERMES_HOME="+home, "--env", "HERMES_PROFILE_NAME="+profile, "hermes", "python", "-c", teamLifecycle, action)
 	}
-	for _, step := range [][2]string{{"create", "default"}, {"research", "researcher"}, {"plan", "planner"}, {"execute", "executor"}, {"changes", "reviewer"}, {"revise", "executor"}, {"approve", "reviewer"}} {
+	for _, step := range [][2]string{{"create", "default"}, {"research", "researcher"}, {"plan", "planner"}, {"execute", "executor"}, {"test-fail", "tester"}, {"revise", "executor"}, {"test-pass", "tester"}, {"changes", "reviewer"}, {"relay", "tester"}, {"fix", "executor"}, {"test-pass", "tester"}, {"approve", "reviewer"}} {
 		lifecycle(step[0], step[1])
 	}
 	removeInstaller()

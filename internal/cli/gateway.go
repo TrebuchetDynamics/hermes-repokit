@@ -31,7 +31,7 @@ func (a App) finishSetup(id target.Identity, dc string, code int, out, diag io.W
 	case "current":
 		fmt.Fprintln(out, "Automatic dispatch already configured on the running default gateway; nothing changed.")
 	case "restarted":
-		fmt.Fprintln(out, "Configured native automatic dispatch on default (review dispatch, six-profile allowlist, max_in_progress=1, auto_decompose=false) and restarted the gateway.")
+		fmt.Fprintln(out, "Configured native automatic dispatch on default (review dispatch, seven-profile allowlist, max_in_progress=1, auto_decompose=false) and restarted the gateway.")
 		fmt.Fprintln(out, "Start a fresh conversation (/new in Telegram) so sessions see current tools.")
 	case "started":
 		fmt.Fprintln(out, "Started the default gateway; Hermes keeps it running across container restarts.")

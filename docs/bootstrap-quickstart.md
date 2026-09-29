@@ -22,9 +22,9 @@ hermes-repokit verify
 .hermes/bin/hermes-my-project
 ```
 
-The default roster is default/researcher/planner/executor/reviewer/steward.
+The default roster is default/researcher/planner/executor/tester/reviewer/steward.
 Fresh installation trusts `/workspace` for native project-local skills before
-the container starts. Team provisioning carries that trust to all six profiles;
+the container starts. Team provisioning carries that trust to all seven profiles;
 existing managed profiles gain it during `setup --team`. Hermes still scans
 project skills and honors disabled skills. Existing trusted paths, skill settings
 and an explicit `skills.project_discovery: false` are preserved. Start a fresh
@@ -33,7 +33,7 @@ conversation after reconciliation to refresh the skill index.
 `--engineering` is a legacy alias. Plain `setup` explicitly selects default and requires
 a real interactive terminal for private provider setup. If native setup was already
 completed through the launcher, run `hermes-repokit setup --team` to provision
-the six-role team from the saved default model without repeating login. This
+the seven-role team from the saved default model without repeating login. This
 stage does not run a private wizard or configure memory. Existing
 profile edits are preserved and reported as drift. `default` is the normal user
 entry point; it delegates team changes to steward. See the [team model](team-model.md).
@@ -42,14 +42,17 @@ preserve native state. Resume individual stages with `setup --team`,
 `setup --memory`; these flags are mutually exclusive.
 Team reconciliation on an operational team (dispatch already on) observes and
 reports drift; it never rewrites profiles under live workers. It only completes
-`default`'s own Kanban/memory tools on saved channels. `setup --memory` never
+`default`'s own Kanban/memory tools on saved channels. The one exception is an
+unmodified six-profile release: when no card is running, `setup --team` creates
+`tester`, upgrades the six managed SOULs and then widens the allowlist with one
+gateway restart. Owner-edited profiles or policy are still only reported. `setup --memory` never
 touches dispatch; a failed memory stage keeps its nonzero result without taking
 core work offline.
 
-Fresh installation keeps `dispatch_in_gateway=false`. After the six profiles
+Fresh installation keeps `dispatch_in_gateway=false`. After the seven profiles
 reconcile without drift, setup writes the native Kanban policy on `default` with
 `hermes config set`: `review_dispatch=true`, `max_in_progress=1`,
-`auto_decompose=false`, `orchestrator_profile=default`, the six-profile
+`auto_decompose=false`, `orchestrator_profile=default`, the seven-profile
 `dispatch_profiles` allowlist, and `dispatch_in_gateway=true` last. It then runs
 `hermes gateway restart` and waits for a new gateway PID in `gateway status`.
 Setup refuses (and leaves dispatch off) while any card is running. An
@@ -69,8 +72,8 @@ preserved for inspection.
 and `kanban list/show --json` and reports `CORE_READY`, `MEMORY_READY` and
 `FULL_READY` first. `CORE_READY` is `healthy` only when configuration, runtime,
 toolchain, dispatch policy, gateway and channel tools are healthy **and** a
-recent done card shows same-card review (an implementation run requesting review
-followed by a completed reviewer run). Without that evidence it is `unqualified`.
+recent done card shows same-card review (an implementation run requesting review,
+a later tester run forwarding it, and reviewer completing the card last). Without that evidence it is `unqualified`.
 `verify` exits 0 unless core is `degraded`. Passive verify never proves memory,
 so `MEMORY_READY` and `FULL_READY` are never `healthy` from it. A fresh
 Telegram conversation (`/new`) refreshes the coordinator's tools; actual
@@ -268,7 +271,7 @@ OpenViking store**. Use no agent/peer. On reruns select the existing shared
 connection instead of making another one. The private native connection file
 lives below `/opt/data/.openviking` and remains authoritative after RepoKit is
 removed. RepoKit links its path through native config commands; it does not
-copy keys into six profile files.
+copy keys into seven profile files.
 
 Before updating specialists, RepoKit checks all six effective native secret
 scopes and the server-derived account/user/role. Owner-selected providers or
@@ -301,7 +304,7 @@ not produce a successful whole-deployment verification exit status.
 
 The release must still remove a disposable RepoKit binary AND checkout, remove
 the receipt, change directory, use native chat/commands, restart with raw
-Compose, perform actual bounded executor→distinct-reviewer work, restart again,
+Compose, perform actual bounded executor→tester→reviewer work, restart again,
 and prove sessions/board/memory persistence. The current offline
 independence test uses the actual CLI, then deletes its copied source/binary and
 receipt. The Docker foundation test passes real CLI install/verify/rerun and

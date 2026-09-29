@@ -1,7 +1,7 @@
 # Universal repository team
 
 RepoKit scaffolds a small repository organization, not a collection of
-technology-specific bots. Its six permanent identities are defined in
+technology-specific bots. Its seven permanent identities are defined in
 [the roster](../internal/team/team.go) and [SOUL contracts](../internal/team/souls/).
 
 | Profile | Responsibility |
@@ -10,7 +10,8 @@ technology-specific bots. Its six permanent identities are defined in
 | researcher | Resolve unknowns and gather evidence |
 | planner | Define a bounded execution contract |
 | executor | Produce the requested artifact or change |
-| reviewer | Independently verify against the contract |
+| tester | Prove the change's behavior without modifying the repository |
+| reviewer | Decide whether the verified change is accepted |
 | steward | Maintain profile identities and capabilities |
 
 Normally the user talks to `default`. It answers lightweight questions and
@@ -112,10 +113,35 @@ Bootstrap defaults are dispatch off, automatic decomposition off, orchestrator `
 and `max_in_progress: 1`. The coordinator explicitly receives `kanban`.
 Specialists receive native worker lifecycle tools at dispatch.
 
-Review normally stays on one card:
-`executor → reviewer → request_changes → executor → reviewer → done`.
-The executor does not independently accept its own work; the reviewer checks
-actual artifacts and evidence without implementing the requested change.
+Verification and review stay on one card, in two native review stages:
+
+```text
+executor → review_requested(tester)
+tester   → review_requested(reviewer)      or changes_requested → executor
+reviewer → completed                       or changes_requested → tester (relay)
+```
+
+Tester asks "does this demonstrably work?" and reviewer asks "should this be
+accepted?". Tester runs the project's checks and probes edge cases but never
+edits the repository; a missing regression test is a change request, and the
+executor writes it. Every revision passes tester again, because a code change
+invalidates earlier test evidence.
+
+Hermes returns requested changes to whichever profile last requested review.
+After tester forwards a card, reviewer's `request_changes` therefore lands on
+tester. Tester relays it unchanged with `kanban_request_review(reviewer=
+"executor")`; executor fixes it and hands it back to tester. A full rejection
+cycle is:
+
+```text
+reviewer → changes_requested     (card lands on tester)
+tester   → review_requested(executor)   relay, no edits
+executor → review_requested(tester)     fix
+tester   → review_requested(reviewer)   re-verify
+reviewer → completed
+```
+
+Nobody accepts their own work: implementer, tester and reviewer are distinct.
 
 The [credential-free fixture](../tests/acceptance/fixtures/team_lifecycle.py)
 exercises native transitions in separate profile processes. It does not prove
@@ -128,7 +154,8 @@ model-driven dispatch, artifact correctness or adversarial actor isolation.
 | default | Native CLI preset + kanban + memory | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
 | researcher | file, web, memory | Artifact writes prohibited by SOUL |
 | planner | file, memory | Implementation prohibited by SOUL |
-| executor | file, terminal, memory | Work limited to the card |
+| executor | file, terminal, code_execution, skills, memory | Work limited to the card |
+| tester | terminal, memory | No file-editing toolset; repository writes prohibited by SOUL |
 | reviewer | file, terminal, memory | Artifact writes prohibited by SOUL; terminal permits verification |
 | steward | terminal, file, memory | Profile administration only; project writes prohibited by SOUL |
 
@@ -156,7 +183,7 @@ and proves the required behavior through supported interfaces.
 
 Messaging is a remote development interface. Default may directly inspect files,
 search Git/repository state and run diagnostics; substantive changes use Kanban,
-executor and distinct same-card reviewer. Once setup passes its operational gates,
+executor and distinct same-card tester and reviewer. Once setup passes its operational gates,
 the default gateway automatically claims assigned work and review; users need no
 SSH or manual dispatch. Default creates cards with the gateway-context native
 tool and checks subscription success. RepoKit reconciles
@@ -181,7 +208,7 @@ YAML and linked-configuration override before activating the connection.
 
 The installer embeds official OpenViking inside Hermes. Private `setup --memory`
 checks the effective connection under every profile's native secret scope, requires
-a normal repository user key and links the shared native connection across all six
+a normal repository user key and links the shared native connection across all seven
 roles. Future specialists cloned from default inherit that link; steward must check
 their effective identity and peer overrides before use. Optional plugins remain
 owner-managed native Hermes components.
@@ -197,15 +224,21 @@ Source: [read-only integration probes](../internal/verify/integrations.go).
 ## Repository identity and live convergence
 
 Every generated SOUL includes the repository basename, stable RepoKit project
-identity, profile role, permanent six-profile roster and relationship to default.
+identity, profile role, permanent seven-profile roster and relationship to default.
 Hermes is the runtime, not the profile's repository identity. A persistent profile
 is distinct from a currently running worker. No absolute host path is embedded.
 Exact historical RepoKit SOULs upgrade only when managed configuration and role
 description still match; owner edits remain drift and are not overwritten.
+Historical SOULs are matched by profile name, never by roster position, so tester
+starts with no managed history and no existing profile is remapped to it.
+An activated six-profile team whose default still holds the exact six-profile
+policy is upgraded by `setup --team`: tester is created, the six SOULs are
+rewritten and activation widens the allowlist, restarting the gateway once when
+no card is running. Any other owner-changed policy is only observed.
 
 Dispatch is off during bootstrap and incomplete setup. Successful setup activates
 one default gateway dispatcher with review dispatch enabled, concurrency one,
-automatic decomposition disabled and the explicit six-profile allowlist.
+automatic decomposition disabled and the explicit seven-profile allowlist.
 OpenViking readiness is reported separately and does not block core activation.
 Specialists keep dispatch disabled. SOUL distinguishes persistent profiles
 from running workers and requires inspection of live dispatch before promising
@@ -214,7 +247,9 @@ progress; it never uses one-shot dispatch to bypass incomplete activation.
 Setup configures this policy through public `hermes config set`, restarts the
 gateway once, and observes a replacement PID. It does not claim a worker ran.
 `verify --dispatch-check` is the explicit researcher proof, and `verify` reports
-same-card executor→reviewer evidence from native card history. Neither
+same-card executor→tester→reviewer evidence from native card history: the final
+run is reviewer's completion and a tester hand-off follows the latest
+implementation run. Neither
 establishes Telegram delivery. See [setup and recovery](bootstrap-quickstart.md).
 
 ## Shared development capability
@@ -222,9 +257,10 @@ establishes Telegram delivery. See [setup and recovery](bootstrap-quickstart.md)
 Interactive channels and workers execute in the same generated Hermes development
 container at `/workspace`. Tool visibility and installed compiler/runtime readiness
 are checked separately. Executor's native coding tools include file, terminal,
-code_execution, skills and memory; reviewer can run the same project checks.
-Default may perform a tiny authorized direct edit, but substantive artifact work
-and independent review remain executor/reviewer responsibilities.
+code_execution, skills and memory; tester and reviewer can run the same project
+checks. Default may perform a tiny authorized direct edit, but substantive
+artifact work, verification and review remain executor/tester/reviewer
+responsibilities.
 
 The optional Docker acceptance daemon is infrastructure, not a profile. It uses
 dedicated disposable test storage and never receives the host Docker socket or
