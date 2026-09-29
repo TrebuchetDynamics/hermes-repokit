@@ -14,10 +14,7 @@ COPY --from=openviking /usr/local/bin/openviking-pending-health /usr/local/bin/o
 COPY --chmod=0555 repokit-openviking /usr/local/bin/repokit-openviking
 COPY --chmod=0555 openviking-run /etc/s6-overlay/s6-rc.d/repokit-openviking/run
 COPY --chmod=0555 openviking-finish /etc/s6-overlay/s6-rc.d/repokit-openviking/finish
-COPY patch-openviking-entrypoint.py /tmp/patch-openviking-entrypoint.py
 RUN set -eu; \
-    python3 -I /tmp/patch-openviking-entrypoint.py /usr/local/bin/openviking-entrypoint; \
-    rm /tmp/patch-openviking-entrypoint.py; \
     ln -sf /opt/openviking-python/bin/python3.13 /app/.venv/bin/python; \
     ln -sf python /app/.venv/bin/python3; \
     ln -sf python /app/.venv/bin/python3.13; \
@@ -26,7 +23,7 @@ RUN set -eu; \
     printf 'longrun\n' > /etc/s6-overlay/s6-rc.d/repokit-openviking/type; \
     touch /etc/s6-overlay/s6-rc.d/repokit-openviking/dependencies.d/legacy-cont-init; \
     touch /etc/s6-overlay/s6-rc.d/user/contents.d/repokit-openviking; \
-    repokit-openviking python -I -c 'import sys; assert sys.base_prefix == "/opt/openviking-python"; assert sys.prefix == "/app/.venv"; from importlib.metadata import version; assert version("openviking") == "0.4.21"; import openviking'; \
+    LD_LIBRARY_PATH=/opt/openviking-python/lib /app/.venv/bin/python -I -c 'import sys; assert sys.base_prefix == "/opt/openviking-python"; assert sys.prefix == "/app/.venv"; from importlib.metadata import version; assert version("openviking") == "0.4.21"; import openviking'; \
     repokit-openviking server --help >/dev/null; \
     /opt/hermes/.venv/bin/python -I -c 'import hermes_cli'
 RUN set -eu; \

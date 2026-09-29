@@ -1,3 +1,6 @@
+> Historical record. RepoKit no longer ships or installs the maintenance
+> plugin. Runtime extensions are outside the v1 Go configurer boundary.
+
 # Native restart bridge qualification
 
 Source inspected read-only in `hermes-hermes-repokit:/opt/hermes`, build

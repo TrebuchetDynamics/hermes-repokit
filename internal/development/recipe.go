@@ -1,9 +1,13 @@
 package development
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io/fs"
+	"os"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -63,8 +67,8 @@ func recipeInputs(req Requirements) map[string][]byte {
 		goSteps = goInstall
 	}
 	content := strings.NewReplacer("{{HERMES_IMAGE}}", qualification.FoundationImage, "{{OPENVIKING_IMAGE}}", projectmemory.Image, "{{GO_INSTALL}}", goSteps).Replace(string(template))
-	files := map[string][]byte{"Dockerfile": []byte(content), "repokit-docker-test": helper, ".dockerignore": []byte("*\n!Dockerfile\n!repokit-docker-test\n!repokit-openviking\n!openviking-run\n!openviking-finish\n!patch-openviking-entrypoint.py\n")}
-	for _, name := range []string{"repokit-openviking", "openviking-run", "openviking-finish", "patch-openviking-entrypoint.py"} {
+	files := map[string][]byte{"Dockerfile": []byte(content), "repokit-docker-test": helper, ".dockerignore": []byte("*\n!Dockerfile\n!repokit-docker-test\n!repokit-openviking\n!openviking-run\n!openviking-finish\n")}
+	for _, name := range []string{"repokit-openviking", "openviking-run", "openviking-finish"} {
 		data, err := assets.Assets.ReadFile(name)
 		if err != nil {
 			panic("missing embedded memory asset")
@@ -77,7 +81,10 @@ func recipeInputs(req Requirements) map[string][]byte {
 // Fingerprint identifies the complete recipe including the isolated-test helper.
 // The generation label itself is excluded to avoid a recursive hash.
 func Fingerprint(req Requirements) string {
-	files := recipeInputs(req)
+	return hashRecipe(recipeInputs(req))
+}
+
+func hashRecipe(files map[string][]byte) string {
 	names := make([]string, 0, len(files))
 	for name := range files {
 		names = append(names, name)
@@ -91,6 +98,27 @@ func Fingerprint(req Requirements) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+var recipeLabel = regexp.MustCompile(`org\.repokit\.development\.recipe=([0-9a-f]{64})`)
+
+// GeneratedRecipe recognizes an unmodified RepoKit-generated recipe of any
+// version: its Dockerfile label is the fingerprint of the files themselves.
+// This lets upgrades replace old generated recipes without freezing old bytes,
+// while any owner edit changes the hash and is preserved as drift.
+func GeneratedRecipe(files map[string][]byte) (string, bool) {
+	dockerfile := files["Dockerfile"]
+	labels := recipeLabel.FindAllSubmatch(dockerfile, -1)
+	if len(labels) != 1 {
+		return "", false
+	}
+	inputs := make(map[string][]byte, len(files))
+	for name, data := range files {
+		inputs[name] = data
+	}
+	inputs["Dockerfile"] = bytes.Replace(dockerfile, labels[0][1], []byte("{{RECIPE_HASH}}"), 1)
+	fingerprint := string(labels[0][1])
+	return fingerprint, hashRecipe(inputs) == fingerprint
+}
+
 func Recipe(req Requirements) (map[string][]byte, error) {
 	files := recipeInputs(req)
 	files["Dockerfile"] = []byte(strings.ReplaceAll(string(files["Dockerfile"]), "{{RECIPE_HASH}}", Fingerprint(req)))
@@ -99,4 +127,32 @@ func Recipe(req Requirements) (map[string][]byte, error) {
 
 func ImageName(container string, req Requirements) string {
 	return "repokit/" + container + ":" + Fingerprint(req)[:24]
+}
+
+// ReadGeneratedRecipe reads a bounded development-image directory and reports
+// whether it is an unmodified generated recipe, returning its fingerprint.
+func ReadGeneratedRecipe(dir string) (map[string][]byte, string, bool) {
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, "", false
+	}
+	defer root.Close()
+	entries, err := fs.ReadDir(root.FS(), ".")
+	if err != nil || len(entries) == 0 || len(entries) > 32 {
+		return nil, "", false
+	}
+	files := make(map[string][]byte, len(entries))
+	for _, entry := range entries {
+		info, err := root.Lstat(entry.Name())
+		if err != nil || !info.Mode().IsRegular() || info.Size() > 1<<20 {
+			return nil, "", false
+		}
+		data, err := root.ReadFile(entry.Name())
+		if err != nil {
+			return nil, "", false
+		}
+		files[entry.Name()] = data
+	}
+	fingerprint, ok := GeneratedRecipe(files)
+	return files, fingerprint, ok
 }

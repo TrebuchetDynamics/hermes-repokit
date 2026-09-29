@@ -12,50 +12,35 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 )
 
-// finishSetup is the single convergence boundary after a successful stage or
-// the entire full-setup sequence; failed stages never publish a fresh receipt.
+// finishSetup is the single activation boundary after a successful stage.
+// Failed stages never enable dispatch.
 func (a App) finishSetup(id target.Identity, dc string, code int, out, diag io.Writer) int {
 	if code != 0 {
 		return code
 	}
 	runner := a.Initializer
 	if runner == nil {
-		runner = process.Runner{Timeout: 12 * time.Minute}
-	}
-	if err := native.ProvisionMaintenance(context.Background(), id, dc, runner); err != nil {
-		fmt.Fprintln(diag, "Native state saved; maintenance plugin admission incomplete. Scanner rejection or owner source drift must be resolved before activation; no gateway restart performed.")
-		return 1
+		runner = process.Runner{Timeout: 3 * time.Minute}
 	}
 	state, err := native.ConvergeGateway(context.Background(), id, dc, runner)
 	if err != nil {
-		fmt.Fprintln(diag, "Native state saved; gateway convergence incomplete. Check active work, native health and owner drift, then rerun the same setup stage.")
-		if stage := native.DispatchDiagnostic(err); stage != "" {
-			fmt.Fprintln(diag, "Native dispatch failure:", stage)
-		}
+		fmt.Fprintln(diag, "Native state saved; automatic dispatch not enabled:", err)
 		return 1
 	}
-	if state == "not-running" {
-		fmt.Fprintln(out, "Gateway not running; messaging is not ready. Start the default gateway through the native launcher when ready.")
-	} else {
-		fmt.Fprintln(out, "Gateway generation current. Start a fresh Hermes conversation (/new in Telegram) to refresh session identity and tools.")
+	switch state {
+	case "current":
+		fmt.Fprintln(out, "Automatic dispatch already configured on the running default gateway; nothing changed.")
+	case "restarted":
+		fmt.Fprintln(out, "Configured native automatic dispatch on default (review dispatch, six-profile allowlist, max_in_progress=1, auto_decompose=false) and restarted the gateway.")
+		fmt.Fprintln(out, "Start a fresh conversation (/new in Telegram) so sessions see current tools.")
+	case "not-running":
+		fmt.Fprintln(out, "Automatic dispatch is configured, but the default gateway is not running; messaging and dispatch start with the gateway.")
 	}
-	fmt.Fprintln(out, "Dispatch operational: default gateway owns automatic execution and review; six-profile allowlist, max_in_progress=1, auto_decompose=false. Researcher canary completed through the gateway.")
+	fmt.Fprintln(out, "No worker has been exercised by setup. Prove the loop with `hermes-repokit verify --dispatch-check` (one researcher card, model cost) or a real reviewed task.")
 	for _, p := range verify.RuntimeIntegrations(context.Background(), id, a.Runner) {
 		if p.Component == "memory" {
-			fmt.Fprintf(diag, "Optional memory: %s. %s. Core dispatch is operational; use setup --memory to configure or repair shared memory.\n", p.Status, p.Detail)
+			fmt.Fprintf(diag, "Optional memory: %s. %s. Core dispatch does not depend on it; use setup --memory to configure shared memory.\n", p.Status, p.Detail)
 		}
-	}
-	return 0
-}
-
-func (a App) prepareDispatch(id target.Identity, dc string, diag io.Writer) int {
-	runner := a.Initializer
-	if runner == nil {
-		runner = process.Runner{Timeout: 6 * time.Minute}
-	}
-	if err := native.PrepareDispatch(context.Background(), id, dc, runner); err != nil {
-		fmt.Fprintln(diag, "Setup deferred: cannot safely suspend the native dispatcher. Finish active work and inspect gateway health; queued cards are preserved.")
-		return 1
 	}
 	return 0
 }

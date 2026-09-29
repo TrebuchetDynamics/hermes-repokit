@@ -3,6 +3,7 @@ package native
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -28,7 +29,27 @@ type InputRunner interface {
 // held INSIDE that container, so killing the Docker client cannot release it
 // while a daemon-owned native subprocess is still writing state.
 func Initialize(ctx context.Context, id target.Identity, dockerContext string, afterSetup bool, r InputRunner) error {
-	result, err := runBootstrap(ctx, id, dockerContext, afterSetup, initializationScript(id, afterSetup), r)
+	root, err := os.OpenRoot(id.Root)
+	if err != nil {
+		return fmt.Errorf("native team state unavailable")
+	}
+	defer root.Close()
+	script, status, drift, err := teamScript(id, afterSetup, nativeTeamCLI(ctx, id, dockerContext, r), root)
+	if err != nil {
+		return err
+	}
+	if script == "" {
+		script = bootstrapScript + "\n"
+	}
+	if len(drift) > 0 {
+		status = "drift"
+	}
+	marker, _ := json.Marshal(struct {
+		Status string   `json:"status"`
+		Drift  []string `json:"drift"`
+	}{status, drift})
+	script += "printf '%s\\n' 'REPOKIT_TEAM=" + string(marker) + "'\n"
+	result, err := runBootstrap(ctx, id, dockerContext, afterSetup, script, r)
 	if err != nil {
 		return err
 	}
@@ -57,11 +78,6 @@ func runBootstrap(ctx context.Context, id target.Identity, dockerContext string,
 	args = append(args, strconv.FormatBool(afterSetup))
 	result := r.RunInput(ctx, strings.NewReader(script), "docker", args...)
 	if result.Err != nil || result.Truncated {
-		if !result.Truncated {
-			if diagnostic := dispatchFailureFromOutput(result.Output); diagnostic != nil {
-				return process.Result{}, diagnostic
-			}
-		}
 		return process.Result{}, fmt.Errorf("native initialization failed or was interrupted; preserve state, inspect with native commands, then rerun install")
 	}
 	return result, nil

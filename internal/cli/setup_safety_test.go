@@ -77,7 +77,7 @@ func TestPrivateSetupChecksDeploymentBeforeWizard(t *testing.T) {
 			if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\n: > \"$REPOKIT_TEST_WIZARD_MARKER\"\n"), 0700); err != nil {
 				t.Fatal(err)
 			}
-			a.Initializer = &gatewayInput{state: "current"}
+			a.Initializer = &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10}
 			invoke(t, a, "setup")
 			_, err := os.Stat(marker)
 			if got, want := err == nil, kind == "qualified"; got != want {

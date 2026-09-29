@@ -8,62 +8,86 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 )
 
+// gatewayInput simulates the public Hermes CLI and the locked bootstrap shell.
+// Scripts return team; a gateway restart script replaces the gateway PID.
 type gatewayInput struct {
-	calls int
-	state string
-	err   error
+	calls   int
+	kanban  string
+	pid     int
+	team    string
+	scripts []string
+	err     error
 }
 
 func (r *gatewayInput) RunInput(_ context.Context, input io.Reader, program string, args ...string) process.Result {
 	r.calls++
-	body, _ := io.ReadAll(input)
-	if strings.Contains(string(body), "REPOKIT_MAINTENANCE_PY") {
-		return process.Result{Output: "REPOKIT_MAINTENANCE=configured"}
+	joined := strings.Join(args, " ")
+	if input != nil {
+		body, _ := io.ReadAll(input)
+		r.scripts = append(r.scripts, string(body))
+		if !strings.Contains(joined, "/usr/bin/flock -n /workspace/.hermes-repokit.lock") {
+			return process.Result{Err: fmt.Errorf("unlocked mutation")}
+		}
+		if strings.Contains(string(body), "'gateway' 'restart'") {
+			if r.err != nil {
+				return process.Result{Err: r.err, Output: "secret native output"}
+			}
+			r.pid++
+		}
+		return process.Result{Output: r.team}
 	}
-	if program != "docker" || !strings.Contains(string(body), "REPOKIT_GATEWAY_PY") || !strings.Contains(strings.Join(args, " "), "/usr/bin/flock -n /workspace/.hermes-repokit.lock") {
-		return process.Result{Err: fmt.Errorf("unexpected mutation route")}
+	switch {
+	case strings.HasSuffix(joined, "config get kanban --json"):
+		return process.Result{Output: r.kanban}
+	case strings.HasSuffix(joined, "gateway status"):
+		return process.Result{Output: fmt.Sprintf("✓ Gateway is running (PID: %d)", r.pid)}
+	case strings.HasSuffix(joined, "kanban stats --json"):
+		return process.Result{Output: `{"by_status":{}}`}
+	case strings.Contains(joined, " config get "):
+		return process.Result{Output: "null"}
 	}
-	return process.Result{Output: "REPOKIT_GATEWAY=" + r.state + "\nREPOKIT_CANARY=researcher-done\nREPOKIT_DISPATCH=prepared", Err: r.err}
+	return process.Result{Err: fmt.Errorf("unexpected native call")}
 }
+
 func TestGatewayFinalizationNeverRunsAfterFailedStage(t *testing.T) {
 	app, r := foundationApp(t)
 	if code, _, diag := invoke(t, app, "install"); code != 0 {
 		t.Fatal(diag)
 	}
-	input := &gatewayInput{state: "current"}
+	input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10}
 	app.Initializer = input
 	var out, diag bytes.Buffer
 	if got := app.finishSetup(r.id, r.context, 7, &out, &diag); got != 7 || input.calls != 0 {
 		t.Fatal("failed stage finalized")
 	}
-	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got != 0 || input.calls != 2 || !strings.Contains(diag.String(), "Optional memory") || !strings.Contains(out.String(), "operational") {
+	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got != 0 || !strings.Contains(out.String(), "restarted the gateway") {
 		t.Fatalf("finish: %d %s %s", got, &out, &diag)
 	}
-	input.err = fmt.Errorf("restart failed")
-	input.state = "current\nREPOKIT_DISPATCH_FAILURE=RuntimeError|dispatch_main:400>switch_gateway:121"
-	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got == 0 {
-		t.Fatal("failed gateway certified")
+	if strings.Contains(out.String(), "canary completed") || !strings.Contains(out.String(), "No worker has been exercised") {
+		t.Fatalf("setup claimed unexercised work: %s", &out)
 	}
-	if !strings.Contains(diag.String(), "switch_gateway:121") || strings.Contains(diag.String(), "restart failed") {
-		t.Fatalf("safe stage diagnostic not propagated: %s", &diag)
+	input.kanban, input.err = `{"dispatch_in_gateway":false}`, fmt.Errorf("private-native-error")
+	diag.Reset()
+	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got == 0 {
+		t.Fatal("failed gateway restart certified")
+	}
+	if strings.Contains(diag.String(), "secret") || strings.Contains(diag.String(), "private-native-error") {
+		t.Fatalf("native output leaked: %s", &diag)
 	}
 }
 
-func TestActivationRequiresCanaryAndLiveGatewayReceipts(t *testing.T) {
+func TestSetupPreservesOwnerChangedDispatchPolicy(t *testing.T) {
 	app, r := foundationApp(t)
 	if code, _, diag := invoke(t, app, "install"); code != 0 {
 		t.Fatal(diag)
 	}
-	input := &gatewayInput{state: "current"}
-	if state, err := native.ConvergeGateway(context.Background(), r.id, r.context, input); err != nil || state != "current" {
-		t.Fatal(state, err)
-	}
-	input.state = "not-running"
-	if _, err := native.ConvergeGateway(context.Background(), r.id, r.context, input); err == nil {
-		t.Fatal("stopped gateway accepted")
+	input := &gatewayInput{kanban: `{"dispatch_in_gateway":true,"max_in_progress":5}`, pid: 10}
+	app.Initializer = input
+	var out, diag bytes.Buffer
+	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got == 0 || len(input.scripts) != 0 {
+		t.Fatal("owner dispatch policy overwritten")
 	}
 }

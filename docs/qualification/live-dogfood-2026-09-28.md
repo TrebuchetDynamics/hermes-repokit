@@ -88,3 +88,26 @@ contributor validation; it is not an installation prerequisite.
 
 These fixtures are credential-free and do not replace the live researcher evidence
 above. Concurrent SELinux work in the main checkout was excluded from this delivery.
+
+## Recipe upgrade and restart (2026-09-29)
+
+Before migration: native `hermes backup` (594 MB), a consistent Kanban copy (20
+cards) and the generated files were saved; no card was running. `install`
+recognized the older generated recipe by its self-certifying fingerprint, saved
+`compose.before-recipe-3033add1f051.yaml` and the exact old recipe beside it,
+removed the obsolete entrypoint patch file and published the new recipe. The
+printed Compose command rebuilt `repokit/hermes-repokit:3fb6500b99fc07711dcd3ef3`
+and recreated the one container. A second `install` reconciled all six profiles
+without drift and left the operational dispatch policy and gateway untouched.
+
+Afterwards the six SOUL/description/config files and all 20 cards (id, status,
+assignee) were unchanged; the dispatch policy was intact; `hermes-repokit` ran
+from `/tmp`. The native main-wrapper re-registered the s6 gateway services: the
+default gateway was running about 5 seconds after recreation and again after
+`docker restart`. `verify` then reported `CORE_READY` healthy (same-card review
+evidence `t_b170ab94`) and `MEMORY_READY` inactive (OpenViking not configured).
+
+`verify --dispatch-check` on the restarted gateway passed in 80 seconds: card
+`t_ee305797` went created → claimed → spawned → completed → archived with no
+manual dispatch; the researcher returned the exact README first line with
+`changed_files: []`. Telegram round-trip delivery was not exercised.

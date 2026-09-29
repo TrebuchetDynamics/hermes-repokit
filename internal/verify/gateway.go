@@ -3,157 +3,139 @@ package verify
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"io"
-	"regexp"
-	"strings"
+	"sort"
 
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/gateway"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
 
-// Gateway observes current inputs AND the native process. The receipt alone
-// never certifies health or session freshness.
+// hermesCLI runs one read-only public Hermes command in the verified runtime.
+func hermesCLI(ctx context.Context, r Runner, dc, container string, args ...string) (string, bool) {
+	argv := append([]string{"--context", dc, "exec", "--user", "hermes", "--workdir", "/", container, "/usr/local/bin/hermes", "-p", "default"}, args...)
+	out := r.Run(ctx, "docker", argv...)
+	if out.Err != nil || out.Truncated {
+		return "", false
+	}
+	return out.Output, true
+}
+
+// Gateway reports the default gateway process from public `gateway status`.
+// A running process is not proof that a message was delivered.
 func Gateway(ctx context.Context, id target.Identity, r Runner) []Probe {
-	result := []Probe{{"gateway-generation", Unknown, "native gateway generation unavailable"}}
+	probe := Probe{"gateway", Unknown, "gateway status unavailable"}
 	dc, container, err := integrationRuntime(ctx, id, r)
 	if err != nil {
-		return append(result, dispatchProbes(dispatchObservation{})...)
+		return []Probe{probe}
 	}
-	script := gateway.Script(id, false)
-	var output process.Result
-	if ir, ok := r.(interface {
-		RunInput(context.Context, io.Reader, string, ...string) process.Result
-	}); ok {
-		// Native SOUL contracts make the one-shot script larger than the kernel's
-		// per-argument exec limit, so stream it on stdin exactly as the native
-		// convergence path does rather than passing it through -c.
-		output = ir.RunInput(ctx, strings.NewReader(script), "docker", "--context", dc, "exec", "-i", "--user", "hermes", "--workdir", "/", container, "/opt/hermes/.venv/bin/python", "-I", "-B", "-")
-	} else {
-		output = r.Run(ctx, "docker", "--context", dc, "exec", "--user", "hermes", "--workdir", "/", container, "/opt/hermes/.venv/bin/python", "-I", "-B", "-c", script)
-	}
-	var observed struct {
-		Gateway                  string
-		Dispatch                 dispatchObservation `json:"dispatch"`
-		Identities, Descriptions map[string]bool
-		PID                      int    `json:"pid"`
-		ManagedGeneration        string `json:"managed_generation"`
-		LiveGeneration           string `json:"live_generation"`
-		RestartPending           string `json:"restart_pending"`
-		Channels                 struct {
-			Rows []channelObservation `json:"rows"`
-		} `json:"channels"`
-	}
-	if output.Err != nil || output.Truncated || json.Unmarshal([]byte(output.Output), &observed) != nil {
-		return append(result, dispatchProbes(dispatchObservation{})...)
-	}
-	switch observed.Gateway {
-	case "current":
-		result[0] = Probe{"gateway-generation", Healthy, "managed generation matches healthy gateway and observed adapters; configured-channel completeness and existing sessions unverified"}
-	case "stale":
-		result[0] = Probe{"gateway-generation", Degraded, "running gateway predates changed managed state; reconcile through setup"}
-	case "not-running":
-		result[0] = Probe{"gateway-generation", Inactive, "gateway not running; no messaging readiness claimed"}
-	}
-	roster := Probe{"team-roster", Healthy, "all six repository identities and descriptions match; native worker execution unqualified"}
-	for _, role := range team.Roster() {
-		p := Probe{"description:" + role.Name, Healthy, "native profile description matches repository role"}
-		if !observed.Descriptions[role.Name] {
-			p.Status = Degraded
-			p.Detail = "profile description absent or drifted; owner state preserved"
-		}
-		result = append(result, p)
-		if !observed.Identities[role.Name] || !observed.Descriptions[role.Name] {
-			roster.Status = Degraded
-			roster.Detail = "repository identity, permanent roster or role description missing/drifted"
+	if out, ok := hermesCLI(ctx, r, dc, container, "gateway", "status"); ok {
+		if pid, err := native.GatewayPID(out); err == nil && pid > 0 {
+			probe = Probe{"gateway", Healthy, "default gateway running; message delivery is not observed by verify"}
+		} else if err == nil {
+			probe = Probe{"gateway", Inactive, "default gateway not running; no messaging or automatic dispatch"}
 		}
 	}
-	identity := Probe{"default-identity", Healthy, "repository-specific default orchestrator identity and permanent roster match"}
-	if !observed.Identities["default"] {
-		identity.Status = Degraded
-		identity.Detail = "repository-specific orchestrator SOUL missing or drifted"
-	}
-	if observed.PID > 1 {
-		result = append(result, Probe{"gateway-process", Healthy, fmt.Sprintf("observed PID=%d; this is process evidence, not a message round trip", observed.PID)})
-	}
-	if generationPattern.MatchString(observed.ManagedGeneration) {
-		live := "unknown"
-		if generationPattern.MatchString(observed.LiveGeneration) {
-			live = observed.LiveGeneration
-		}
-		pending := "unknown"
-		if observed.RestartPending == "yes" || observed.RestartPending == "no" {
-			pending = observed.RestartPending
-		}
-		result = append(result, Probe{"gateway-inputs", Unknown, "managed=" + observed.ManagedGeneration + "; live=" + live + "; restart_pending=" + pending})
-	}
-	result = append(result, dispatchProbes(observed.Dispatch)...)
-	result = append(result, channelProbes(observed.Channels.Rows)...)
-	result = append(result, Probe{"maintenance:live", Unqualified, "native restart broker requires scanner admission and model-initiated successor acceptance; configuration does not prove self-restart"})
-	return append(result, identity, roster)
+	return []Probe{probe}
 }
 
-var generationPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var nonInteractive = map[string]bool{"acp": true, "api_server": true, "cron": true, "webhook": true}
 
-type channelObservation struct {
-	Platform      string `json:"platform"`
-	Preset        string `json:"preset"`
-	Routing       string `json:"default_routing"`
-	Core          string `json:"core_selection"`
-	Owner         string `json:"owner"`
-	Adapter       string `json:"recorded_adapter_state"`
-	Authorization string `json:"authorization"`
+// DefaultKanban observes the native dispatch policy, completion notifications
+// and the default profile's per-channel Kanban/memory tools through `config get`.
+func DefaultKanban(ctx context.Context, id target.Identity, r Runner) []Probe {
+	dispatch := Probe{"kanban:dispatch", Unknown, "native dispatch configuration unavailable"}
+	notify := Probe{"kanban:notifications", Unknown, "completion notification configuration unavailable"}
+	channels := []Probe{{"channels", Unknown, "default channel tool selections unavailable"}}
+	dc, container, err := integrationRuntime(ctx, id, r)
+	if err != nil {
+		return append([]Probe{dispatch, notify}, channels...)
+	}
+	var kanban map[string]any
+	if out, ok := hermesCLI(ctx, r, dc, container, "config", "get", "kanban", "--json"); ok && json.Unmarshal([]byte(out), &kanban) == nil && kanban != nil {
+		switch {
+		case native.OperationalPolicy(kanban):
+			dispatch = Probe{"kanban:dispatch", Healthy, "automatic dispatch configured on default: review dispatch, six-profile allowlist, max_in_progress=1, auto_decompose=false"}
+		case kanban["dispatch_in_gateway"] == true:
+			dispatch = Probe{"kanban:dispatch", Degraded, "dispatch enabled with an owner-changed policy; RepoKit preserves it"}
+		case kanban["dispatch_in_gateway"] == false || kanban["dispatch_in_gateway"] == nil:
+			dispatch = Probe{"kanban:dispatch", Inactive, "automatic dispatch off; run setup to enable it"}
+		}
+		if kanban["auto_subscribe_on_create"] == true && kanban["notify_in_gateway"] == true {
+			notify = Probe{"kanban:notifications", Healthy, "completion subscriptions configured; originating-channel delivery not observed"}
+		} else {
+			notify = Probe{"kanban:notifications", Degraded, "completion subscription or gateway notification disabled"}
+		}
+	}
+	var selections map[string]any
+	if out, ok := hermesCLI(ctx, r, dc, container, "config", "get", "platform_toolsets", "--json"); ok && json.Unmarshal([]byte(out), &selections) == nil {
+		channels = channelTools(selections)
+	}
+	return append([]Probe{dispatch, notify}, channels...)
 }
 
-func channelProbes(rows []channelObservation) []Probe {
-	if len(rows) == 0 || len(rows) > 128 {
-		return []Probe{{"channels", Unknown, "channel projection unavailable; no routing or interactive capability acceptance claimed"}}
-	}
+// channelTools requires Kanban and memory on every saved human-facing channel
+// of default so Telegram and CLI can create and follow the same work.
+func channelTools(selections map[string]any) []Probe {
 	var result []Probe
-	for _, row := range rows {
-		if !platformName.MatchString(row.Platform) || !platformName.MatchString(row.Preset) {
+	for platform, raw := range selections {
+		if nonInteractive[platform] || !platformName.MatchString(platform) {
 			continue
 		}
-		core := Probe{"channel:" + row.Platform + ":core", Unknown, "native preset=" + row.Preset + "; saved core selection unresolved"}
-		if row.Core == "complete" {
-			core.Status = Healthy
-			core.Detail = "native preset=" + row.Preset + "; saved core selection includes required categories; provider availability and session schemas unverified"
+		tools, _ := raw.([]any)
+		have := map[string]bool{}
+		for _, t := range tools {
+			if s, ok := t.(string); ok {
+				have[s] = true
+			}
 		}
-		if row.Owner == "other" {
-			core.Status = Unknown
-			core.Detail = "saved default selections do not establish capabilities of another profile's adapter"
+		p := Probe{"channel:" + platform, Healthy, "default has kanban and memory tools on this channel"}
+		if !have["kanban"] || !have["memory"] {
+			p = Probe{"channel:" + platform, Degraded, "default lacks kanban or memory here; run: hermes-<repo> -p default tools enable kanban memory --platform " + platform}
 		}
-		if row.Core == "incomplete" {
-			core.Status = Degraded
-			core.Detail = "required core categories missing/disabled; reconcile with setup --team"
-		}
-		route := Probe{"channel:" + row.Platform + ":route", Unknown, "effective routing unresolved; recorded adapter state is not a message probe"}
-		if row.Routing == "default" {
-			route.Detail = "default in declared routing projection; effective overlays and live message routing unverified"
-		}
-		if row.Routing == "conditional_other" {
-			route.Status = Unqualified
-			route.Detail = "declared routes may select another served profile; this channel can represent another agent"
-		}
-		if row.Owner == "other" {
-			route.Status = Unqualified
-			route.Detail = "recorded adapter belongs to another profile; default parity is not established"
-		}
-		auth := Probe{"channel:" + row.Platform + ":authorization", Unknown, "effective authorization unresolved; no credential stores or pairing records inspected"}
-		if row.Platform == "cli" {
-			auth.Status = Unqualified
-			auth.Detail = "local shell access; remote channel authorization does not apply"
-		}
-		if row.Authorization == "restricted" {
-			auth.Detail = "restrictive sender declarations present; environment overrides, pairing and effective access unverified"
-		}
-		if row.Authorization == "open" {
-			auth.Status = Degraded
-			auth.Detail = "declared open/wildcard access; do not certify this remote development channel until authorization is qualified"
-		}
-		result = append(result, core, route, auth)
+		result = append(result, p)
 	}
+	if len(result) == 0 {
+		return []Probe{{"channels", Unknown, "no saved per-channel selections for default; channels configured only by environment are not observed"}}
+	}
+	sort.Slice(result, func(i, j int) bool { return result[i].Component < result[j].Component })
 	return result
+}
+
+// ReviewEvidence searches recent completed cards for native same-card review:
+// an implementation run that requested review followed by a completed run of
+// the reviewer profile, with distinct actors. Read-only public Kanban output.
+func ReviewEvidence(ctx context.Context, id target.Identity, r Runner) Probe {
+	probe := Probe{"review:evidence", Unknown, "Kanban history unavailable"}
+	dc, container, err := integrationRuntime(ctx, id, r)
+	if err != nil {
+		return probe
+	}
+	out, ok := hermesCLI(ctx, r, dc, container, "kanban", "list", "--status", "done", "--sort", "completed-desc", "--json")
+	var tasks []struct {
+		ID string `json:"id"`
+	}
+	if !ok || json.Unmarshal([]byte(out), &tasks) != nil {
+		return probe
+	}
+	if len(tasks) > 5 {
+		tasks = tasks[:5]
+	}
+	for _, task := range tasks {
+		out, ok := hermesCLI(ctx, r, dc, container, "kanban", "show", task.ID, "--json")
+		var record struct {
+			Runs []struct{ Profile, Outcome string } `json:"runs"`
+		}
+		if !ok || json.Unmarshal([]byte(out), &record) != nil {
+			continue
+		}
+		implementer := ""
+		for _, run := range record.Runs {
+			if run.Outcome == "review_requested" && run.Profile != "reviewer" {
+				implementer = run.Profile
+			}
+			if implementer != "" && run.Profile == "reviewer" && run.Outcome == "completed" {
+				return Probe{"review:evidence", Healthy, "card " + task.ID + ": " + implementer + " requested review and reviewer completed it on the same card"}
+			}
+		}
+	}
+	return Probe{"review:evidence", Unqualified, "no same-card executor→reviewer completion among recent done cards; run real work or verify --dispatch-check"}
 }

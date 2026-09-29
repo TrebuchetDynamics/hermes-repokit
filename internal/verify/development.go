@@ -2,23 +2,23 @@ package verify
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
+	"os"
+	"reflect"
+	"regexp"
+	"sort"
+	"strings"
+
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/dockertest"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
-	"os"
-	"reflect"
-	"sort"
-	"strings"
 )
 
-//go:embed development_probe.py
-var developmentProbe string
+var developmentVersionText = regexp.MustCompile(`^[A-Za-z0-9_ .()+,/:~\-]+$`)
 
 func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
-	result := []Probe{{"development_environment", Unknown, "qualified runtime unavailable; tool presence alone is not coding acceptance"}}
+	result := []Probe{{"development_environment", Unknown, "qualified coding runtime unavailable"}}
 	req, err := development.Detect(id.Root)
 	if err != nil {
 		result[0] = Probe{"development_environment", Degraded, "repository manifests cannot be safely inspected"}
@@ -28,68 +28,46 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 	if err != nil {
 		return append(result, dockerAcceptance(ctx, id, r))
 	}
-	mode := "base"
+	// Resolve tools by name in a login shell, as worker terminals do, rather
+	// than trusting an absolute path that workers might not discover.
+	tools := []struct{ name, command string }{
+		{"git", "git --version"}, {"bash", "bash --version"}, {"curl", "curl --version"},
+		{"jq", "jq --version"}, {"rg", "rg --version"}, {"python", "python3 --version"},
+		{"node", "node --version"}, {"npm", "npm --version"}, {"make", "make --version"},
+		{"gcc", "gcc --version"}, {"g++", "g++ --version"}, {"docker", "docker --version"},
+		{"compose", "docker compose version --short"}, {"buildx", "docker buildx version"},
+	}
 	if req.Go {
-		mode = "go"
-	}
-	out := r.Run(ctx, "docker", "--context", dc, "exec", "--user", "hermes", "--workdir", "/workspace", container, "/opt/hermes/.venv/bin/python", "-I", "-B", "-c", developmentProbe, mode)
-	var observed struct {
-		Tools map[string]struct {
-			OK      bool `json:"ok"`
-			Version string
-		}
-		Workspace, Certificates bool
-		RuntimeCommands         bool `json:"runtime_commands"`
-		Profiles                map[string]bool
-	}
-	if out.Err != nil || out.Truncated || json.Unmarshal([]byte(out.Output), &observed) != nil {
-		return append(result, dockerAcceptance(ctx, id, r))
+		tools = append(tools, struct{ name, command string }{"go", "go version"})
 	}
 	missing := append([]string(nil), req.Unsupported...)
-	expected := []string{"git", "bash", "curl", "jq", "rg", "python", "node", "npm", "make", "gcc", "g++", "docker", "compose", "buildx"}
-	if req.Go {
-		expected = append(expected, "go")
-	}
-	for _, name := range expected {
-		tool := observed.Tools[name]
+	for _, tool := range tools {
+		out := r.Run(ctx, "docker", "--context", dc, "exec", "--user", "hermes", "--workdir", "/workspace", container, "/usr/bin/bash", "-lc", tool.command)
+		version := ""
+		if out.Err == nil && !out.Truncated {
+			version = strings.TrimSpace(strings.SplitN(out.Output, "\n", 2)[0])
+			if len(version) > 160 {
+				version = version[:160] // e.g. curl lists every linked library
+			}
+		}
 		status := Healthy
-		if !tool.OK {
+		if version == "" || !developmentVersionText.MatchString(version) {
+			status, version = Degraded, "unavailable"
+		} else if tool.name == "compose" && strings.TrimPrefix(version, "v") != development.ComposeVersion ||
+			tool.name == "buildx" && !containsVersionToken(version, "v"+development.BuildxVersion) ||
+			tool.name == "go" && !strings.HasPrefix(version, "go version go"+development.GoVersion+" ") {
 			status = Degraded
-			missing = append(missing, name+" unavailable")
 		}
-		if name == "compose" && tool.OK && strings.TrimPrefix(tool.Version, "v") != development.ComposeVersion {
-			status = Degraded
-			missing = append(missing, "Docker Compose plugin version differs")
+		if status == Degraded {
+			missing = append(missing, tool.name+" unavailable or version differs")
 		}
-		if name == "buildx" && tool.OK && !containsVersionToken(tool.Version, "v"+development.BuildxVersion) {
-			status = Degraded
-			missing = append(missing, "Docker Buildx plugin version differs")
-		}
-		if name == "go" && tool.OK && !strings.HasPrefix(tool.Version, "go version go"+development.GoVersion+" ") {
-			status = Degraded
-			missing = append(missing, "Go version differs from qualified recipe")
-		}
-		result = append(result, Probe{"development:" + name, status, tool.Version})
-	}
-	if !observed.RuntimeCommands {
-		missing = append(missing, "image commands missing from login-shell search path")
-	}
-	if !observed.Workspace {
-		missing = append(missing, "/workspace is not the writable workdir")
-	}
-	if !observed.Certificates {
-		missing = append(missing, "CA bundle absent")
-	}
-	for _, name := range []string{"default", "researcher", "planner", "executor", "reviewer", "steward"} {
-		if !observed.Profiles[name] {
-			missing = append(missing, name+" terminal not configured for local /workspace")
-		}
+		result = append(result, Probe{"development:" + tool.name, status, version})
 	}
 	if len(missing) > 0 {
 		sort.Strings(missing)
 		result[0] = Probe{"development_environment", Degraded, strings.Join(missing, "; ")}
 	} else {
-		result[0] = Probe{"development_environment", Healthy, "required tools and image command links available; six profiles select local /workspace; live worker behavior remains separate"}
+		result[0] = Probe{"development_environment", Unqualified, "required tools resolve by name in a worker-style login shell; live coding behavior is proved by reviewed work"}
 	}
 	return append(result, dockerAcceptance(ctx, id, r))
 }

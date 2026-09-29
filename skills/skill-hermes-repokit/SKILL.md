@@ -18,11 +18,12 @@ Report capabilities independently; container health is not component readiness:
 - **Memory:** embedded OpenViking, reported as healthy, degraded, pending or unknown.
 - **Channels:** CLI and configured human-facing adapters route to `default`.
 
-`CORE_READY` means the core team, automatic dispatch and required development
-runtime work, the researcher canary passed, and configured channels meet their
-readiness checks. `FULL_READY` adds authenticated OpenViking readiness. These are
-reporting labels; do not assume the selected CLI emits them. Memory recall,
-reviewer independence and end-to-end delivery still need behavioral evidence.
+`verify` prints `CORE_READY`, `MEMORY_READY` and `FULL_READY` first. Core is
+`healthy` only when configuration, runtime, toolchain, dispatch policy, gateway and
+channel tools are healthy and native card history shows same-card executor→reviewer
+completion; `unqualified` means configured but the loop is not yet observed.
+Passive verify never proves memory. End-to-end channel delivery still needs
+behavioral evidence.
 
 Core readiness must not depend on OpenViking availability. An observed working
 project may be `CORE_READY` with memory degraded or pending. If the selected
@@ -78,20 +79,19 @@ versions differ. Do not assume `--version` or release binaries exist.
   core repository-development, Kanban and memory capabilities expected from CLI.
   Setup owns parity; do not require manual per-channel Kanban enablement. Memory
   capability can remain available while its service is reported degraded.
-- Kanban is canonical. Successful setup gates operational dispatch on core
-  Hermes/team readiness and a real researcher canary. OpenViking readiness is
-  reported separately and does not block core team execution.
+- Kanban is canonical. Setup enables native dispatch on `default` through
+  `hermes config set` and one gateway restart after the team reconciles. It never
+  runs a worker itself. OpenViking readiness never blocks core team execution.
 
 ```text
 install → dispatch off
-setup/reconcile → core prerequisites ready
-gateway claims no-write researcher canary → completion observed
-operational → automatic execution and review on
+setup → team reconciled → native dispatch policy set → gateway restarted
+verify --dispatch-check (explicit, paid) → gateway claims no-write researcher card
+real task → executor → same-card reviewer → verify shows review evidence
 ```
 
-Setup starts the gateway dispatcher to run its canary; operational status requires
-observing that gateway claim and researcher completion without manual dispatch.
-Concurrency stays one and automatic decomposition stays off.
+Setup refuses while a card is running and preserves an owner-changed dispatch
+policy. Concurrency stays one and automatic decomposition stays off.
 
 ## Repair and migration boundaries
 

@@ -149,17 +149,10 @@ repair required capabilities. Credentials, authentication, destructive changes,
 and review independence are outside that authority.
 Steward still owns specialist lifecycle. These are advisory SOUL boundaries.
 
-The bundled `repokit_maintenance` native plugin brokers only graceful restart
-requests and successor observations. Setup installs it through Hermes's scanner
-and pinned local Git installer; scanner refusal and edited source stop setup.
-It neither edits configuration nor invokes RepoKit. The serving default process
-must be supervised. This older self-restart broker admits only dispatch-off mode;
-with operational dispatch it reports deferred. Ready/running/review work also
-defers this broker. Source setup uses its separate native board-lock fence and
-graceful restart path for operational reconciliation. Native drain accounting does not include Kanban subprocesses;
-the conservative admission snapshot is not atomic with concurrent external CLI
-dispatch. Live self-restart remains unqualified until the Docker and originating
-channel acceptance tests pass; a request acknowledgement is not success.
+RepoKit no longer bundles a maintenance runtime plugin. Hermes owns gateway
+restart and worker lifecycle. RepoKit may invoke the public native commands
+during setup, but live self-restart remains unqualified until Hermes exposes
+and proves the required behavior through supported interfaces.
 
 Messaging is a remote development interface. Default may directly inspect files,
 search Git/repository state and run diagnostics; substantive changes use Kanban,
@@ -218,20 +211,11 @@ Specialists keep dispatch disabled. SOUL distinguishes persistent profiles
 from running workers and requires inspection of live dispatch before promising
 progress; it never uses one-shot dispatch to bypass incomplete activation.
 
-Activation checks replacement-process identity, native singleton-lock ownership,
-startup settings and a real gateway-spawned researcher canary. The canary is a
-no-write task that returns the exact first physical README line in structured
-metadata. Setup admits only researcher until that evidence passes and the worker
-exits, then releases the full profile allowlist. This does not establish Telegram delivery or independent
-review acceptance. See [setup and recovery](bootstrap-quickstart.md).
-
-Successful setup stages finish with one native gateway convergence operation.
-A process-bound hash of managed inputs is diagnostic state only: runtime chat,
-plugins, Kanban and memory never call RepoKit or read its generation receipt.
-`verify` independently compares current files, process identity, native heartbeat,
-loop liveness and previously observed adapters. It reports current, stale,
-not-running or unknown. Missing/changed process evidence never passes from a
-receipt alone. See [qualification and limits](qualification/gateway-convergence.md).
+Setup configures this policy through public `hermes config set`, restarts the
+gateway once, and observes a replacement PID. It does not claim a worker ran.
+`verify --dispatch-check` is the explicit researcher proof, and `verify` reports
+same-card executor→reviewer evidence from native card history. Neither
+establishes Telegram delivery. See [setup and recovery](bootstrap-quickstart.md).
 
 ## Shared development capability
 

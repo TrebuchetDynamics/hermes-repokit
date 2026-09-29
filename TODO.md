@@ -13,6 +13,10 @@ shared Kanban, embedded OpenViking and ordinary Compose/native lifecycle.
 - [x] Build and qualify the current single-container image in a Docker-enabled environment (embedded OpenViking pending fixture plus development-runtime, foundation, Kanban and maintenance Docker fixtures pass).
 - [x] Run required Unix-socket tests outside the restricted sandbox.
 - [x] Prove live gateway-spawned researcher canary and automatic execution of the original queued research task.
+- [x] Upgrade the live dogfood deployment's HEAD-era recipe with `install` + Compose recreate; profiles, board, dispatch policy and launcher preserved; `verify` CORE_READY healthy.
+- [x] Prove the gateway and dispatcher return after Compose recreate and `docker restart` (native main-wrapper re-registers s6 gateway services; dispatch check passed after restart).
+- [x] Run `verify --dispatch-check` with a real provider (live dogfood, after restart). A fresh-deployment run remains open.
+- [ ] OpenViking shutdown: the upstream entrypoint's TERM wait race is no longer patched. Not reproducible while memory is unconfigured (pending server only); re-check after `setup --memory`.
 - [ ] Prove originating-channel task/result delivery.
 - [ ] Prove genuine same-card executor/reviewer correction and approval.
 - [ ] Prove cross-profile memory write/recall, restart persistence and repository isolation.

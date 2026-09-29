@@ -2,7 +2,6 @@ package verify
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
@@ -16,8 +15,7 @@ import (
 
 type devRunner struct {
 	*integrationRunner
-	toolData string
-	derived  string
+	derived string
 }
 
 func (r *devRunner) Run(ctx context.Context, p string, args ...string) process.Result {
@@ -25,9 +23,6 @@ func (r *devRunner) Run(ctx context.Context, p string, args ...string) process.R
 	if strings.HasSuffix(call, "/usr/local/bin/repokit-openviking health") {
 		r.calls = append(r.calls, append([]string{p}, args...))
 		return process.Result{Output: r.health}
-	}
-	if strings.Contains(call, developmentProbe) {
-		return process.Result{Output: r.toolData}
 	}
 	if strings.Contains(call, "image inspect") {
 		if args[len(args)-1] == qualification.FoundationImage {
@@ -37,51 +32,21 @@ func (r *devRunner) Run(ctx context.Context, p string, args ...string) process.R
 	}
 	return r.integrationRunner.Run(ctx, p, args...)
 }
-func TestDevelopmentReadinessRequiresRealToolsAndProfileWorkdirs(t *testing.T) {
+func TestDevelopmentDoesNotClaimCodingAcceptanceFromToolPresence(t *testing.T) {
 	id, base := integrationFixture(t)
 	r := &devRunner{integrationRunner: base}
-	os.WriteFile(filepath.Join(id.Root, "go.mod"), []byte("module fixture\ngo 1.26.0\n"), 0600)
-	tools := map[string]any{}
-	for _, name := range []string{"git", "bash", "curl", "jq", "rg", "python", "node", "npm", "make", "gcc", "g++", "docker"} {
-		tools[name] = map[string]any{"ok": true, "version": "fixture version"}
+	probes := Development(context.Background(), id, r)
+	if probes[0].Status == Healthy {
+		t.Fatalf("tool presence certified coding: %+v", probes[0])
 	}
-	tools["compose"] = map[string]any{"ok": true, "version": development.ComposeVersion}
-	tools["buildx"] = map[string]any{"ok": true, "version": "github.com/docker/buildx v" + development.BuildxVersion}
-	tools["go"] = map[string]any{"ok": true, "version": "go version go" + development.GoVersion + " linux/amd64"}
-	profiles := map[string]bool{}
-	for _, name := range []string{"default", "researcher", "planner", "executor", "reviewer", "steward"} {
-		profiles[name] = true
-	}
-	data := map[string]any{"tools": tools, "workspace": true, "runtime_commands": true, "certificates": true, "profiles": profiles}
-	encode := func() { b, _ := json.Marshal(data); r.toolData = string(b) }
-	encode()
-	if got := Development(context.Background(), id, r); got[0].Status != Healthy {
-		t.Fatal(got)
-	}
-	data["runtime_commands"] = false
-	encode()
-	if got := Development(context.Background(), id, r); got[0].Status != Degraded {
-		t.Fatal("missing login-shell entrypoints accepted", got)
-	}
-	data["runtime_commands"] = true
-	tools["go"] = map[string]any{"ok": false, "version": "unavailable"}
-	encode()
-	if got := Development(context.Background(), id, r); got[0].Status != Degraded {
-		t.Fatal("missing Go accepted", got)
-	}
-	tools["go"] = map[string]any{"ok": true, "version": "go version go" + development.GoVersion + " linux/amd64"}
-	profiles["executor"] = false
-	encode()
-	if got := Development(context.Background(), id, r); got[0].Status != Degraded {
-		t.Fatal("wrong profile workdir accepted", got)
-	}
-	profiles["executor"] = true
-	os.WriteFile(filepath.Join(id.Root, "Cargo.toml"), []byte("[package]\n"), 0600)
-	encode()
-	if got := Development(context.Background(), id, r); got[0].Status != Degraded || !strings.Contains(got[0].Detail, "rust") {
-		t.Fatal("unsupported compiler accepted", got)
+	for _, call := range r.calls {
+		joined := strings.Join(call, " ")
+		if strings.Contains(joined, " -c ") {
+			t.Fatalf("custom Python probe executed: %s", joined)
+		}
 	}
 }
+
 func TestDerivedImageRequiresRecipeContentIDAndBaseLayers(t *testing.T) {
 	id, base := integrationFixture(t)
 	req := development.Requirements{Go: true}

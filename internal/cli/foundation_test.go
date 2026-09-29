@@ -245,7 +245,10 @@ func TestEngineeringProfilesCanBeSelectedBeforeSidecars(t *testing.T) {
 	}
 }
 
-func (r *foundationRunner) RunInput(_ context.Context, _ io.Reader, _ string, _ ...string) process.Result {
+func (r *foundationRunner) RunInput(_ context.Context, input io.Reader, _ string, args ...string) process.Result {
+	if input == nil && strings.Contains(strings.Join(args, " "), " config get ") {
+		return process.Result{Output: "null"} // public CLI read: nothing configured yet
+	}
 	return process.Result{Output: `REPOKIT_TEAM={"status":"pending-setup","drift":[]}`, Err: os.WriteFile(filepath.Join(r.id.Root, ".hermes/kanban.db"), []byte("native board fixture"), 0600)}
 }
 
@@ -292,11 +295,12 @@ func TestVerifyDoesNotCertifyUnqualifiedIntegrations(t *testing.T) {
 	}
 	pending := map[string]bool{}
 	for _, p := range probes {
-		if p.Component == "openviking" || p.Component == "memory" || p.Component == "review" {
+		switch p.Component {
+		case "openviking", "memory", "review:evidence", "CORE_READY", "MEMORY_READY", "FULL_READY":
 			pending[p.Component] = p.Status != verify.Healthy
 		}
 	}
-	if !pending["openviking"] || !pending["memory"] || !pending["review"] {
+	if !pending["openviking"] || !pending["memory"] || !pending["review:evidence"] || !pending["CORE_READY"] || !pending["MEMORY_READY"] || !pending["FULL_READY"] {
 		t.Fatal("missing explicit integration gates")
 	}
 }
