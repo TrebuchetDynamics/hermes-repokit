@@ -1,8 +1,8 @@
-# Operational dispatch — source validation, live acceptance pending
+# Operational dispatch — qualification and recovery
 
-> Delivery follow-up: full offline and race suites now pass, including the
-> Unix-socket cases blocked in the earlier record below. Live dispatch acceptance
-> remains unqualified. See [delivery validation](../implementation-progress.md#git-delivery-validation-2026-09-28).
+> Live canary, executor pickup and same-card reviewer acceptance are verified
+> in the repair record below. Telegram delivery remains a separate gate.
+> The initial blocked validation table is retained as historical evidence.
 
 RepoKit now separates bootstrap dispatch-off from operational automatic dispatch.
 Setup requires all six native identities, provider resolution, channel tool parity,
@@ -56,8 +56,30 @@ second time merely to change the native hot-read allowlist. Any canary/release
 failure returns to dispatch-off/empty-list recovery.
 
 Offline validation: full Go suite, vet and targeted race tests (`native`,
-`gateway`, `cli`) passed. Live repair results are recorded separately after
-reinstallation; this section alone is not a live acceptance claim.
+`gateway`, `cli`) passed. Independent review found a receipt-failure release race
+and an incomplete initial-switch failure fence. Both were reproduced with failing
+tests, repaired, and re-reviewed successfully.
+
+Live repair: reinstalled through the supported installer convergence path on the
+owned `hermes-repokit` container after revalidating its concurrently updated name,
+Compose project and mounts. Preserved profile/config files and took a consistent
+private Kanban backup. Researcher canary `t_9ce082a8` ran through the native gateway,
+completed the first-line read and was archived. Read-only verification then
+reported the gateway generation, live dispatcher, six-profile policy and canary
+healthy. README card `t_b170ab94` was automatically claimed by executor as native
+run `14`; it was observed running and subsequently requested review. The card
+then entered `review`, assigned to `reviewer`. The gateway automatically claimed
+reviewer run `15`, which completed and accepted the same card. No manual dispatch
+command was used.
+The install already executed team reconciliation and the canary convergence path;
+no redundant `setup --team` restart was needed afterward.
+
+This proves dispatch recovery, README task pickup and distinct-actor same-card
+review completion. It does not prove Telegram notification delivery. The passive
+`verify` report still marks review unqualified because it does not inspect card
+run history; the native card supplies the live evidence above. Overall `verify`
+still returned nonzero because other acceptance gates remain open, including
+inactive optional memory. No memory configuration or provider was changed.
 
 ## Historical evidence from the initial change
 

@@ -23,6 +23,16 @@ class DispatchTest(unittest.TestCase):
                           ('review_dispatch',False),('auto_decompose',True),('max_in_progress',True)]:
             self.assertFalse(d.operational_policy({'kanban':dict(config['kanban'],**{key:value})}))
 
+    def test_researcher_only_policy_is_never_operational(self):
+        provisional={'kanban':dict(d.dispatch_policy('default'),dispatch_profiles=['researcher'])}
+        self.assertTrue(d.canary_policy(provisional))
+        self.assertFalse(d.operational_policy(provisional))
+        full={'kanban':d.dispatch_policy('default')}
+        self.assertTrue(d.operational_policy(full))
+        self.assertFalse(d.canary_policy(full))
+        for profiles in ([], ['executor'], ['researcher','executor']):
+            self.assertFalse(d.canary_policy({'kanban':dict(provisional['kanban'],dispatch_profiles=profiles)}))
+
     def test_live_requires_current_process_locked_and_startup_observed(self):
         receipt={'dispatch':{'max_in_progress':1,'interval':60}}
         self.assertEqual(d.dispatch_live(True,'current',True,receipt,False),'enabled')
