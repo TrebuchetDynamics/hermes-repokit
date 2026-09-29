@@ -9,7 +9,6 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 )
 
 // finishSetup is the single activation boundary after a successful stage.
@@ -39,10 +38,5 @@ func (a App) finishSetup(id target.Identity, dc string, code int, out, diag io.W
 		fmt.Fprintf(out, "Automatic dispatch is configured, but the default gateway is not running; messaging and dispatch start with it: %s -p default gateway start\n", id.Container)
 	}
 	fmt.Fprintln(out, "No worker has been exercised by setup. Prove the loop with `hermes-repokit verify --dispatch-check` (one researcher card, model cost) or a real reviewed task.")
-	for _, p := range verify.RuntimeIntegrations(context.Background(), id, a.Runner) {
-		if p.Component == "memory" {
-			fmt.Fprintf(diag, "Optional memory: %s. %s. Core dispatch does not depend on it; memory is user-managed.\n", p.Status, p.Detail)
-		}
-	}
 	return 0
 }

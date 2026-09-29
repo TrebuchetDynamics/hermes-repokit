@@ -224,7 +224,9 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 	}
 	runner := a.Initializer
 	if runner == nil {
-		runner = process.Runner{Timeout: 2 * time.Minute}
+		// Provisioning seven native profiles is a long chain of hermes calls;
+		// on a freshly booted container it exceeded two minutes and was killed.
+		runner = process.Runner{Timeout: 10 * time.Minute}
 	}
 	if err := a.waitForNativeCLI(id, dockerContext); err != nil {
 		fmt.Fprintln(stderr, "native initialization deferred:", err)
