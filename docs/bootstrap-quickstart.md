@@ -11,8 +11,11 @@ Use the printed start command so the intended Compose file and context are selec
 Building the pure-Go bootstrap with `CGO_ENABLED=0 go build ./cmd/hermes-repokit`
 requires Go, not a host C compiler. Race tests are contributor validation.
 From a RepoKit source checkout, `./install.sh` builds it with Go 1.26+ and
-installs the bootstrap as `~/.local/bin/repokit`; it does not download a release.
-The commands below use that bootstrap name.
+installs the bootstrap as `~/.local/bin/hermes-repokit` plus the `repokit`
+alias; it does not download a release. The commands below use `repokit`, which
+is always the bootstrap. Where a generated `hermes-<repo>` launcher already
+owns `hermes-repokit`, the installer preserves that launcher and reports the
+blocked name instead of replacing it.
 
 ```sh
 cd my-project
@@ -123,9 +126,11 @@ before use.
 In the `hermes-repokit` repository, the generated host command is
 `hermes-repokit`; the source-installed bootstrap is `repokit`. Use `repokit`
 for `plan`, `install`, `setup --team` and `verify`, and `hermes-repokit` for
-native Hermes commands. An independently built bootstrap named
-`hermes-repokit` still needs a separate absolute path. RepoKit preserves an
-unrelated existing host executable and reports the collision.
+native Hermes commands. The installer publishes both `hermes-repokit` and
+`repokit`, but this repository's generated launcher already owns
+`hermes-repokit`, so the installer preserves the launcher and reports the
+blocked name. RepoKit likewise preserves an unrelated existing host executable
+and reports the collision.
 
 For an exact earlier generated deployment, `install` saves the old Compose as
 `compose.before-names.yaml`, publishes the new launcher and image name, and leaves

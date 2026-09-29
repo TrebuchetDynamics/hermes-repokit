@@ -41,14 +41,20 @@ a RepoKit daemon.
 From a RepoKit source checkout, install the bootstrap CLI with Go 1.26+:
 
 ```sh
-./install.sh              # installs ~/.local/bin/repokit
+./install.sh              # installs ~/.local/bin/hermes-repokit and the repokit alias
 ```
 
 The script builds locally; it does not download an unpublished release. It
-preserves a conflicting `repokit` command and reports if `~/.local/bin` is not
-on PATH or another command shadows it. The installed CLI needs no host Go,
-Python, Node or Hermes. To prepare a repository, you also need Docker Compose,
-Git and a POSIX shell. Run these commands from the target repository:
+publishes one binary under `hermes-repokit` and the short `repokit` alias,
+updates a command it previously installed, and preserves any other existing
+command. A generated `hermes-<repo>` host launcher can already own the
+`hermes-repokit` name when a repository's name normalizes to `repokit`; the
+script reports that name with a relocation command instead of replacing the
+launcher. It also reports if `~/.local/bin` is not on PATH or another command
+shadows the bootstrap. The commands below use `repokit`, which is always the
+bootstrap. The installed CLI needs no host Go, Python, Node or Hermes. To
+prepare a repository, you also need Docker Compose, Git and a POSIX shell. Run
+these commands from the target repository:
 
 ```sh
 cd my-project

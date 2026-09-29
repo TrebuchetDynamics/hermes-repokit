@@ -42,6 +42,14 @@ func TestInstallScriptPublishesWorkingCLIAndRerunsSafely(t *testing.T) {
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0100 == 0 {
 		t.Fatalf("installed command is not an executable regular file: %v %v", info, err)
 	}
+	program := filepath.Join(bin, "hermes-repokit")
+	pinfo, err := os.Lstat(program)
+	if err != nil || !pinfo.Mode().IsRegular() || pinfo.Mode().Perm()&0100 == 0 {
+		t.Fatalf("canonical command is not an executable regular file: %v %v", pinfo, err)
+	}
+	if info, err := os.Stat(program); err != nil || !os.SameFile(info, mustStat(t, command)) {
+		t.Fatalf("both names must publish one binary: %v", err)
+	}
 	help, err := exec.Command(command, "--help").CombinedOutput()
 	if err != nil || !strings.Contains(string(help), "plan|install|setup|verify") {
 		t.Fatalf("installed command cannot run: %v\n%s", err, help)
@@ -60,6 +68,75 @@ func TestInstallScriptPublishesWorkingCLIAndRerunsSafely(t *testing.T) {
 	after, err := os.ReadFile(command)
 	if err != nil || string(before) != string(after) {
 		t.Fatalf("idempotent install changed the command: %v", err)
+	}
+}
+
+func TestInstallScriptBlocksGeneratedLauncher(t *testing.T) {
+	home := t.TempDir()
+	bin := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(bin, 0755); err != nil {
+		t.Fatal(err)
+	}
+	launcherDir := filepath.Join(home, ".hermes", "bin")
+	if err := os.MkdirAll(launcherDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(launcherDir, "hermes-repokit")
+	if err := os.WriteFile(target, []byte("#!/bin/sh\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(bin, "hermes-repokit")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	out, err := installScript(t, home, os.Getenv("PATH"))
+	if err == nil {
+		t.Fatalf("generated launcher was overwritten: %s", out)
+	}
+	if !strings.Contains(out, "generated repository launcher") || !strings.Contains(out, "mv -- ") {
+		t.Fatalf("missing launcher relocation guidance: %s", out)
+	}
+	if got, e := os.Readlink(link); e != nil || got != target {
+		t.Fatalf("launcher symlink changed: %v %q", e, got)
+	}
+	if _, e := os.Lstat(filepath.Join(bin, "repokit")); e != nil {
+		t.Fatalf("alias was not installed alongside the blocked name: %v", e)
+	}
+}
+
+func TestInstallScriptUpdatesOwnedBootstrap(t *testing.T) {
+	home := t.TempDir()
+	bin := filepath.Join(home, ".local", "bin")
+	path := bin + string(os.PathListSeparator) + os.Getenv("PATH")
+	if out, err := installScript(t, home, path); err != nil {
+		t.Fatalf("first install: %v\n%s", err, out)
+	}
+	alias := filepath.Join(bin, "repokit")
+	file, err := os.OpenFile(alias, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.Write([]byte("stale")); err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+	out, err := installScript(t, home, path)
+	if err != nil {
+		t.Fatalf("owned bootstrap was not updated: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "Updated RepoKit bootstrap") {
+		t.Fatalf("update was not reported: %s", out)
+	}
+	got, err := os.ReadFile(alias)
+	if err != nil {
+		t.Fatal(err)
+	}
+	program, err := os.ReadFile(filepath.Join(bin, "hermes-repokit"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(program) {
+		t.Fatalf("owned alias was not replaced with the current build")
 	}
 }
 
@@ -110,7 +187,7 @@ func TestInstallScriptReportsMissingPathEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("install: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "PATH") || !strings.Contains(out, filepath.Join(home, ".local", "bin", "repokit")) {
+	if !strings.Contains(out, "PATH") || !strings.Contains(out, filepath.Join(home, ".local", "bin", "hermes-repokit")) {
 		t.Fatalf("missing PATH warning or absolute command: %s", out)
 	}
 }
@@ -132,7 +209,7 @@ func TestInstallScriptHandlesRelativeTempDirectory(t *testing.T) {
 func TestInstallScriptWarnsWhenEarlierPathCommandShadowsIt(t *testing.T) {
 	home := t.TempDir()
 	foreign := t.TempDir()
-	if err := os.WriteFile(filepath.Join(foreign, "repokit"), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
+	if err := os.WriteFile(filepath.Join(foreign, "hermes-repokit"), []byte("#!/bin/sh\nexit 0\n"), 0755); err != nil {
 		t.Fatal(err)
 	}
 	bin := filepath.Join(home, ".local", "bin")
@@ -141,7 +218,16 @@ func TestInstallScriptWarnsWhenEarlierPathCommandShadowsIt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("install with shadowing command: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "shadow") || !strings.Contains(out, filepath.Join(bin, "repokit")) {
+	if !strings.Contains(out, "shadow") || !strings.Contains(out, filepath.Join(bin, "hermes-repokit")) {
 		t.Fatalf("shadowing command was not reported: %s", out)
 	}
+}
+
+func mustStat(t *testing.T, path string) os.FileInfo {
+	t.Helper()
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return info
 }

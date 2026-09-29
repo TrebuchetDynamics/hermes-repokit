@@ -44,42 +44,94 @@ tmp=
 trap 'if [ -n "$tmp" ]; then rm -f -- "$tmp"; fi; rm -rf -- "$build_dir"' 0
 
 printf 'Building RepoKit bootstrap from %s with %s...\n' "$root" "$(go version)"
-(cd "$root" && TMPDIR="$temp_root" CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$build_dir/repokit" ./cmd/hermes-repokit) || fail 'Go build failed'
+(cd "$root" && TMPDIR="$temp_root" CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$build_dir/hermes-repokit" ./cmd/hermes-repokit) || fail 'Go build failed'
 
 # Work relative to the checked directory, so a later path swap cannot redirect
 # the final hard link into a different destination.
-printf 'Checking installation target: %s/repokit\n' "$bin"
+printf 'Checking installation targets in %s\n' "$bin"
 cd -P -- "$bin" || fail 'cannot enter installation directory'
 safe_directory .
 tmp=$(mktemp ./.repokit.XXXXXXXX) || fail 'cannot create temporary command'
-cp -- "$build_dir/repokit" "$tmp" || fail 'cannot copy built command'
+cp -- "$build_dir/hermes-repokit" "$tmp" || fail 'cannot copy built command'
 chmod 700 -- "$tmp" || fail 'cannot make built command executable'
 
-if [ -e ./repokit ] || [ -L ./repokit ]; then
-    if [ -f ./repokit ] && [ ! -L ./repokit ] && cmp -s -- "$tmp" ./repokit; then
-        printf 'RepoKit bootstrap already installed: %s/repokit\n' "$bin"
-    else
-        fail "existing command at $bin/repokit differs; preserved unchanged. Remove or relocate it, then rerun ./install.sh"
-    fi
-else
-    ln -- "$tmp" ./repokit 2>/dev/null || fail "cannot publish command at $bin/repokit without replacing an existing entry"
-    printf 'Installed RepoKit bootstrap: %s/repokit\n' "$bin"
-fi
+# The program's own name is the canonical host command; `repokit` is a short
+# alias. Generated repository launchers are `hermes-<repo>`, so for a repository
+# whose name normalizes to `repokit` the `hermes-repokit` name is already a
+# generated launcher. That launcher, and any other unowned command, is preserved.
+owns_bootstrap() {
+    # A RepoKit-built binary embeds this exact usage string.
+    grep -aqF -- 'usage: hermes-repokit <plan|install|setup|verify>' "$1" 2>/dev/null
+}
 
-run_command=repokit
-case :${PATH:-}: in
-    *:"$bin":*)
-        resolved=$(command -v repokit 2>/dev/null || :)
-        if [ "$resolved" != "$bin/repokit" ]; then
-            printf 'Warning: %s shadows %s/repokit on PATH; use the absolute command or reorder PATH.\n' "$resolved" "$bin" >&2
-            run_command=$bin/repokit
+blocked=
+publish_command() {
+    name=$1
+    if [ -e "./$name" ] || [ -L "./$name" ]; then
+        if [ ! -L "./$name" ] && [ -f "./$name" ]; then
+            if cmp -s -- "$tmp" "./$name"; then
+                printf 'RepoKit bootstrap already installed: %s/%s\n' "$bin" "$name"
+                return 0
+            fi
+            if owns_bootstrap "./$name"; then
+                if ln -f -- "$tmp" "./$name" 2>/dev/null; then
+                    printf 'Updated RepoKit bootstrap: %s/%s\n' "$bin" "$name"
+                else
+                    printf 'Blocked: cannot replace the RepoKit bootstrap at %s/%s\n' "$bin" "$name" >&2
+                    blocked=1
+                fi
+                return 0
+            fi
         fi
-        ;;
-    *)
-        printf 'Add %s to PATH, or run %s/repokit directly.\n' "$bin" "$bin" >&2
-        run_command=$bin/repokit
-        ;;
-esac
+        if [ -L "./$name" ]; then
+            target=$(readlink -- "./$name" 2>/dev/null || :)
+            case $target in
+                */.hermes/bin/*)
+                    printf 'Blocked: %s/%s is a generated repository launcher -> %s\n' "$bin" "$name" "$target" >&2
+                    printf 'Relocate it to install the bootstrap under this name, then rerun ./install.sh:\n  mv -- %s/%s %s/%s.launcher\n' "$bin" "$name" "$bin" "$name" >&2
+                    blocked=1
+                    return 0
+                    ;;
+            esac
+        fi
+        printf 'Blocked: existing command at %s/%s differs; preserved unchanged. Remove or relocate it, then rerun ./install.sh\n' "$bin" "$name" >&2
+        blocked=1
+        return 0
+    fi
+    if ln -- "$tmp" "./$name" 2>/dev/null; then
+        printf 'Installed RepoKit bootstrap: %s/%s\n' "$bin" "$name"
+    else
+        printf 'Blocked: cannot publish command at %s/%s without replacing an existing entry\n' "$bin" "$name" >&2
+        blocked=1
+    fi
+}
+
+for name in hermes-repokit repokit; do
+    publish_command "$name"
+done
+
+[ -z "$blocked" ] || fail 'one or more bootstrap names were preserved; see the messages above'
+
+run_command=
+for name in hermes-repokit repokit; do
+    [ -f "$bin/$name" ] || continue
+    case :${PATH:-}: in
+        *:"$bin":*)
+            resolved=$(command -v "$name" 2>/dev/null || :)
+            if [ "$resolved" = "$bin/$name" ]; then
+                run_command=$name
+                break
+            fi
+            printf 'Warning: %s shadows %s/%s on PATH; use the absolute command or reorder PATH.\n' "${resolved:-$name}" "$bin" "$name" >&2
+            ;;
+        *)
+            printf 'Add %s to PATH, or run %s/%s directly.\n' "$bin" "$bin" "$name" >&2
+            run_command=$bin/$name
+            break
+            ;;
+    esac
+done
+[ -n "$run_command" ] || run_command=$bin/hermes-repokit
 printf '\nNext, from the repository you want to prepare:\n'
 printf '  %s plan\n  %s install\n' "$run_command" "$run_command"
 printf 'Run the printed Compose start command, then rerun %s install and complete %s setup in your private terminal.\n' "$run_command" "$run_command"
