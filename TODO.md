@@ -1,45 +1,138 @@
-# Hermes RepoKit progress
+# Hermes RepoKit TODO
 
-The maintained scope is one Hermes development container, six native profiles,
-shared Kanban, embedded OpenViking and ordinary Compose/native lifecycle.
-**Full v1 acceptance remains incomplete.**
+RepoKit configures a repository-specific Hermes team through public Hermes
+interfaces, proves what it can prove, then gets out of the way.
 
-- [x] Go bootstrapper and standalone native launcher.
-- [x] Repository ownership checks, private-state protection and conservative reruns.
-- [x] Six-role identities, native cloning and owner-drift preservation.
-- [x] Shared Kanban and source implementation of gated automatic dispatch/review.
-- [x] Embedded OpenViking configuration/linking and read-only health inspection.
-- [x] Generated development image and optional isolated Docker acceptance daemon.
-- [x] Build and qualify the current single-container image in a Docker-enabled environment (embedded OpenViking pending fixture plus development-runtime, foundation, Kanban and maintenance Docker fixtures pass).
-- [x] Run required Unix-socket tests outside the restricted sandbox.
-- [x] Prove live gateway-spawned researcher canary and automatic execution of the original queued research task.
-- [x] Upgrade the live dogfood deployment's HEAD-era recipe with `install` + Compose recreate; profiles, board, dispatch policy and launcher preserved; `verify` CORE_READY healthy.
-- [x] Prove the gateway and dispatcher return after Compose recreate and `docker restart` (native main-wrapper re-registers s6 gateway services; dispatch check passed after restart).
-- [x] Run `verify --dispatch-check` with a real provider (live dogfood, after restart). A fresh-deployment run remains open.
-- [ ] OpenViking shutdown: the upstream entrypoint's TERM wait race is no longer patched. Not reproducible while memory is unconfigured (pending server only); re-check after `setup --memory`.
-- [x] Prove originating-channel task/result delivery: Telegram → default → automatic executor → automatic same-card reviewer approval → result in the same chat (live dogfood, `t_6641c2b0`), surviving `docker restart`.
-- [ ] Prove a same-card request-changes correction cycle (approval is proven; a reviewer rejection → executor revision was not exercised).
-- [x] Prove a fresh, unrelated-repository bootstrap through the same Telegram loop: s3upload PASS ([record](docs/qualification/fresh-repo-s3upload-2026-09-29.md)). The earlier PMB clone trial was BLOCKED by an upstream Hermes worker import collision ([record](docs/qualification/fresh-repo-pmb-2026-09-29.md)); `verify` now detects it.
-- [ ] Fresh-install follow-ups from s3upload: bounded readiness wait for `install` right after Compose start; preferred free/self-hosted tool defaults (owner request; `ddgs` cannot install in the sealed Hermes environment).
-- [ ] Track upstream Hermes [#126127](https://github.com/NousResearch/hermes-agent/issues/126127) / [#126277](https://github.com/NousResearch/hermes-agent/pull/126277) (worker `python -m` import shadowing; RepoKit evidence commented). Requalify the pinned image once fixed and retire the `python-imports` probe if workers no longer see the workspace ([record](docs/qualification/python-import-collision.md)).
-- [ ] Fresh-install follow-ups from the PMB trial: collision remediation text, 775-root gate, `.hermes-repokit.lock` ignore, printing the one-time `gateway start` command, env-only channel observation.
-- [ ] Qualify coordinator behavior for vague requests (for example "Improve readme"), not only bounded tasks.
-- [ ] Prove cross-profile memory write/recall, restart persistence and repository isolation.
-- [ ] Complete integrated removal-first acceptance and bounded self-dogfood.
-- [ ] Resolve optional Superpowers candidate scanner admission if selected.
-- [ ] Qualify release toolchain/artifacts and supported architectures.
+**Released:** [v0.1.0](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.1.0)
+(one Hermes container per repository, six profiles, automatic dispatch with
+same-card review, evidence-based `verify`). The core loop is proven; memory is
+optional and not fully qualified.
 
-Native profiles, board, credentials and memory remain authoritative after RepoKit
-is removed. Installation does not start services. Setup owns private configuration
-and activation; verification is observational. Owner-selected optional plugins
-remain native Hermes concerns.
+## Proven in v0.1.0
 
-Historical credential-free fixture passes are recorded in [runtime observations](docs/qualification/runtime-observations.md).
-They do not qualify live model work. Git delivery validation passed the full
-offline and race suites, including Unix-socket operations, and a Docker-capable
-session passed the credential-free Docker fixtures (embedded OpenViking pending,
-development runtime, foundation, Kanban channels and maintenance). Live researcher
-execution also passed; memory, independent review and Telegram round-trip
-acceptance remain open.
-See [implementation status](docs/implementation-progress.md), [design](docs/superpowers/specs/2026-09-27-repokit-bootstrap-design.md)
-and [plan](docs/superpowers/plans/2026-09-27-repokit-bootstrap.md).
+- Live dogfood upgrade in place: profiles, Kanban, dispatch policy and launcher preserved ([record](docs/qualification/live-dogfood-2026-09-28.md)).
+- Telegram → `default` → `executor` → same-card `reviewer` → same chat, then `docker restart` with dispatch still working.
+- Fresh unrelated repository, s3upload (Go): install, private setup, dispatch check, real Go fix with tests run by executor and reviewer, Telegram delivery, restart ([record](docs/qualification/fresh-repo-s3upload-2026-09-29.md)).
+- Fresh repository PMB blocked by an upstream Hermes worker import bug; `verify` now detects it ([record](docs/qualification/fresh-repo-pmb-2026-09-29.md)).
+
+## Next: fresh-install follow-ups (0.1.x)
+
+Found in the fresh-repository trials. Each needs unit tests plus a real check
+against a fresh clone.
+
+- [x] Accept a group-writable (775) root when the group is the owner's private
+      group; refusals name the path and the `chmod` fix. *(branch
+      `fix/fresh-clone-root-permissions`, not yet merged)*
+- [ ] **Post-start install race.** `install` run right after the printed Compose
+      start fails with "native team inspection unavailable" while Hermes boots.
+      Add a bounded readiness wait, then "runtime still starting; retry" instead
+      of a generic error.
+      *Test:* fake runner that fails the first N CLI calls; Docker run of
+      `install` immediately after `compose up`.
+- [ ] **Gateway never started on fresh setup.** Setup ends with dispatch
+      configured and the gateway stopped, with no command given. Print the exact
+      native command (`hermes-<repo> -p default gateway start`) or start it
+      through that command. Native boot reconciliation keeps it running afterwards.
+      *Test:* Docker foundation asserts the message or a running gateway after setup.
+- [ ] **`.hermes-repokit.lock` hygiene.** It is left untracked at the repository
+      root and is not ignored, so it shows in `git status` and could be committed.
+      Move it under `.hermes/` or add it to `.git/info/exclude` (never edit the
+      owner's `.gitignore`).
+      *Test:* after install, `git status --porcelain` shows nothing RepoKit-owned.
+- [ ] **Actionable collision text.** "private .hermes state is tracked by Git"
+      names neither the file nor the fix. Report each tracked path and the remedy
+      (move it outside `.hermes`, then `git rm --cached`).
+      *Test:* repository tracking a file under `.hermes/` → message names it.
+- [ ] **Env-only channels are invisible to `verify`.** A Telegram channel
+      configured only through `.env` gets no `channel:telegram` row. Use the
+      public `hermes -p default tools list --platform <p>`.
+      *Test:* env-only Telegram → row reports Kanban/memory from effective tools.
+- [ ] **Install output noise.** `install` always prints "Start Hermes with
+      ordinary Compose" (even when running) and "Created …" on upgrades.
+      Print only what applies.
+- [ ] **Monorepo toolchains.** Detection reads root manifests only, so PMB's
+      Python/Rust subprojects were missed. Defer unless real projects need it.
+
+## Owner request: preferred tool defaults
+
+- [ ] Enable a preferred tool set on `default` at install/setup through native
+      commands, favoring free or self-hosted providers, with paid/API-key
+      integrations optional. Captured set: see the s3upload trial record.
+- [ ] Make the free web backend work: `ddgs` failed to install because the
+      sealed Hermes environment has no pip. Provision it where Hermes loads
+      lazy packages, or accept a SearXNG URL.
+- [ ] Report tools that cannot work headless (Computer Use) instead of silently
+      enabling them.
+- [ ] Decide: do specialists keep narrow role toolsets or get the full set?
+
+## Separate work waiting for review (uncommitted in the local checkout)
+
+- [ ] `verify --memory-check` OpenViking exact-file diagnostic (card `t_c476e463`,
+      never reviewed). Review as its own PR.
+- [ ] `install.sh` and the `repokit` command rename. Review as its own PR; the
+      name must not collide with a `hermes-<repo>` host command.
+
+## 0.2.0: OpenViking as an optional service
+
+- [ ] [#2](https://github.com/TrebuchetDynamics/hermes-repokit/issues/2): extract
+      embedded OpenViking into an optional `openviking-<repo>` Compose service
+      (one Hermes container per repository; single writer during migration; no
+      silent credential rewrites; `CORE_READY` independent of memory). Acceptance
+      criteria live in the issue.
+- [ ] Until then: the embedded OpenViking shutdown race is unpatched (s6 can
+      report the service down while the server still writes). Re-check after
+      `setup --memory`; #2 removes it.
+
+## Upstream
+
+- [ ] Hermes [#126127](https://github.com/NousResearch/hermes-agent/issues/126127) /
+      [#126277](https://github.com/NousResearch/hermes-agent/pull/126277): workers
+      import repository modules (`python -m` from the workspace). When a fixed
+      release becomes the pinned image, rerun the reproduction in
+      [python-import-collision.md](docs/qualification/python-import-collision.md)
+      and retire the `python-imports` probe and `HermesImportNames`.
+- [ ] Requalify `NativeDefaultSoulSHA256` and `HermesImportNames` on every
+      `FoundationImage` change.
+
+## Acceptance tests still open
+
+Live and Docker proof that has not been exercised yet.
+
+- [ ] **Reviewer correction cycle:** reviewer requests changes → executor
+      revises on the same card → reviewer approves → result in the same chat.
+- [ ] **Vague requests:** "Improve readme" produced a reply but no card; qualify
+      how `default` scopes open-ended requests.
+- [ ] **Memory (`MEMORY_READY`):** cross-profile write/recall, restart
+      persistence and repository isolation. Health is not proof.
+- [ ] **Removal-first:** delete the RepoKit binary, then run a real Telegram task
+      and a restart; everything must keep working.
+- [ ] **More fresh repositories:** a Python repository without colliding root
+      modules, and a Node repository, to exercise toolchain adequacy.
+- [ ] **Automated upgrade test:** turn the ad hoc old-release → new-release
+      upgrade probe into a Docker acceptance test (install with the previous tag,
+      upgrade, recreate, restart, state byte-identical).
+- [ ] **SELinux:** run on an SELinux-enforcing host (not yet available).
+- [ ] **Isolated Docker test daemon:** run `TestDockerIsolatedAcceptanceDaemon`
+      (`REPOKIT_DIND_TESTS=1`).
+
+## Release engineering
+
+- [ ] **CI:** there is none. Add GitHub Actions for `go test`, `go test -race`,
+      `go vet` (plain and `-tags=docker`), gofmt and `git diff --check`; Docker
+      acceptance stays opt-in.
+- [ ] **Binaries:** publish linux/amd64 and linux/arm64 builds per release, or
+      stop claiming "no host Go" in the README.
+- [ ] **arm64:** generated Compose pins `platform: linux/amd64` although the
+      recipe supports arm64; qualify arm64 or document amd64-only.
+- [ ] Optional Superpowers plugin: scanner admission if ever selected.
+
+## Cleanup (low priority)
+
+- [ ] Retire legacy Compose recognition (Laya, previous names, pre-SELinux,
+      pre-docker-tests) once no deployment predates the recipe self-check.
+- [ ] Remove the no-op `--engineering` flag.
+- [ ] `verify` review evidence reads `kanban list/show`; confirm those never
+      migrate the board schema, or gate them on an initialized board.
+- [ ] Local housekeeping: decide on the `hermes-s3upload` trial deployment,
+      old `feat/*` branches, `/tmp/repokit-review` and the 594 MB
+      `.hermes/backups/pre-recipe-upgrade-*.zip`.

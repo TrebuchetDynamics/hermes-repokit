@@ -89,8 +89,10 @@ func Inspect(id Identity, pathEnv string) []string {
 	if err != nil {
 		return []string{"cannot inspect target"}
 	}
-	if !owned(info) || info.Mode().Perm()&0022 != 0 {
-		issues = append(issues, "target has unsafe ownership or permissions")
+	if !owned(info) {
+		issues = append(issues, "target is not owned by the current user")
+	} else if reason := WritableByOthers(info); reason != "" {
+		issues = append(issues, "target is "+reason+" "+id.Root)
 	}
 	// Owner Compose files belong to the repository. RepoKit always selects its
 	// private .hermes/compose.yaml and explicit project; never inspect or adopt
