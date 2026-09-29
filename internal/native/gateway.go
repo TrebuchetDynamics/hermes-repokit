@@ -104,6 +104,12 @@ func gatewayPID(run teamCLI) (int, error) {
 	return GatewayPID(string(out))
 }
 
+// idleGuard refuses under the lock if work started since Go observed the
+// board: a nonzero running count, matching runningWork, whether or not native
+// stats lists empty statuses.
+const idleGuard = "# Refuse under the lock if work started since Go observed the board.\n" +
+	"if hermes -p default kanban stats --json | grep -Eq '\"running\": *[1-9]'; then exit 3; fi\n"
+
 func runningWork(run teamCLI) (bool, error) {
 	raw, err := run("-p", "default", "kanban", "stats", "--json")
 	if err != nil {
@@ -184,8 +190,7 @@ func convergeGateway(ctx context.Context, id target.Identity, dc string, r Input
 	if busy, err := runningWork(run); err != nil || busy {
 		return "", errors.New("a card is running or Kanban is unreadable; dispatch left off so active work is not interrupted")
 	}
-	script := bootstrapScript + "\n# Refuse under the lock if work started since Go observed the board.\n" +
-		"if hermes -p default kanban stats --json | grep -q '\"running\"'; then exit 3; fi\n"
+	script := bootstrapScript + "\n" + idleGuard
 	for _, field := range DispatchPolicy() {
 		script += teamSet("default", "kanban."+field.Key, field.Value)
 	}

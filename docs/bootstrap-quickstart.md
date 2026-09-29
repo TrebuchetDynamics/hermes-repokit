@@ -46,17 +46,20 @@ conversation after reconciliation to refresh the skill index.
 a real interactive terminal for private provider setup. If native setup was already
 completed through the launcher, run `repokit setup --team` to provision
 the seven-role team from the saved default model without repeating login. This
-stage does not run a private wizard or configure memory. Existing
-profile edits are preserved and reported as drift. `default` is the normal user
+stage does not run a private wizard or configure memory. Owner-customized
+profiles (changed SOUL or description) are preserved and reported without
+failing; missing managed configuration is reported as drift. `default` is the normal user
 entry point; it delegates team changes to steward. See the [team model](team-model.md).
 Plain `setup` activates the core team. Memory setup is user-managed and separate.
 Failed steps preserve native state. Resume team provisioning with `setup --team`.
-Team reconciliation on an operational team (dispatch already on) observes and
-reports drift; it never rewrites profiles under live workers. It only completes
-`default`'s own Kanban tools on saved channels. The one exception is an
-unmodified six-profile release: when no card is running, `setup --team` creates
-`tester`, upgrades the six managed SOULs and then widens the allowlist with one
-gateway restart. Owner-edited profiles or policy are still only reported.
+On an operational team (dispatch already on), reconciliation never rewrites
+profiles under live workers. When no card is running, untouched earlier RepoKit
+SOULs upgrade and missing roles are created; while a card runs those upgrades
+are deferred and reported, and only `default`'s own Kanban tools on saved
+channels are completed. An unmodified six-profile release is upgraded the same
+way when idle: `setup --team` creates `tester`, upgrades the managed SOULs and
+then widens the allowlist with one gateway restart. Owner-customized profiles
+and an owner-changed dispatch policy are only reported.
 
 Fresh installation keeps `dispatch_in_gateway=false`. After the seven profiles
 reconcile without drift, setup writes the native Kanban policy on `default` with

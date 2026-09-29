@@ -35,3 +35,21 @@ func TestTeamResumeFlagsAreExclusive(t *testing.T) {
 		}
 	}
 }
+
+func TestTeamSetupReportsPreservedOwnerProfilesAndActivates(t *testing.T) {
+	a, r := foundationApp(t)
+	if code, _, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatal(diag)
+	}
+	r.runtime = developmentRuntimeFixture(r.id)
+	input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10, team: `REPOKIT_TEAM={"status":"configured","drift":[],"customized":["executor"],"deferred":["reviewer"]}`}
+	a.Initializer = input
+	a.Stdin = strings.NewReader("")
+	code, out, diag := invoke(t, a, "setup", "--team")
+	if code != 0 || input.pid != 11 {
+		t.Fatalf("owner customization blocked activation: code=%d out=%s diag=%s", code, out, diag)
+	}
+	if !strings.Contains(out, "Owner-customized profiles preserved: executor.") || !strings.Contains(out, "deferred while a card is running: reviewer.") {
+		t.Fatalf("preserved profiles not reported:\n%s", out)
+	}
+}

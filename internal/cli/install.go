@@ -229,7 +229,8 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 		fmt.Fprintln(stderr, "native initialization deferred:", err)
 		return 1
 	}
-	if err := native.Initialize(context.Background(), id, dockerContext, afterSetup, runner); err != nil {
+	teamReport, err := native.Initialize(context.Background(), id, dockerContext, afterSetup, runner)
+	if err != nil {
 		if errors.Is(err, native.ErrTeamPending) && !afterSetup {
 			fmt.Fprintln(stdout, "Native shared Kanban checked; team setup pending. After native default setup, run hermes-repokit setup --team without repeating login.")
 			return 0
@@ -238,6 +239,12 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 		return 1
 	}
 	fmt.Fprintln(stdout, "Native shared Kanban and seven-profile team reconciled. Memory and model-driven acceptance are separate stages.")
+	if len(teamReport.Customized) > 0 {
+		fmt.Fprintf(stdout, "Owner-customized profiles preserved: %s. RepoKit does not overwrite owner identity; newer RepoKit defaults are not applied to them.\n", strings.Join(teamReport.Customized, ", "))
+	}
+	if len(teamReport.Deferred) > 0 {
+		fmt.Fprintf(stdout, "Managed SOUL upgrades deferred while a card is running: %s. Rerun install when the board is idle.\n", strings.Join(teamReport.Deferred, ", "))
+	}
 	return 0
 }
 

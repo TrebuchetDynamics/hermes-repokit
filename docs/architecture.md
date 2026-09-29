@@ -31,6 +31,11 @@ user-managed, so RepoKit neither configures nor certifies it. Historical
 provider extraction and same-card review acceptance remain separate from
 deterministic configuration checks.
 
+RepoKit is authoritative over what it generated only while that state remains
+unmodified. Once the owner changes managed team state through normal Hermes
+usage, that state is owner-controlled: later installs may report it or offer
+newer defaults, but never silently overwrite it.
+
 Legacy RepoKit-generated state is preserved on an unrecognized migration path.
 RepoKit does not hand-patch generated Compose or private `.hermes` state and
 does not remove owner-installed plugins or private data automatically.

@@ -131,19 +131,25 @@ func expectedTeamFields(role team.Role) map[string]any {
 	}
 	return fields
 }
-func equalTeamValue(got, want any) bool {
+
+// holdsTeamValue reports whether an observed native value satisfies a managed
+// one. Role toolsets are required as a subset, so owner additions survive.
+func holdsTeamValue(got, want any) bool {
 	if list, ok := want.([]string); ok {
 		observed, ok := got.([]any)
-		if !ok || len(list) != len(observed) {
+		if !ok {
 			return false
 		}
-		a := map[string]bool{}
-		for _, s := range list {
-			a[s] = true
-		}
+		have := map[string]bool{}
 		for _, v := range observed {
 			s, ok := v.(string)
-			if !ok || !a[s] {
+			if !ok {
+				return false
+			}
+			have[s] = true
+		}
+		for _, s := range list {
+			if !have[s] {
 				return false
 			}
 		}
@@ -151,25 +157,28 @@ func equalTeamValue(got, want any) bool {
 	}
 	return reflect.DeepEqual(got, want)
 }
-func inspectRole(run teamCLI, root *os.Root, role team.Role) (string, bool, error) {
-	soul, err := readSoul(root, role.Name)
+
+// classifyRole compares one existing roster profile with its managed role.
+// customized means the owner changed its identity: a SOUL outside RepoKit's
+// compiled history, or a different description. compatible means every
+// managed configuration value the team depends on still holds.
+func classifyRole(run teamCLI, root *os.Root, role team.Role) (soul string, customized, compatible bool, err error) {
+	soul, err = readSoul(root, role.Name)
 	if err != nil {
-		return "", false, err
+		return "", false, false, err
 	}
 	desc, err := profileDescription(run, role.Name)
 	if err != nil {
-		return "", false, err
+		return "", false, false, err
 	}
-	if !matchingSoul(soul, role) || desc != role.Description {
-		return soul, false, nil
-	}
+	customized = !matchingSoul(soul, role) || desc != role.Description
 	fields := expectedTeamFields(role)
 	if role.Name == "default" {
 		// After activation default carries the complete managed dispatch
 		// policy; anything between off and that policy is owner drift.
 		value, err := configValue(run, role.Name, "kanban")
 		if err != nil {
-			return soul, false, err
+			return "", false, false, err
 		}
 		if kanban, ok := value.(map[string]any); ok && OperationalPolicy(kanban) {
 			for _, field := range DispatchPolicy() {
@@ -184,16 +193,22 @@ func inspectRole(run teamCLI, root *os.Root, role team.Role) (string, bool, erro
 	for key, want := range fields {
 		got, err := configValue(run, role.Name, key)
 		if err != nil {
-			return soul, false, err
+			return "", false, false, err
 		}
 		if key == "terminal.backend" && got == nil {
 			got = "local"
 		}
-		if !equalTeamValue(got, want) {
-			return soul, false, nil
+		if !holdsTeamValue(got, want) {
+			return soul, customized, false, nil
 		}
 	}
-	return soul, true, nil
+	return soul, customized, true, nil
+}
+
+// inspectRole reports whether a profile is RepoKit-managed and compatible.
+func inspectRole(run teamCLI, root *os.Root, role team.Role) (string, bool, error) {
+	soul, customized, compatible, err := classifyRole(run, root, role)
+	return soul, err == nil && !customized && compatible, err
 }
 func soulWrite(name, soul string) string {
 	path := "/opt/data/SOUL.md"
@@ -202,58 +217,81 @@ func soulWrite(name, soul string) string {
 	}
 	return "printf '%s' " + shellQuote(base64.StdEncoding.EncodeToString([]byte(soul))) + " | base64 -d > " + shellQuote(path) + "\nchmod 600 " + shellQuote(path) + "\n"
 }
-func teamScript(id target.Identity, afterSetup bool, run teamCLI, root *os.Root) (string, string, []string, error) {
+
+// teamPlan is one convergence decision. Each roster profile is classified on
+// its own: current, an untouched earlier RepoKit generation (upgraded), missing
+// (created) or owner-customized (preserved and reported, never a failure).
+// Drift names profiles lacking managed configuration the team depends on; it
+// blocks every write because the roster can no longer be proved. Deferred names
+// untouched earlier generations that wait for idle workers.
+type teamPlan struct {
+	Script     string
+	Status     string
+	Drift      []string
+	Customized []string
+	Deferred   []string
+}
+
+func teamScript(id target.Identity, afterSetup bool, run teamCLI, root *os.Root) (teamPlan, error) {
 	roles := team.ForRepository(id)
 	guard, err := teamStateGuard(root, roles)
 	if err != nil {
-		return "", "", nil, err
+		return teamPlan{}, err
 	}
 	dispatch, err := configValue(run, "default", "kanban.dispatch_in_gateway")
 	if err != nil {
-		return "", "", nil, err
+		return teamPlan{}, err
 	}
-	upgrade := false
+	observe, busy := false, false
 	if dispatch == true {
 		value, err := configValue(run, "default", "kanban")
 		if err != nil {
-			return "", "", nil, err
+			return teamPlan{}, err
 		}
 		kanban, _ := value.(map[string]any)
-		// The six-profile release's exact policy is reprovisioned below so it
-		// gains tester and the current SOULs; activation then widens dispatch.
-		upgrade = UpgradablePolicy(kanban)
-		if upgrade {
+		// An operational team, or the six-profile release's exact policy, is
+		// reconciled while no card runs: untouched SOULs upgrade and the
+		// six-profile team gains tester; activation then widens dispatch.
+		// An owner-changed policy is only observed.
+		sixRole := UpgradablePolicy(kanban)
+		if sixRole || OperationalPolicy(kanban) {
 			// Rewriting SOULs never happens under a live worker.
-			if busy, err := runningWork(run); err != nil || busy {
-				return "", "", nil, errors.New("a card is running or Kanban is unreadable; the six-profile team upgrade waits for idle workers")
+			running, err := runningWork(run)
+			busy = err != nil || running
+			if busy && sixRole {
+				return teamPlan{}, errors.New("a card is running or Kanban is unreadable; the six-profile team upgrade waits for idle workers")
 			}
-			guard += "# Refuse under the lock if work started since Go observed the board.\n" +
-				"if hermes -p default kanban stats --json | grep -q '\"running\"'; then exit 3; fi\n"
+			guard += idleGuard
 		}
+		observe = busy || !sixRole && !OperationalPolicy(kanban)
 	}
-	if dispatch == true && !upgrade {
-		// An operational team is observed, not reprovisioned. Only default's
-		// own channel tools are completed so every channel can reach Kanban.
-		drift := []string{}
+	if observe {
+		// Only default's own channel tools are completed so every channel can
+		// reach Kanban; untouched SOUL upgrades wait for idle workers.
+		plan := teamPlan{Status: "configured"}
 		for _, role := range roles {
-			_, ok, e := inspectRole(run, root, role)
-			if e != nil || !ok {
-				drift = append(drift, role.Name)
+			soul, customized, compatible, e := classifyRole(run, root, role)
+			switch {
+			case e != nil || !compatible:
+				plan.Drift = append(plan.Drift, role.Name)
+			case customized:
+				plan.Customized = append(plan.Customized, role.Name)
+			case busy && soul != role.Soul:
+				plan.Deferred = append(plan.Deferred, role.Name)
 			}
 		}
 		channels, err := defaultChannelTools(run)
 		if err != nil {
-			return "", "", nil, err
+			return teamPlan{}, err
 		}
-		script := ""
 		if channels != "" {
-			script = bootstrapScript + "\n" + channels
+			plan.Script = bootstrapScript + "\n" + channels
 		}
-		return script, "configured", drift, nil
+		return plan, nil
 	}
 	model, err := configValue(run, "default", "model.default")
 	if err != nil {
-		return "", "", nil, err
+		return teamPlan{}, err
 	}
 	managed := false
 	for _, role := range roles {
@@ -264,185 +302,153 @@ func teamScript(id target.Identity, afterSetup bool, run teamCLI, root *os.Root)
 		}
 	}
 	if model == nil || model == "" || (!afterSetup && !managed) {
-		return "", "pending-setup", nil, nil
+		return teamPlan{Status: "pending-setup"}, nil
 	}
 	// default is ours when it already holds a managed SOUL, or when it is still
 	// the unclaimed native stock profile (absent or stock SOUL, no description).
+	// An owner identity on default is preserved inside a team RepoKit already
+	// manages; without one, this native home is not RepoKit's to claim.
 	defaultSoul, soulErr := readSoul(root, "default")
 	defaultDesc, descErr := profileDescription(run, "default")
 	adoptDefault := descErr == nil && (defaultDesc == "" || defaultDesc == roles[0].Description) &&
 		(os.IsNotExist(soulErr) || soulErr == nil && stockSoul(defaultSoul))
-	if !adoptDefault && (soulErr != nil || !matchingSoul(defaultSoul, roles[0])) {
-		return "", "drift", []string{"default"}, nil
+	if !adoptDefault && (soulErr != nil || !matchingSoul(defaultSoul, roles[0]) && !managed) {
+		return teamPlan{Status: "drift", Drift: []string{"default"}}, nil
 	}
-	script := bootstrapScript + "\n" + guard
 	// Native CLI owns configuration semantics. The global fallback is the only
 	// publicly inspectable default tool boundary; channel discovery is separate.
-	required := []string{"kanban", "memory"}
+	// Required tools are added, never replaced, and only when missing.
+	changes := ""
 	tools, err := configValue(run, "default", "toolsets")
 	if err != nil {
-		return "", "", nil, err
+		return teamPlan{}, err
 	}
-	selected := []string{}
-	if tools != nil {
-		values, ok := tools.([]any)
-		if !ok {
-			return "", "", nil, errors.New("native default tool selection differs")
-		}
-		for _, v := range values {
-			s, ok := v.(string)
-			if !ok {
-				return "", "", nil, errors.New("native default tool selection differs")
-			}
-			selected = append(selected, s)
-		}
+	if tools == nil {
+		tools = []any{}
 	}
-	for _, v := range required {
-		found := false
-		for _, s := range selected {
-			if s == v {
-				found = true
+	selected, ok := tools.([]any)
+	if !ok || !holdsTeamValue(tools, []string{}) {
+		return teamPlan{}, errors.New("native default tool selection differs")
+	}
+	if !holdsTeamValue(tools, []string{"kanban", "memory"}) {
+		for _, v := range []string{"kanban", "memory"} {
+			if !holdsTeamValue(selected, []string{v}) {
+				selected = append(selected, v)
 			}
 		}
-		if !found {
-			selected = append(selected, v)
-		}
+		changes += teamSet("default", "toolsets", selected)
 	}
-	script += teamSet("default", "toolsets", selected)
-	script += teamCommand("-p", "default", "tools", "enable", "kanban", "memory", "--platform", "cli")
-	channelTools, err := defaultChannelTools(run)
-	if err != nil {
-		return "", "", nil, err
-	}
-	script += channelTools
 	channelsValue, err := configValue(run, "default", "platform_toolsets")
 	if err != nil {
-		return "", "", nil, err
+		return teamPlan{}, err
 	}
+	configured, ok := channelsValue.(map[string]any)
+	if channelsValue != nil && !ok {
+		return teamPlan{}, errors.New("native channel tool selection differs")
+	}
+	if !holdsTeamValue(configured["cli"], []string{"kanban", "memory"}) {
+		changes += teamCommand("-p", "default", "tools", "enable", "kanban", "memory", "--platform", "cli")
+	}
+	channelTools, err := defaultChannelTools(run)
+	if err != nil {
+		return teamPlan{}, err
+	}
+	changes += channelTools
 	channels := []string{"cli"}
 	defaultSkillDiscovery, err := configValue(run, "default", "skills.project_discovery")
 	if err != nil {
-		return "", "", nil, err
+		return teamPlan{}, err
 	}
-	if channelsValue != nil {
-		configured, ok := channelsValue.(map[string]any)
-		if !ok {
-			return "", "", nil, errors.New("native channel tool selection differs")
+	for channel := range configured {
+		if channel == "cli" || channel == "acp" || channel == "api_server" || channel == "cron" || channel == "webhook" {
+			continue
 		}
-		for channel := range configured {
-			if channel == "cli" || channel == "acp" || channel == "api_server" || channel == "cron" || channel == "webhook" {
-				continue
-			}
-			if len(channel) == 0 || len(channel) > 64 || strings.IndexFunc(channel, func(r rune) bool {
-				return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-')
-			}) >= 0 {
-				return "", "", nil, errors.New("native channel name differs")
-			}
-			channels = append(channels, channel)
+		if len(channel) == 0 || len(channel) > 64 || strings.IndexFunc(channel, func(r rune) bool {
+			return !(r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '_' || r == '-')
+		}) >= 0 {
+			return teamPlan{}, errors.New("native channel name differs")
 		}
+		channels = append(channels, channel)
 	}
-	drift := []string{}
+	plan := teamPlan{Status: "configured"}
 	for _, role := range roles {
 		_, e := readSoul(root, role.Name)
 		exists := e == nil
 		if e != nil && !os.IsNotExist(e) {
-			return "", "", nil, errors.New("native profile identity unavailable")
+			return teamPlan{}, errors.New("native profile identity unavailable")
 		}
 		if role.Name == "default" && adoptDefault {
 			for key, value := range expectedTeamFields(role) {
-				script += teamSet(role.Name, key, value)
+				changes += teamSet(role.Name, key, value)
 			}
-			script += teamCommand("profile", "describe", role.Name, "--text", role.Description)
-			script += soulWrite(role.Name, role.Soul)
+			changes += teamCommand("profile", "describe", role.Name, "--text", role.Description)
+			changes += soulWrite(role.Name, role.Soul)
 			if defaultSkillDiscovery != false {
-				script += teamCommand("-p", role.Name, "skills", "trust", "/workspace")
+				changes += teamCommand("-p", role.Name, "skills", "trust", "/workspace")
 			}
 			continue
 		}
 		if exists {
+			// Exact historical SOUL alone is insufficient evidence of
+			// ownership: description and managed configuration must match too.
+			prior, customized, compatible, e := classifyRole(run, root, role)
+			if e != nil {
+				return teamPlan{}, e
+			}
+			if !compatible {
+				plan.Drift = append(plan.Drift, role.Name)
+				continue
+			}
+			if customized {
+				plan.Customized = append(plan.Customized, role.Name)
+				continue
+			}
+			if prior != role.Soul {
+				changes += soulWrite(role.Name, role.Soul)
+			}
 			skillDiscovery, e := configValue(run, role.Name, "skills.project_discovery")
 			if e != nil {
-				return "", "", nil, e
+				return teamPlan{}, e
 			}
-			trust := ""
 			if skillDiscovery != false {
-				trust = teamCommand("-p", role.Name, "skills", "trust", "/workspace")
+				changes += teamCommand("-p", role.Name, "skills", "trust", "/workspace")
 			}
-			prior, ok, e := inspectRole(run, root, role)
-			if e != nil {
-				return "", "", nil, e
-			}
-			if ok {
-				// A managed profile from an earlier generation is upgraded in
-				// place; its description and configuration already match.
-				if prior != role.Soul {
-					script += soulWrite(role.Name, role.Soul)
-				}
-				script += trust
-				continue
-			}
-			// Exact historical SOUL alone is insufficient evidence of ownership.
-			// Existing managed config/description must match before any migration.
-			if !matchingSoul(prior, role) {
-				drift = append(drift, role.Name)
-				continue
-			}
-			desc, e := profileDescription(run, role.Name)
-			if e != nil || desc != role.Description {
-				drift = append(drift, role.Name)
-				continue
-			}
-			if prior == role.Soul {
-				drift = append(drift, role.Name)
-				continue
-			}
-			matches := true
-			for key, want := range expectedTeamFields(role) {
-				got, e := configValue(run, role.Name, key)
-				if e != nil || !equalTeamValue(got, want) {
-					matches = false
-					break
-				}
-			}
-			if !matches {
-				drift = append(drift, role.Name)
-				continue
-			}
-			script += soulWrite(role.Name, role.Soul) + trust
 			continue
 		}
 		if role.Name == "default" {
-			drift = append(drift, role.Name)
+			plan.Drift = append(plan.Drift, role.Name)
 			continue
 		}
-		script += teamCommand("profile", "create", role.Name, "--clone", "--clone-from", "default", "--no-alias", "--description", role.Description)
-		script += soulWrite(role.Name, role.Soul)
+		changes += teamCommand("profile", "create", role.Name, "--clone", "--clone-from", "default", "--no-alias", "--description", role.Description)
+		changes += soulWrite(role.Name, role.Soul)
 		for _, rel := range []string{"memories/MEMORY.md", "memories/USER.md", "MEMORY.md", "USER.md"} {
-			script += "rm -f -- " + shellQuote("/opt/data/profiles/"+role.Name+"/"+rel) + "\n"
+			changes += "rm -f -- " + shellQuote("/opt/data/profiles/"+role.Name+"/"+rel) + "\n"
 		}
 		for key, value := range expectedTeamFields(role) {
-			script += teamSet(role.Name, key, value)
+			changes += teamSet(role.Name, key, value)
 		}
 		for _, channel := range channels {
 			if channel != "cli" {
-				script += teamSet(role.Name, "platform_toolsets."+channel, role.Toolsets)
+				changes += teamSet(role.Name, "platform_toolsets."+channel, role.Toolsets)
 			}
 		}
-		script += teamCommand("profile", "describe", role.Name, "--text", role.Description)
+		changes += teamCommand("profile", "describe", role.Name, "--text", role.Description)
 		if defaultSkillDiscovery != false {
-			script += teamCommand("-p", role.Name, "skills", "trust", "/workspace")
+			changes += teamCommand("-p", role.Name, "skills", "trust", "/workspace")
 		}
 	}
-	if len(drift) > 0 {
-		// A partial roster is not a safe transaction. Preserve all state and
-		// let the owner inspect the complete drift before any native write.
-		return "", "drift", drift, nil
+	if len(plan.Drift) > 0 {
+		// Missing managed configuration means the roster can no longer be
+		// proved. Preserve all state and let the owner inspect it first.
+		plan.Status = "drift"
+		return plan, nil
 	}
-	script += teamCommand("profile", "list")
+	plan.Script = bootstrapScript + "\n" + guard + changes
+	plan.Script += teamCommand("profile", "list")
 	for _, role := range roles {
-		script += teamCommand("profile", "show", role.Name)
+		plan.Script += teamCommand("profile", "show", role.Name)
 	}
-	return script, "configured", drift, nil
+	return plan, nil
 }
 
 // Recheck the exact files that informed Go's decision after the container lock
@@ -479,42 +485,46 @@ func teamStateGuard(root *os.Root, roles []team.Role) (string, error) {
 	}
 	return script.String(), nil
 }
-func teamResult(output string) error {
+func teamResult(output string) (TeamReport, error) {
 	for _, line := range strings.Split(output, "\n") {
 		if !strings.HasPrefix(line, "REPOKIT_TEAM=") {
 			continue
 		}
 		var result struct {
-			Status string   `json:"status"`
-			Drift  []string `json:"drift"`
+			Status     string   `json:"status"`
+			Drift      []string `json:"drift"`
+			Customized []string `json:"customized"`
+			Deferred   []string `json:"deferred"`
 		}
 		if json.Unmarshal([]byte(strings.TrimPrefix(line, "REPOKIT_TEAM=")), &result) != nil {
-			return errors.New("invalid team provisioning result")
+			return TeamReport{}, errors.New("invalid team provisioning result")
 		}
 		if result.Status == "pending-setup" {
-			return ErrTeamPending
+			return TeamReport{}, ErrTeamPending
 		}
 		if result.Status != "configured" && result.Status != "drift" {
-			return errors.New("invalid team provisioning status")
+			return TeamReport{}, errors.New("invalid team provisioning status")
 		}
-		if len(result.Drift) > 0 {
-			known := map[string]bool{}
-			for _, role := range team.Roster() {
-				known[role.Name] = true
-			}
-			for _, name := range result.Drift {
+		known := map[string]bool{}
+		for _, role := range team.Roster() {
+			known[role.Name] = true
+		}
+		for _, names := range [][]string{result.Drift, result.Customized, result.Deferred} {
+			for _, name := range names {
 				if !known[name] {
-					return errors.New("native team drift result invalid")
+					return TeamReport{}, errors.New("native team result names an unknown profile")
 				}
 			}
-			return fmt.Errorf("profile drift preserved: %s; inspect native profiles before reconciliation", strings.Join(result.Drift, ", "))
+		}
+		if len(result.Drift) > 0 {
+			return TeamReport{}, fmt.Errorf("managed configuration drift preserved: %s; inspect native profiles before reconciliation", strings.Join(result.Drift, ", "))
 		}
 		if result.Status == "drift" {
-			return errors.New("native team drift result incomplete")
+			return TeamReport{}, errors.New("native team drift result incomplete")
 		}
-		return nil
+		return TeamReport{Customized: result.Customized, Deferred: result.Deferred}, nil
 	}
-	return errors.New("native team provisioning result missing; inspect existing profiles before retrying")
+	return TeamReport{}, errors.New("native team provisioning result missing; inspect existing profiles before retrying")
 }
 
 // defaultChannelTools enables Kanban and memory for default on every saved

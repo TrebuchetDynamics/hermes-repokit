@@ -78,7 +78,7 @@ func TestInitializeUsesContainerLockAndSanitizesFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 	r := &bootstrapInput{result: process.Result{Err: fmt.Errorf("secret native error"), Output: "secret native output"}}
-	err = Initialize(context.Background(), id, "local", true, r)
+	_, err = Initialize(context.Background(), id, "local", true, r)
 	if err == nil || strings.Contains(err.Error(), "secret") {
 		t.Fatalf("failure diagnostic: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestInitializeRequiresExplicitTeamResult(t *testing.T) {
 	id, _ := target.Resolve(root)
 	for _, output := range []string{"", `REPOKIT_TEAM={"status":"unexpected"}`, `REPOKIT_TEAM={"status":"pending-setup","drift":[]}`} {
 		r := &bootstrapInput{result: process.Result{Output: output}}
-		if err := Initialize(context.Background(), id, "local", true, r); err == nil {
+		if _, err := Initialize(context.Background(), id, "local", true, r); err == nil {
 			t.Fatalf("incomplete native result accepted: %q", output)
 		}
 	}

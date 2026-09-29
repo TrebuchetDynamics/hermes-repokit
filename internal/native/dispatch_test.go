@@ -135,7 +135,7 @@ func TestActivationSetsPolicyLastAndRestartsIdleGateway(t *testing.T) {
 			t.Fatalf("%s missing or written after enabling dispatch:\n%s", want, script)
 		}
 	}
-	if strings.Index(script, "'gateway' 'restart'") < last || !strings.Contains(script, `grep -q '"running"'`) {
+	if strings.Index(script, "'gateway' 'restart'") < last || !strings.Contains(script, idleGuard) {
 		t.Fatal("restart must follow the policy and re-check running work under the lock")
 	}
 	for _, forbidden := range []string{"python", "kanban create", "kanban dispatch", "/proc", "gateway.log"} {

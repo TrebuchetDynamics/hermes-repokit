@@ -24,34 +24,45 @@ type InputRunner interface {
 	RunInput(context.Context, io.Reader, string, ...string) process.Result
 }
 
+// TeamReport names roster profiles whose owner identity was preserved, and
+// untouched earlier RepoKit SOULs whose upgrade waits for idle workers.
+type TeamReport struct {
+	Customized []string
+	Deferred   []string
+}
+
 // Initialize uses the single existing, source-qualified Hermes runtime. Caller
 // must first verify its image, project, mounts and running state. The lock is
 // held INSIDE that container, so killing the Docker client cannot release it
 // while a daemon-owned native subprocess is still writing state.
-func Initialize(ctx context.Context, id target.Identity, dockerContext string, afterSetup bool, r InputRunner) error {
+func Initialize(ctx context.Context, id target.Identity, dockerContext string, afterSetup bool, r InputRunner) (TeamReport, error) {
 	root, err := os.OpenRoot(id.Root)
 	if err != nil {
-		return fmt.Errorf("native team state unavailable")
+		return TeamReport{}, fmt.Errorf("native team state unavailable")
 	}
 	defer root.Close()
-	script, status, drift, err := teamScript(id, afterSetup, nativeTeamCLI(ctx, id, dockerContext, r), root)
+	plan, err := teamScript(id, afterSetup, nativeTeamCLI(ctx, id, dockerContext, r), root)
 	if err != nil {
-		return err
+		return TeamReport{}, err
 	}
+	script := plan.Script
 	if script == "" {
 		script = bootstrapScript + "\n"
 	}
-	if len(drift) > 0 {
+	status := plan.Status
+	if len(plan.Drift) > 0 {
 		status = "drift"
 	}
 	marker, _ := json.Marshal(struct {
-		Status string   `json:"status"`
-		Drift  []string `json:"drift"`
-	}{status, drift})
+		Status     string   `json:"status"`
+		Drift      []string `json:"drift"`
+		Customized []string `json:"customized"`
+		Deferred   []string `json:"deferred"`
+	}{status, plan.Drift, plan.Customized, plan.Deferred})
 	script += "printf '%s\\n' 'REPOKIT_TEAM=" + string(marker) + "'\n"
 	result, err := runBootstrap(ctx, id, dockerContext, afterSetup, script, r)
 	if err != nil {
-		return err
+		return TeamReport{}, err
 	}
 	return teamResult(result.Output)
 }
