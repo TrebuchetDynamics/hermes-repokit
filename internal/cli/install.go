@@ -170,6 +170,9 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		fmt.Fprintln(stderr, "installation refused:", err)
 		return 1
 	}
+	if err := a.excludeInstallLock(context.Background(), id); err != nil {
+		fmt.Fprintf(stderr, "Warning: .hermes-repokit.lock may appear in git status (%v). Add %s to .git/info/exclude.\n", err, lockExcludeEntry)
+	}
 	if created {
 		fmt.Fprintln(stdout, "Created Hermes with embedded OpenViking bootstrap artifacts; native setup is pending.")
 	} else {

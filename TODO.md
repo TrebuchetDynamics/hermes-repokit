@@ -31,12 +31,12 @@ against a fresh clone.
       now starts a stopped default gateway through the native `gateway start`
       and waits for a running PID; Hermes keeps it running across restarts.
       `install` reruns and `setup --memory` never start an owner-stopped gateway
-      and print `hermes-<repo> -p default gateway start` instead.
-- [ ] **`.hermes-repokit.lock` hygiene.** It is left untracked at the repository
-      root and is not ignored, so it shows in `git status` and could be committed.
-      Move it under `.hermes/` or add it to `.git/info/exclude` (never edit the
-      owner's `.gitignore`).
-      *Test:* after install, `git status --porcelain` shows nothing RepoKit-owned.
+      and print `hermes-<repo> -p default gateway start` instead (#6).
+- [x] **`.hermes-repokit.lock` hygiene.** The lock must stay at the root (it
+      guards creation of `.hermes` and is shared with the container flock), so
+      `install` adds `/.hermes-repokit.lock` to the local, never-committed
+      `info/exclude` (worktree-aware), unless already ignored. The tracked
+      `.gitignore` is never edited; an unsafe exclude file only warns.
 - [ ] **Actionable collision text.** "private .hermes state is tracked by Git"
       names neither the file nor the fix. Report each tracked path and the remedy
       (move it outside `.hermes`, then `git rm --cached`).
