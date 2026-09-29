@@ -1,3 +1,7 @@
+> Historical proposal for Hermes-mediated extraction and recall. The routine
+> [memory self-check](../../qualification/memory-self-check.md) now uses a
+> narrower public OpenViking exact-file check and makes no agent recall claim.
+
 # Isolated Hermes memory diagnostic lifecycle
 
 Status: written design approved by the operator. Carrying version-pinned

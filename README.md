@@ -135,11 +135,13 @@ degraded. `verify --dispatch-check` is the explicit, paid proof: one no-write
 researcher card must be claimed and completed by the gateway without manual
 dispatch.
 
-`verify --memory-check` currently returns a structured `unsupported` report and
-exit code 1 **before runtime access or writes**. It does not run a canary: the
-pinned provider lacks a qualified isolated lifecycle with complete cleanup.
-Write, extraction, both recall checks and cleanup remain individually
-`unqualified`. See [memory self-check safety](docs/qualification/memory-self-check.md).
+`verify --memory-check` is an explicit bounded OpenViking file check. Once the
+embedded service and six native profile settings pass preflight, RepoKit uses
+OpenViking's public CLI to create a unique memory file, read and search it,
+delete that exact file, and check its absence. It reports Hermes agent recall
+and asynchronous extraction as `unqualified`; a successful file check alone
+does not establish `MEMORY_READY` or `FULL_READY`. It exits 1 while those gates
+remain open. See [memory self-check safety](docs/qualification/memory-self-check.md).
 
 | Area | Remaining evidence |
 | --- | --- |

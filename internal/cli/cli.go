@@ -66,7 +66,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	memoryCheck := false
 	dispatchCheck := false
 	if args[0] == "verify" {
-		flags.BoolVar(&memoryCheck, "memory-check", false, "report memory self-check qualification; unsupported lifecycles block before execution")
+		flags.BoolVar(&memoryCheck, "memory-check", false, "run a bounded native OpenViking exact-file check")
 		flags.BoolVar(&dispatchCheck, "dispatch-check", false, "create one researcher card and require automatic gateway completion")
 	}
 	if args[0] == "plan" || args[0] == "install" {
@@ -92,12 +92,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	if memoryCheck {
-		// No provider lifecycle is qualified yet. Block before even resolving
-		// runtime state: provider initialization can commit unrelated sessions.
-		if err := json.NewEncoder(stdout).Encode(verify.MemoryCheckPreflight()); err != nil {
-			return 1
-		}
-		return 1
+		return a.memoryCheck(stdout)
 	}
 	if dispatchCheck {
 		return a.dispatchCheck(stdout)
@@ -334,7 +329,7 @@ func recognized(command string) bool {
 func usage(w io.Writer) {
 	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify> [--engineering] [--help]")
 	fmt.Fprintln(w, "       hermes-repokit setup [--team|--memory]")
-	fmt.Fprintln(w, "       hermes-repokit verify [--memory-check] (self-check currently unsupported; no memory writes)")
+	fmt.Fprintln(w, "       hermes-repokit verify [--memory-check] (bounded native OpenViking file check)")
 	fmt.Fprintln(w, "       hermes-repokit verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)")
 	fmt.Fprintln(w, "       hermes-repokit <plan|install> [--docker-tests]")
 }
