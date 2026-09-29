@@ -32,3 +32,9 @@ func WaitForCLI(ctx context.Context, id target.Identity, dc string, r InputRunne
 		}
 	}
 }
+
+// RunningWork reports whether any Kanban card is running, through the public
+// `kanban stats --json`. Callers use it to avoid interrupting live work.
+func RunningWork(ctx context.Context, id target.Identity, dc string, r InputRunner) (bool, error) {
+	return runningWork(nativeTeamCLI(ctx, id, dc, r))
+}

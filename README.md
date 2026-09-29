@@ -60,12 +60,12 @@ these commands from the target repository:
 ```sh
 cd my-project
 repokit plan              # inspect; writes nothing
-repokit install           # publish Compose, launcher, host command and private state
-# run the printed Compose build/start command
-repokit install           # initialize native Kanban after the runtime is running
+repokit install           # publish private state, build and start the container, init Kanban
 repokit setup             # private provider and team activation
 repokit verify            # observational CORE_READY report
 hermes-my-project        # native Hermes CLI as default, when ~/.local/bin is on PATH
+repokit stop              # stop the deployment; all state is kept
+repokit start             # start it again; Hermes restarts a gateway that was running
 ```
 
 `setup` runs in your private terminal and never captures credentials; `--team`
@@ -128,7 +128,7 @@ own `.hermes/compose.yaml` and project namespace, with explicit file/context rou
 
 ```sh
 cd my-project
-hermes-repokit remove     # deletes the deployment and .hermes after typed confirmation
+repokit remove            # deletes the deployment and .hermes after typed confirmation
 ```
 
 `remove` only acts on a deployment it can prove it generated, and asks you to type

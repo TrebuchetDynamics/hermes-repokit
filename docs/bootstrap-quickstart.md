@@ -1,13 +1,14 @@
 # Bootstrap quickstart and native handoff
 
 The single-container Hermes deployment is implemented in source. `plan` inspects without writing;
-`install` publishes Compose, native defaults and a standalone launcher. It prints
-the exact Compose start command, including the selected Docker context.
+`install` publishes Compose, native defaults and a standalone launcher, then
+builds and starts Hermes through ordinary Compose with the selected Docker context.
 
 Existing `compose.yaml`, `docker-compose.yml` and override files can stay in the
 repository root. RepoKit uses `.hermes/compose.yaml`, its own project namespace
 and explicit routing; it neither merges nor manages the application's stack.
-Use the printed start command so the intended Compose file and context are selected.
+`install` builds and starts Hermes itself with that Compose file and context;
+`repokit stop` and `repokit start` stop and restart it later.
 Building the pure-Go bootstrap with `CGO_ENABLED=0 go build ./cmd/hermes-repokit`
 requires Go, not a host C compiler. Race tests are contributor validation.
 Install the bootstrap with Go 1.26+ from the published script:
@@ -26,9 +27,7 @@ reports the blocked name instead of replacing it.
 ```sh
 cd my-project
 repokit plan
-repokit install
-# Run the printed Compose build/start command for Hermes.
-repokit install          # native Kanban initialization
+repokit install          # builds, starts and initializes native Kanban
 repokit setup
 repokit verify
 .hermes/bin/hermes-my-project
@@ -143,8 +142,8 @@ For an exact earlier generated deployment, `install` saves the old Compose as
 the old launcher and any existing host link usable. Native profiles, sessions,
 Kanban and memory data stay in the same directories. Interrupted publication can
 be retried; edited launchers, recipes, backups and conflicting names are preserved
-and refused. Run the printed Compose build/start command to recreate the existing
-service under its new name, then rerun the bootstrap's `install`. Do not manually
+and refused. `install` recreates the existing service under its new name (it
+defers the recreation while a Kanban card is running). Do not manually
 rename the live container or edit generated Compose. Older recipe upgrades retain
 their version-specific backup names.
 
@@ -179,7 +178,7 @@ container whose repository mount is denied is reported as `access` degraded, not
 healthy.
 
 If `verify` reports relabeling pending, rerun `install` to regenerate the
-repo-local mounts and recreate Hermes with the printed Compose command. Do not
+repo-local mounts and recreate Hermes. Do not
 run `setenforce 0`, change global SELinux policy, install custom policy modules,
 or edit `.hermes/compose.yaml` by hand; none of those are required for ordinary
 target-repository bind mounts.
@@ -213,7 +212,7 @@ new qualification. User-managed memory state stays in its own mount.
 
 ## Removing a deployment
 
-`hermes-repokit remove` deletes a RepoKit deployment completely, including the
+`repokit remove` deletes a RepoKit deployment completely, including the
 private `.hermes` state, after you type the repository name in an interactive
 terminal. It refuses a `.hermes` whose launcher or Compose file RepoKit did not
 generate (edited, foreign or hand-built) and a container that does not belong to
@@ -271,9 +270,8 @@ For a repository that needs Docker integration tests, explicitly select:
 
 ```sh
 repokit plan --docker-tests
-repokit install --docker-tests
-# Run the printed development-image build/recreation command.
-# Run the printed --profile docker-tests daemon start command.
+repokit install --docker-tests   # builds and (re)creates the development image
+# Run the printed --profile docker-tests daemon start command (privileged, opt-in).
 ```
 
 This adds a privileged test daemon with its own project-scoped volumes and no

@@ -58,6 +58,8 @@ against a fresh clone.
       the repository name is typed in an interactive terminal; it refuses state
       it cannot prove it generated.
 - [ ] Optional: a non-interactive `--yes` for scripted teardown, if ever needed.
+- [x] `install` builds and starts the deployment itself; `stop` / `start` stop and
+      restart it with state kept (recreation deferred while a card runs).
 
 ## Owner request: preferred tool defaults
 

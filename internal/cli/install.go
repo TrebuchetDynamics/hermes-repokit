@@ -182,6 +182,9 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		relabel = "enabled (private Z)"
 	}
 	fmt.Fprintf(stdout, "Host security: SELinux %s; bind relabeling %s.\n", state, relabel)
+	if code := a.startDeployment(id, report.DockerContext, stdout, stderr); code != 0 {
+		return code
+	}
 	if code := a.initialize(id, report.DockerContext, false, stdout, stderr); code != 0 {
 		return code
 	}
@@ -196,8 +199,6 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 			return code
 		}
 	}
-	fmt.Fprintln(stdout, "Start Hermes with ordinary Compose:")
-	fmt.Fprintln(stdout, strings.TrimSuffix(launcher.StartCommand(id.Compose, report.DockerContext), " up -d hermes)")+" up -d --build hermes)")
 	if report.DockerTests {
 		fmt.Fprintln(stdout, "Docker acceptance is opt-in and privileged; its daemon owns only disposable test storage, not the host Docker socket.")
 		fmt.Fprintln(stdout, strings.TrimSuffix(launcher.StartCommand(id.Compose, report.DockerContext), " up -d hermes)")+" --profile docker-tests up -d docker-test)")
