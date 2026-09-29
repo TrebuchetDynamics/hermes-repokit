@@ -60,7 +60,7 @@ func Expose(id target.Identity, home string) (string, error) {
 }
 
 func trustedDirectory(info os.FileInfo) bool {
-	if info == nil || !info.IsDir() || info.Mode().Perm()&0022 != 0 {
+	if info == nil || !info.IsDir() || target.WritableByOthers(info) != "" {
 		return false
 	}
 	st, ok := info.Sys().(*syscall.Stat_t)

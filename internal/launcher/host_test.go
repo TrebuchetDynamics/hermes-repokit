@@ -97,3 +97,26 @@ func TestExposeDoesNotReuseLinkWithUnresolvableTraversal(t *testing.T) {
 		t.Fatalf("changed dangling link: %q %v", got, err)
 	}
 }
+
+func TestTrustedDirectoryAllowsGroupWriteOnlyForPrivateGroup(t *testing.T) {
+	dir := t.TempDir()
+	saved := target.PrivateGroup
+	defer func() { target.PrivateGroup = saved }()
+	for _, tc := range []struct {
+		mode    os.FileMode
+		private bool
+		want    bool
+	}{{0755, false, true}, {0775, true, true}, {0775, false, false}, {0777, true, false}} {
+		target.PrivateGroup = func(uint32) bool { return tc.private }
+		if err := os.Chmod(dir, tc.mode); err != nil {
+			t.Fatal(err)
+		}
+		info, err := os.Lstat(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := trustedDirectory(info); got != tc.want {
+			t.Fatalf("%o private=%v: trusted=%v want %v", tc.mode, tc.private, got, tc.want)
+		}
+	}
+}

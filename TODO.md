@@ -22,7 +22,8 @@ shared Kanban, embedded OpenViking and ordinary Compose/native lifecycle.
 - [x] Prove a fresh, unrelated-repository bootstrap through the same Telegram loop: s3upload PASS ([record](docs/qualification/fresh-repo-s3upload-2026-09-29.md)). The earlier PMB clone trial was BLOCKED by an upstream Hermes worker import collision ([record](docs/qualification/fresh-repo-pmb-2026-09-29.md)); `verify` now detects it.
 - [ ] Fresh-install follow-ups from s3upload: bounded readiness wait for `install` right after Compose start; preferred free/self-hosted tool defaults (owner request; `ddgs` cannot install in the sealed Hermes environment).
 - [ ] Track upstream Hermes [#126127](https://github.com/NousResearch/hermes-agent/issues/126127) / [#126277](https://github.com/NousResearch/hermes-agent/pull/126277) (worker `python -m` import shadowing; RepoKit evidence commented). Requalify the pinned image once fixed and retire the `python-imports` probe if workers no longer see the workspace ([record](docs/qualification/python-import-collision.md)).
-- [ ] Fresh-install follow-ups from the PMB trial: collision remediation text, 775-root gate, `.hermes-repokit.lock` ignore, printing the one-time `gateway start` command, env-only channel observation.
+- [x] Accept a fresh clone's group-writable (775) root when the group is the owner's private group; refusals now name the path and the `chmod` fix.
+- [ ] Fresh-install follow-ups from the PMB trial: collision remediation text, `.hermes-repokit.lock` ignore, printing the one-time `gateway start` command, env-only channel observation.
 - [ ] Qualify coordinator behavior for vague requests (for example "Improve readme"), not only bounded tasks.
 - [ ] Prove cross-profile memory write/recall, restart persistence and repository isolation.
 - [ ] Complete integrated removal-first acceptance and bounded self-dogfood.
