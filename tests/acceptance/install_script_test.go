@@ -1,6 +1,7 @@
 package acceptance
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,6 +25,45 @@ func installScript(t *testing.T, home, path string, extraEnv ...string) (string,
 	cmd.Env = append(append(os.Environ(), "HOME="+home, "PATH="+path), extraEnv...)
 	out, err := cmd.CombinedOutput()
 	return string(out), err
+}
+
+// pipedInstallScript simulates `curl ... | sh`: the shell reads the script from
+// stdin, so $0 is not a readable file and the installer must fetch the source.
+func pipedInstallScript(t *testing.T, home, path, sourceURL string) (string, error) {
+	t.Helper()
+	if err := os.Chmod(home, 0700); err != nil {
+		t.Fatal(err)
+	}
+	_, here, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate install script test")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(here), "../.."))
+	script, err := os.ReadFile(filepath.Join(root, "install.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("sh")
+	cmd.Dir = home
+	cmd.Stdin = bytes.NewReader(script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+path, "REPOKIT_SOURCE_URL="+sourceURL)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+func repoSourceArchive(t *testing.T) string {
+	t.Helper()
+	_, here, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate install script test")
+	}
+	root := filepath.Clean(filepath.Join(filepath.Dir(here), "../.."))
+	archive := filepath.Join(t.TempDir(), "source.tar.gz")
+	cmd := exec.Command("tar", "-czf", archive, "-C", root, "go.mod", "cmd", "internal", "packaging")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("tar: %v\n%s", err, out)
+	}
+	return "file://" + archive
 }
 
 func TestInstallScriptPublishesWorkingCLIAndRerunsSafely(t *testing.T) {
@@ -230,4 +270,25 @@ func mustStat(t *testing.T, path string) os.FileInfo {
 		t.Fatal(err)
 	}
 	return info
+}
+
+func TestInstallScriptBootstrapsFromRemoteSource(t *testing.T) {
+	home := t.TempDir()
+	bin := filepath.Join(home, ".local", "bin")
+	path := bin + string(os.PathListSeparator) + os.Getenv("PATH")
+	out, err := pipedInstallScript(t, home, path, repoSourceArchive(t))
+	if err != nil {
+		t.Fatalf("remote install: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "Downloading RepoKit source") || !strings.Contains(out, "Installed RepoKit bootstrap") {
+		t.Fatalf("remote install output: %s", out)
+	}
+	command := filepath.Join(bin, "hermes-repokit")
+	info, err := os.Lstat(command)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0100 == 0 {
+		t.Fatalf("remote command is not an executable regular file: %v %v", info, err)
+	}
+	if _, err := os.Lstat(filepath.Join(bin, "repokit")); err != nil {
+		t.Fatalf("remote alias missing: %v", err)
+	}
 }

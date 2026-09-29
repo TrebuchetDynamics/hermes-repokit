@@ -7,17 +7,50 @@ fail() {
     exit 1
 }
 
-[ "$#" -eq 0 ] || fail 'usage: ./install.sh (no arguments)'
+[ "$#" -eq 0 ] || fail 'usage: install.sh (no arguments)'
 [ "$(uname -s)" = Linux ] || fail 'the bootstrap CLI currently targets Linux'
 command -v go >/dev/null 2>&1 || fail 'Go 1.26 or newer is required to build from source'
-
-root=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P) || fail 'cannot locate source checkout'
-[ -f "$root/go.mod" ] && [ -d "$root/cmd/hermes-repokit" ] || fail 'install.sh must be run from a RepoKit source checkout'
 
 case ${HOME:-} in
     /*) ;;
     *) fail 'HOME must be an absolute directory' ;;
 esac
+
+temp_root=$(CDPATH='' cd -- "${TMPDIR:-/tmp}" && pwd -P) || fail 'cannot use TMPDIR'
+
+# Run from a checkout when the script is a local file; otherwise assume it was
+# fetched with `curl ... | sh`, where $0 is the shell rather than a readable file,
+# and download the source tree to build from.
+source_dir=
+root=
+if [ -f "$0" ]; then
+    root=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P) || fail 'cannot locate source checkout'
+fi
+if [ -z "$root" ] || [ ! -f "$root/go.mod" ] || [ ! -d "$root/cmd/hermes-repokit" ]; then
+    if [ -n "$root" ]; then
+        fail 'install.sh must be run from a RepoKit source checkout'
+    fi
+    command -v curl >/dev/null 2>&1 || fail 'curl is required to download the RepoKit source'
+    command -v tar >/dev/null 2>&1 || fail 'tar is required to unpack the RepoKit source'
+    repokit_ref=${REPOKIT_REF:-main}
+    repokit_url=${REPOKIT_SOURCE_URL:-https://github.com/TrebuchetDynamics/hermes-repokit/archive/refs/heads/$repokit_ref.tar.gz}
+    source_dir=$(mktemp -d "$temp_root/repokit-source.XXXXXXXX") || fail 'cannot create source directory'
+    archive=$source_dir/source.tar.gz
+    printf 'Downloading RepoKit source from %s...\n' "$repokit_url"
+    curl -fsSL --retry 3 --connect-timeout 15 --max-time 300 -o "$archive" "$repokit_url" || fail "cannot download $repokit_url"
+    tar -xzf "$archive" -C "$source_dir" || fail 'cannot unpack downloaded source'
+    rm -f -- "$archive"
+    root=$source_dir
+    if [ ! -f "$root/go.mod" ]; then
+        for candidate in "$source_dir"/*/; do
+            if [ -f "$candidate/go.mod" ]; then
+                root=$(CDPATH='' cd -- "$candidate" && pwd -P) || fail 'cannot locate downloaded source'
+                break
+            fi
+        done
+    fi
+    [ -f "$root/go.mod" ] && [ -d "$root/cmd/hermes-repokit" ] || fail 'downloaded source is not a RepoKit checkout'
+fi
 
 safe_directory() {
     [ -d "$1" ] && [ ! -L "$1" ] || fail "unsafe installation directory: $1"
@@ -38,10 +71,9 @@ for directory in "$HOME/.local" "$HOME/.local/bin"; do
 done
 
 bin=$HOME/.local/bin
-temp_root=$(CDPATH='' cd -- "${TMPDIR:-/tmp}" && pwd -P) || fail 'cannot use TMPDIR'
 build_dir=$(mktemp -d "$temp_root/repokit-install.XXXXXXXX") || fail 'cannot create build directory'
 tmp=
-trap 'if [ -n "$tmp" ]; then rm -f -- "$tmp"; fi; rm -rf -- "$build_dir"' 0
+trap 'if [ -n "$tmp" ]; then rm -f -- "$tmp"; fi; if [ -n "$source_dir" ]; then rm -rf -- "$source_dir"; fi; rm -rf -- "$build_dir"' 0
 
 printf 'Building RepoKit bootstrap from %s with %s...\n' "$root" "$(go version)"
 (cd "$root" && TMPDIR="$temp_root" CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$build_dir/hermes-repokit" ./cmd/hermes-repokit) || fail 'Go build failed'

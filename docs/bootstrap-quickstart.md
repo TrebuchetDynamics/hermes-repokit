@@ -10,12 +10,18 @@ and explicit routing; it neither merges nor manages the application's stack.
 Use the printed start command so the intended Compose file and context are selected.
 Building the pure-Go bootstrap with `CGO_ENABLED=0 go build ./cmd/hermes-repokit`
 requires Go, not a host C compiler. Race tests are contributor validation.
-From a RepoKit source checkout, `./install.sh` builds it with Go 1.26+ and
-installs the bootstrap as `~/.local/bin/hermes-repokit` plus the `repokit`
-alias; it does not download a release. The commands below use `repokit`, which
-is always the bootstrap. Where a generated `hermes-<repo>` launcher already
-owns `hermes-repokit`, the installer preserves that launcher and reports the
-blocked name instead of replacing it.
+Install the bootstrap with Go 1.26+ from the published script:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/main/install.sh | sh
+```
+
+It downloads and builds the current source, then installs the bootstrap as
+`~/.local/bin/hermes-repokit` plus the `repokit` alias. Running `./install.sh`
+from a source checkout builds that checkout instead. The commands below use
+`repokit`, which is always the bootstrap. Where a generated `hermes-<repo>`
+launcher already owns `hermes-repokit`, the installer preserves that launcher and
+reports the blocked name instead of replacing it.
 
 ```sh
 cd my-project

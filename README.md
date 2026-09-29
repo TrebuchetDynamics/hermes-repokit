@@ -39,13 +39,13 @@ a RepoKit daemon.
 
 ## Quickstart
 
-From a RepoKit source checkout, install the bootstrap CLI with Go 1.26+:
+Install the bootstrap CLI with Go 1.26+:
 
 ```sh
-./install.sh              # installs ~/.local/bin/hermes-repokit and the repokit alias
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/main/install.sh | sh
 ```
 
-The script builds locally; it does not download an unpublished release. It
+The script builds from the current source; it downloads no release binary. It
 publishes one binary under `hermes-repokit` and the short `repokit` alias,
 updates a command it previously installed, and preserves any other existing
 command. A generated `hermes-<repo>` host launcher can already own the
@@ -63,13 +63,13 @@ repokit plan              # inspect; writes nothing
 repokit install           # publish Compose, launcher, host command and private state
 # run the printed Compose build/start command
 repokit install           # initialize native Kanban after the runtime is running
-repokit setup             # private provider, team, memory and activation
-repokit verify            # observational CORE/MEMORY/FULL readiness report
+repokit setup             # private provider and team activation
+repokit verify            # observational CORE_READY report
 hermes-my-project        # native Hermes CLI as default, when ~/.local/bin is on PATH
 ```
 
-`setup` runs in your private terminal and never captures credentials; `--team` or
-`--memory` resumes an interrupted stage. The launcher forwards native arguments
+`setup` runs in your private terminal and never captures credentials; `--team`
+resumes an interrupted stage. The launcher forwards native arguments
 unchanged (`.hermes/bin/hermes-my-project kanban list`). After install, ordinary
 Docker Compose owns the runtime using the context recorded in the launcher — see
 [runtime management](docs/bootstrap-quickstart.md#ordinary-runtime-management).

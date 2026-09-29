@@ -1,8 +1,15 @@
 # Development binaries and release qualification
 
-For a source checkout on Linux with Go 1.26+, run `./install.sh` to build the
-current source and install `~/.local/bin/hermes-repokit` plus the short
-`repokit` alias. It replaces a command it previously installed (recognized by an
+On Linux with Go 1.26+, install the bootstrap CLI with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/main/install.sh | sh
+```
+
+The script downloads the current source, builds it, and installs
+`~/.local/bin/hermes-repokit` plus the short
+`repokit` alias. Running `./install.sh` from a source checkout builds that
+checkout instead. It replaces a command it previously installed (recognized by an
 embedded usage marker), preserves any other existing command, and reports a
 blocked name with its fix. Generated `hermes-<repo>` launchers live at the same
 path, so a repository whose name normalizes to `repokit` already owns the
