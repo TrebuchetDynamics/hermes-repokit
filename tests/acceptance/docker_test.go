@@ -71,16 +71,16 @@ func TestDockerFoundation(t *testing.T) {
 	// Team scaffolding is credential-free. Synthetic provider settings cannot
 	// establish core gateway convergence or a real researcher canary; optional
 	// memory is not an activation gate. Require the core convergence boundary.
-	runPendingCLI := func(command ...string) {
+	// runActivationCLI runs a stage that ends in gateway activation. Setup never
+	// claims a worker ran; want names the expected gateway outcome.
+	runActivationCLI := func(want string, command ...string) {
 		t.Helper()
 		cmd := exec.CommandContext(ctx, installer, command...)
 		cmd.Dir = root
 		cmd.Env = append(installerEnv, "DOCKER_CONTEXT="+dc)
 		out, err := cmd.CombinedOutput()
-		// No gateway runs in this credential-free fixture: setup configures the
-		// native dispatch policy but must not start the gateway or claim work ran.
-		if err != nil || !strings.Contains(string(out), "default gateway is not running") || !strings.Contains(string(out), "No worker has been exercised") {
-			t.Fatalf("expected configured dispatch with a stopped gateway for %v: %v %s", command, err, out)
+		if err != nil || !strings.Contains(string(out), want) || !strings.Contains(string(out), "No worker has been exercised") {
+			t.Fatalf("expected %q from %v: %v %s", want, command, err, out)
 		}
 	}
 	// An independent owner stack must remain untouched throughout installation,
@@ -242,22 +242,23 @@ func TestDockerFoundation(t *testing.T) {
 	os.WriteFile(filepath.Join(root, ".hermes/memories/MEMORY.md"), []byte("default-only history"), 0600)
 	os.WriteFile(filepath.Join(root, ".hermes/memories/USER.md"), []byte("default-only user history"), 0600)
 
-	runPendingCLI("setup", "--team") // Scaffold without claiming private integrations or live dispatch.
+	// Explicit setup activates the team: the fresh gateway is started once
+	// through the native command, without claiming any worker ran.
+	runActivationCLI("Started the default gateway", "setup", "--team")
 	scaffoldVerify := exec.CommandContext(ctx, installer, "verify")
 	scaffoldVerify.Dir = root
 	output, verifyErr := scaffoldVerify.CombinedOutput()
 	var probes []verify.Probe
-	if verifyErr == nil || json.Unmarshal(output, &probes) != nil {
-		t.Fatalf("full acceptance falsely certified: %v %s", verifyErr, output)
+	if verifyErr != nil || json.Unmarshal(output, &probes) != nil {
+		t.Fatalf("configured core with a running gateway must verify as usable: %v %s", verifyErr, output)
 	}
 	seen := map[string]bool{}
 	for _, p := range probes {
 		seen[p.Component] = true
 		expected := map[string]verify.Status{
-			"CORE_READY":              verify.Degraded, // gateway stopped
+			"CORE_READY":              verify.Unqualified, // no reviewed work yet
 			"MEMORY_READY":            verify.Inactive,
-			"FULL_READY":              verify.Degraded,
-			"gateway":                 verify.Inactive,
+			"FULL_READY":              verify.Unqualified,
 			"review:evidence":         verify.Unqualified,
 			"development_environment": verify.Unqualified,
 		}
@@ -265,8 +266,8 @@ func TestDockerFoundation(t *testing.T) {
 			if p.Status != want {
 				t.Fatalf("credential-free boundary: %+v; want %s", p, want)
 			}
-			if p.Component == "CORE_READY" && p.Detail != "not ready: gateway" {
-				t.Fatalf("core must be blocked only by the stopped gateway: %+v", p)
+			if p.Component == "CORE_READY" && !strings.Contains(p.Detail, "no automatic executor/reviewer loop observed yet") {
+				t.Fatalf("core must be configured and running but unproven: %+v", p)
 			}
 			continue
 		}
@@ -280,7 +281,7 @@ func TestDockerFoundation(t *testing.T) {
 			t.Fatalf("scaffold probe: %+v", p)
 		}
 	}
-	for _, required := range []string{"kanban:dispatch", "kanban:notifications", "channel:cli", "profile:default", "profile:reviewer"} {
+	for _, required := range []string{"gateway", "kanban:dispatch", "kanban:notifications", "channel:cli", "profile:default", "profile:reviewer"} {
 		if !seen[required] {
 			t.Fatalf("missing credential-free core evidence: %s", required)
 		}
@@ -320,7 +321,25 @@ func TestDockerFoundation(t *testing.T) {
 		}
 		preserved[path] = data
 	}
-	runPendingCLI("install")
+	// The owner stops the gateway natively. An install rerun must respect that
+	// choice and print the command instead of starting it; this also keeps the
+	// scripted lifecycle below free of a live dispatcher.
+	docker("exec", "-T", "--user", "hermes", "--env", "HOME=/opt/data", "hermes", "hermes", "-p", "default", "gateway", "stop")
+	for i := 0; ; i++ {
+		status := docker("exec", "-T", "--user", "hermes", "--env", "HOME=/opt/data", "hermes", "hermes", "-p", "default", "gateway", "status")
+		if strings.Contains(string(status), "not running") {
+			break
+		}
+		if i == 60 {
+			t.Fatalf("gateway did not stop: %s", status)
+		}
+		time.Sleep(time.Second)
+	}
+	runActivationCLI("-p default gateway start", "install")
+	status := docker("exec", "-T", "--user", "hermes", "--env", "HOME=/opt/data", "hermes", "hermes", "-p", "default", "gateway", "status")
+	if !strings.Contains(string(status), "not running") {
+		t.Fatalf("install rerun started an owner-stopped gateway: %s", status)
+	}
 	for path, want := range preserved {
 		got, err := os.ReadFile(path)
 		if err != nil || !bytes.Equal(got, want) {

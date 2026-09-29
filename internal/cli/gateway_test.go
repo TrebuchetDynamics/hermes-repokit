@@ -19,6 +19,7 @@ type gatewayInput struct {
 	pid     int
 	team    string
 	scripts []string
+	starts  int
 	err     error
 }
 
@@ -37,12 +38,19 @@ func (r *gatewayInput) RunInput(_ context.Context, input io.Reader, program stri
 			}
 			r.pid++
 		}
+		if strings.Contains(string(body), "'gateway' 'start'") {
+			r.starts++
+			r.pid = 500
+		}
 		return process.Result{Output: r.team}
 	}
 	switch {
 	case strings.HasSuffix(joined, "config get kanban --json"):
 		return process.Result{Output: r.kanban}
 	case strings.HasSuffix(joined, "gateway status"):
+		if r.pid == 0 {
+			return process.Result{Output: "✗ Gateway is not running"}
+		}
 		return process.Result{Output: fmt.Sprintf("✓ Gateway is running (PID: %d)", r.pid)}
 	case strings.HasSuffix(joined, "kanban stats --json"):
 		return process.Result{Output: `{"by_status":{}}`}
@@ -89,5 +97,26 @@ func TestSetupPreservesOwnerChangedDispatchPolicy(t *testing.T) {
 	var out, diag bytes.Buffer
 	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got == 0 || len(input.scripts) != 0 {
 		t.Fatal("owner dispatch policy overwritten")
+	}
+}
+
+func TestSetupStartsStoppedGatewayButInstallOnlyPrintsCommand(t *testing.T) {
+	a, r := foundationApp(t)
+	if code, _, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatal(diag)
+	}
+	r.runtime = developmentRuntimeFixture(r.id)
+	input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 0, team: `REPOKIT_TEAM={"status":"configured","drift":[]}`}
+	a.Initializer = input
+	a.Stdin = strings.NewReader("")
+	code, out, diag := invoke(t, a, "setup", "--team")
+	if code != 0 || input.starts != 1 || input.pid == 0 || !strings.Contains(out, "Started the default gateway") {
+		t.Fatalf("setup --team left a fresh gateway stopped: code=%d starts=%d out=%s diag=%s", code, input.starts, out, diag)
+	}
+	var buf, errs bytes.Buffer
+	input.pid, input.starts = 0, 0
+	if got := a.finishSetup(r.id, r.context, 0, &buf, &errs); got != 0 || input.starts != 0 ||
+		!strings.Contains(buf.String(), r.id.Container+" -p default gateway start") {
+		t.Fatalf("install path must not start an owner-stopped gateway and must print the command: code=%d starts=%d out=%s", got, input.starts, &buf)
 	}
 }

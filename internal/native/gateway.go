@@ -93,13 +93,33 @@ func runningWork(run teamCLI) (bool, error) {
 // It never overwrites an owner-changed dispatch policy, never restarts while a
 // card is running, and never claims that a worker has executed: live dispatch
 // is proved separately by `verify --dispatch-check` or real reviewed work.
+// A stopped gateway is started through `hermes gateway start` only when start
+// is true (explicit setup); Hermes then keeps it running across restarts.
 // States: "current" (already operational, untouched), "restarted" (policy set
-// and gateway replaced) or "not-running" (policy set; gateway not started).
-func ConvergeGateway(ctx context.Context, id target.Identity, dc string, r InputRunner) (string, error) {
-	return convergeGateway(ctx, id, dc, r, 90, time.Second)
+// and gateway replaced), "started" (gateway was stopped and is now running) or
+// "not-running" (gateway stopped and left stopped).
+func ConvergeGateway(ctx context.Context, id target.Identity, dc string, r InputRunner, start bool) (string, error) {
+	return convergeGateway(ctx, id, dc, r, start, 90, time.Second)
 }
 
-func convergeGateway(ctx context.Context, id target.Identity, dc string, r InputRunner, attempts int, pause time.Duration) (string, error) {
+func startGateway(ctx context.Context, id target.Identity, dc string, r InputRunner, run teamCLI, attempts int, pause time.Duration) (string, error) {
+	if _, err := runBootstrap(ctx, id, dc, false, bootstrapScript+teamCommand("-p", "default", "gateway", "start"), r); err != nil {
+		return "", errors.New("native `gateway start` failed; inspect `gateway status`")
+	}
+	for i := 0; i < attempts; i++ {
+		if pid, err := gatewayPID(run); err == nil && pid != 0 {
+			return "started", nil
+		}
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(pause):
+		}
+	}
+	return "", errors.New("gateway start requested, but a running gateway was not observed; inspect `gateway status`")
+}
+
+func convergeGateway(ctx context.Context, id target.Identity, dc string, r InputRunner, start bool, attempts int, pause time.Duration) (string, error) {
 	run := nativeTeamCLI(ctx, id, dc, r)
 	value, err := configValue(run, "default", "kanban")
 	if err != nil {
@@ -119,6 +139,9 @@ func convergeGateway(ctx context.Context, id target.Identity, dc string, r Input
 			return "", errors.New("owner-changed dispatch policy preserved; inspect `kanban` configuration on default")
 		}
 		if before == 0 {
+			if start {
+				return startGateway(ctx, id, dc, r, run, attempts, pause)
+			}
 			return "not-running", nil
 		}
 		return "current", nil
@@ -141,6 +164,9 @@ func convergeGateway(ctx context.Context, id target.Identity, dc string, r Input
 		return "", errors.New("native dispatch configuration or gateway restart failed; inspect `kanban` configuration and gateway status")
 	}
 	if before == 0 {
+		if start {
+			return startGateway(ctx, id, dc, r, run, attempts, pause)
+		}
 		return "not-running", nil
 	}
 	for i := 0; i < attempts; i++ {
