@@ -111,7 +111,7 @@ func Inspect(id Identity, pathEnv string) []string {
 			if e != nil {
 				return e
 			}
-			if !safeNativeEntry(filepath.ToSlash(rel), id.Container, info) {
+			if !safeNativeEntry(filepath.ToSlash(rel), id.Container, info) && !containedToolLink(filepath.ToSlash(rel), p, id.Container, info) {
 				issues = append(issues, "unsafe native path: "+strings.TrimPrefix(p, id.Root+"/"))
 			}
 			return nil
@@ -237,4 +237,38 @@ func RepoKitBootstrap(path string) bool {
 	}
 	data, err := os.ReadFile(path)
 	return err == nil && bytes.Contains(data, []byte(bootstrapUsage))
+}
+
+// managedNames are files RepoKit itself writes or reads inside .hermes; a
+// symlink there (or at the launcher or recipe) could redirect RepoKit, so it
+// is never accepted.
+var managedNames = map[string]bool{"SOUL.md": true, "config.yaml": true, "profile.yaml": true, "compose.yaml": true, "kanban.db": true, ".env": true, "auth.json": true}
+
+// containedToolLink accepts a symlink that tools create during ordinary work
+// (language servers, package managers) when it cannot redirect RepoKit: it is
+// owned by the user, is not a managed file, a top-level entry or a profile
+// directory itself, and points back inside the state, either relatively or
+// through the container's /opt/data view of it.
+func containedToolLink(rel, path, launcher string, info fs.FileInfo) bool {
+	if info.Mode()&os.ModeSymlink == 0 || !owned(info) {
+		return false
+	}
+	parts := strings.Split(rel, "/")
+	if len(parts) < 2 || parts[0] == "profiles" && len(parts) == 2 || managedNames[parts[len(parts)-1]] {
+		return false
+	}
+	// RepoKit writes the generated launcher and the development recipe.
+	if rel == "bin/"+launcher || parts[0] == "development-image" {
+		return false
+	}
+	target, err := os.Readlink(path)
+	if err != nil || target == "" {
+		return false
+	}
+	if strings.HasPrefix(target, "/") {
+		clean := filepath.Clean(target)
+		return clean != "/opt/data" && strings.HasPrefix(clean, "/opt/data/")
+	}
+	resolved := filepath.Clean(filepath.Join(filepath.Dir(rel), target))
+	return resolved != ".." && !strings.HasPrefix(resolved, "../")
 }

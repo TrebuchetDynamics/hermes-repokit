@@ -567,3 +567,52 @@ func TestInspectAllowsNpmLinksAndPrivateBrowserSocket(t *testing.T) {
 		t.Fatal("world-writable browser socket accepted")
 	}
 }
+
+// Tools such as language servers link binaries inside the state; those links
+// cannot redirect RepoKit and are accepted. Links that leave the state, or that
+// stand in for a file RepoKit manages, are still refused.
+func TestContainedToolLinksAreAccepted(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Chmod(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	id, err := Resolve(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := filepath.Join(root, ".hermes")
+	lsp := filepath.Join(state, "profiles/executor/lsp")
+	for _, dir := range []string{filepath.Join(lsp, "bin"), filepath.Join(lsp, "node_modules/.bin"), filepath.Join(lsp, "node_modules/typescript/bin")} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, dir := range []string{state, filepath.Join(state, "profiles"), filepath.Join(state, "profiles/executor")} {
+		os.Chmod(dir, 0700)
+	}
+	links := map[string]string{
+		"profiles/executor/lsp/node_modules/.bin/tsc":          "../typescript/bin/tsc",
+		"profiles/executor/lsp/bin/typescript-language-server": "/opt/data/profiles/executor/lsp/node_modules/.bin/tsc",
+		"profiles/executor/lsp/node_modules/.bin/escape":       "../../../../../../etc/passwd",
+		"profiles/executor/lsp/bin/host":                       "/etc/passwd",
+	}
+	for rel, target := range links {
+		if err := os.Symlink(target, filepath.Join(state, rel)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink("../../etc/shadow", filepath.Join(state, "profiles/executor/SOUL.md")); err != nil {
+		t.Fatal(err)
+	}
+	issues := strings.Join(Inspect(id, ""), "\n")
+	for _, ok := range []string{"node_modules/.bin/tsc", "bin/typescript-language-server"} {
+		if strings.Contains(issues, ok) {
+			t.Fatalf("contained tool link refused: %s\n%s", ok, issues)
+		}
+	}
+	for _, bad := range []string{"node_modules/.bin/escape", "lsp/bin/host", "profiles/executor/SOUL.md"} {
+		if !strings.Contains(issues, bad) {
+			t.Fatalf("unsafe link accepted: %s\n%s", bad, issues)
+		}
+	}
+}
