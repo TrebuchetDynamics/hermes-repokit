@@ -192,21 +192,7 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 	if code := a.initialize(id, report.DockerContext, false, stdout, stderr); code != 0 {
 		return code
 	}
-	// Only a complete scaffold can yield a generation. A pending profile needs
-	// setup (never provisioned, or a RepoKit upgrade); any other state is a
-	// profile that differs from RepoKit's baseline, which setup cannot fix.
-	complete, teamPending := true, false
-	var differs []string
-	for _, probe := range verify.Profiles(id) {
-		switch probe.Status {
-		case verify.Healthy:
-		case verify.PendingSetup:
-			complete, teamPending = false, true
-		default:
-			complete = false
-			differs = append(differs, strings.TrimPrefix(probe.Component, "profile:"))
-		}
-	}
+	complete, teamPending, differs := profileProgress(verify.Profiles(id))
 	ready, _ := a.nativeRuntimeReady(id, report.DockerContext)
 	gateway := ""
 	if complete && ready {
@@ -229,8 +215,8 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 			"RepoKit then creates the team, turns on dispatch and proves it with one canary card.")
 		u.next([2]string{self() + " setup", "the only remaining step"})
 	case !complete:
-		u.headline("Some profiles differ from RepoKit's baseline: "+strings.Join(differs, ", ")+".",
-			"Owner changes are preserved, so dispatch was not re-checked by this run.")
+		u.headline("Some profiles could not be verified: "+strings.Join(differs, ", ")+".",
+			"RepoKit changed nothing in them, so dispatch was not re-checked by this run.")
 		u.next([2]string{self() + " plan", "see what differs"}, [2]string{self() + " verify", "check readiness"})
 	case gateway == "not-running":
 		// install never starts a gateway the owner stopped; setup does.
@@ -309,4 +295,24 @@ func (a App) waitForNativeCLI(id target.Identity, dockerContext string) error {
 		runner = process.Runner{Timeout: 30 * time.Second}
 	}
 	return native.WaitForCLI(context.Background(), id, dockerContext, runner, nativeReadyTimeout, time.Second)
+}
+
+// profileProgress decides whether install may finish activation. Only a
+// complete scaffold can yield a generation. An owner-customized profile is
+// complete: it is preserved as is and does not hold back the team. A pending
+// profile needs setup (never provisioned, or a RepoKit upgrade); any other
+// state is a profile RepoKit cannot verify, which setup cannot fix.
+func profileProgress(probes []verify.Probe) (complete, teamPending bool, unverified []string) {
+	complete = true
+	for _, probe := range probes {
+		switch probe.Status {
+		case verify.Healthy, verify.Customized:
+		case verify.PendingSetup:
+			complete, teamPending = false, true
+		default:
+			complete = false
+			unverified = append(unverified, strings.TrimPrefix(probe.Component, "profile:"))
+		}
+	}
+	return complete, teamPending, unverified
 }

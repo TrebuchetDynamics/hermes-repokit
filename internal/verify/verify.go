@@ -30,6 +30,9 @@ const (
 	Active       Status = "active"
 	Inactive     Status = "inactive"
 	Unqualified  Status = "unqualified"
+	// Customized is a roster profile whose owner changed its identity. RepoKit
+	// preserves it; it is not a fault, but RepoKit no longer vouches for it.
+	Customized Status = "customized"
 )
 
 type Probe struct {
@@ -186,9 +189,12 @@ func Profiles(id target.Identity) []Probe {
 				if e == nil && string(soul) != role.Soul && managedHistory(role, string(soul)) {
 					probe.Status = PendingSetup
 					probe.Detail = "historical managed SOUL needs repository identity upgrade; run repokit setup"
-				} else if e != nil || string(soul) != role.Soul {
+				} else if e != nil {
 					probe.Status = Degraded
-					probe.Detail = "role SOUL drift; owner identity preserved"
+					probe.Detail = "role SOUL unreadable"
+				} else if string(soul) != role.Soul {
+					probe.Status = Customized
+					probe.Detail = "owner-customized SOUL preserved; RepoKit does not overwrite it (reset with install --reset-profile " + role.Name + ")"
 				}
 			}
 		}
@@ -219,9 +225,13 @@ func coreComponent(name string) bool {
 // Healthy means configured, running AND behavior observed; core configured and
 // running without observed reviewed work is Unqualified.
 func Readiness(probes []Probe) []Probe {
-	var failing []string
+	var failing, customized []string
 	review := Unknown
 	for _, p := range probes {
+		if p.Status == Customized {
+			customized = append(customized, strings.TrimPrefix(p.Component, "profile:"))
+			continue
+		}
 		if coreComponent(p.Component) && p.Status != Healthy {
 			failing = append(failing, p.Component)
 		}
@@ -235,6 +245,12 @@ func Readiness(probes []Probe) []Probe {
 		core = Probe{"CORE_READY", Degraded, "not ready: " + strings.Join(failing, ", ")}
 	} else if review != Healthy {
 		core = Probe{"CORE_READY", Unqualified, "configured and running; no automatic executor/tester/reviewer loop observed yet"}
+	}
+	// Owner customization is not a fault, but readiness names it: RepoKit's
+	// role contract for those profiles rests on observed work, not on config.
+	if len(customized) > 0 {
+		sort.Strings(customized)
+		core.Detail += "; owner-customized profiles: " + strings.Join(customized, ", ")
 	}
 	return []Probe{core}
 }

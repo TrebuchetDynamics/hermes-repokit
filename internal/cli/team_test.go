@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 	"strings"
 	"testing"
 )
@@ -96,5 +97,19 @@ func TestResetProfileFlag(t *testing.T) {
 	code, out, diag := invoke(t, a, "install", "--reset-profile", "executor")
 	if code != 0 || !strings.Contains(out, "executor returned to RepoKit baseline") || !strings.Contains(out, ".before-reset-") {
 		t.Fatalf("reset not reported: code=%d out=%s diag=%s", code, out, diag)
+	}
+}
+
+func TestCustomizedProfilesDoNotHoldBackInstallActivation(t *testing.T) {
+	probe := func(name string, status verify.Status) verify.Probe {
+		return verify.Probe{Component: "profile:" + name, Status: status}
+	}
+	complete, pending, unverified := profileProgress([]verify.Probe{probe("default", verify.Healthy), probe("executor", verify.Customized)})
+	if !complete || pending || len(unverified) != 0 {
+		t.Fatalf("customized profile held back activation: %v %v %v", complete, pending, unverified)
+	}
+	complete, pending, unverified = profileProgress([]verify.Probe{probe("executor", verify.Customized), probe("tester", verify.PendingSetup), probe("reviewer", verify.Degraded)})
+	if complete || !pending || strings.Join(unverified, ",") != "reviewer" {
+		t.Fatalf("pending or unverified profile not reported: %v %v %v", complete, pending, unverified)
 	}
 }

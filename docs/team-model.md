@@ -106,6 +106,9 @@ Reconciliation classifies each roster profile on its own:
 
 A customized profile is owner-controlled: it is never rewritten, it does not
 block the rest of the roster, and install/setup still succeed and report it.
+`verify` reports its `profile:<name>` probe as `customized`, not `degraded`: it
+is not a CORE_READY failure, but CORE_READY names it, since RepoKit then vouches
+for that role only through observed work.
 Role toolsets are required as a subset, so owner-added tools are preserved; a
 missing required tool, like any other conflicting managed field, is drift.
 Drift blocks every native write in that run, because the roster can no longer be
