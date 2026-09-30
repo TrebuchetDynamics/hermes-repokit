@@ -205,9 +205,5 @@ if [ -n "$preserved" ]; then
 fi
 title 'Next steps'
 note 'Run these from the repository you want to prepare:'
-printf '  %s plan\n' "$run_command"
-printf '  %s install\n' "$run_command"
-printf '  %s\n' '# run the printed Compose build/start command'
-printf '  %s install   # after the runtime is running\n' "$run_command"
-printf '  %s setup     # in your private terminal\n' "$run_command"
-printf '  %s verify\n' "$run_command"
+printf '  %s install   # build and start the container\n' "$run_command"
+printf '  %s setup     # private Hermes setup, then team, dispatch and canary\n' "$run_command"
