@@ -22,6 +22,8 @@ var codeKernelSocket = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/herm
 
 // browserHarnessSocket is the browser tool's private control socket in a
 // profile home; granted browser tools create it during ordinary work.
+// profileUVCache is a specialist's own uv cache (its HOME is profiles/<p>/home).
+var profileUVCache = regexp.MustCompile(`^profiles/[^/]+/home/\.cache/uv/`)
 var browserHarnessSocket = regexp.MustCompile(`^(profiles/[^/]+/)?home/\.config/browser-harness/runtime/[^/]+\.sock$`)
 var huggingFaceModelLink = regexp.MustCompile(`^\.cache/huggingface/hub/models--[A-Za-z0-9][A-Za-z0-9._-]*/(blobs/[0-9a-f]{40}([0-9a-f]{24})?|snapshots/[0-9a-f]{40}/[^/]+(/[^/]+)*)$`)
 var huggingFaceCacheMetadata = regexp.MustCompile(`^\.cache/huggingface/hub/(\.locks/models--[A-Za-z0-9][A-Za-z0-9._-]*/[0-9a-f]{40}([0-9a-f]{24})?\.lock|blobs/[0-9a-f]{2}/[0-9a-f]{64}\.(lock|refs))$`)
@@ -182,7 +184,7 @@ func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
 		return info.IsDir() && info.Mode().Perm()&0077 == 0
 	}
 	under := func(root string) bool { return strings.HasPrefix(rel, root+"/") }
-	uv := under(".cache/uv") || under(".local/share/uv/tools") || under("home/.cache/uv")
+	uv := under(".cache/uv") || under(".local/share/uv/tools") || under("home/.cache/uv") || profileUVCache.MatchString(rel)
 	// npm and npx link package binaries inside their own cache (node_modules/.bin).
 	npm := under(".npm") || under("home/.npm") || strings.Contains(rel, "/home/.npm/") && strings.HasPrefix(rel, "profiles/")
 	toolLink := uv || npm || under(".local/bin") || under(".cua-driver/packages") ||

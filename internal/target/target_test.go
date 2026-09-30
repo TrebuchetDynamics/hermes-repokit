@@ -152,12 +152,13 @@ func TestNativeToolInstallDoesNotInvalidatePrivateDeployment(t *testing.T) {
 	p := privateDir(t)
 	state := filepath.Join(p, ".hermes")
 	links := map[string]string{
-		"home/.cache/uv/wheels-v6/pypi/edge-tts/revision": "../../../archive-v0/revision",
-		".cache/uv/wheels-v6/pypi/browser-use/revision":   "../../../archive-v0/revision",
-		".local/share/uv/tools/browser-use/bin/python":    "/usr/local/bin/python3",
-		".local/bin/cua-driver":                           "/opt/data/.cua-driver/packages/current/cua-driver",
-		".cua-driver/packages/current":                    "releases/0.30.2-linux",
-		"bin/browser-use":                                 "/opt/data/.local/share/uv/tools/browser-use/bin/browser-use",
+		"home/.cache/uv/wheels-v6/pypi/edge-tts/revision":            "../../../archive-v0/revision",
+		".cache/uv/wheels-v6/pypi/browser-use/revision":              "../../../archive-v0/revision",
+		"profiles/executor/home/.cache/uv/archive-v0/abc/bin/python": "/usr/bin/python",
+		".local/share/uv/tools/browser-use/bin/python":               "/usr/local/bin/python3",
+		".local/bin/cua-driver":                                      "/opt/data/.cua-driver/packages/current/cua-driver",
+		".cua-driver/packages/current":                               "releases/0.30.2-linux",
+		"bin/browser-use":                                            "/opt/data/.local/share/uv/tools/browser-use/bin/browser-use",
 	}
 	for rel, dest := range links {
 		path := filepath.Join(state, rel)
@@ -168,7 +169,7 @@ func TestNativeToolInstallDoesNotInvalidatePrivateDeployment(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	locks := []string{".cache/uv/.lock", ".local/share/uv/tools/.lock", "home/.cache/uv/.lock", "lazy-packages/.lock"}
+	locks := []string{".cache/uv/.lock", ".local/share/uv/tools/.lock", "home/.cache/uv/.lock", "profiles/executor/home/.cache/uv/.lock", "lazy-packages/.lock"}
 	for _, rel := range locks {
 		path := filepath.Join(state, rel)
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
@@ -204,7 +205,7 @@ func TestNativeToolExceptionsDoNotPermitRedirectedManagedPaths(t *testing.T) {
 		"development-image", ".cache", ".cache/uv", ".local", ".local/bin",
 		".local/share", ".local/share/uv", ".local/share/uv/tools", ".cua-driver", ".cua-driver/packages",
 		"profiles/executor/config.yaml", "development-image/Dockerfile",
-		"home", "home/.cache", "home/.cache/uv", "lazy-packages", "gateway.sock", "state/gateway.loop-tick.123.sock",
+		"home", "home/.cache", "home/.cache/uv", "profiles/executor/home/.cache/uv", "lazy-packages", "gateway.sock", "state/gateway.loop-tick.123.sock",
 	} {
 		t.Run(rel, func(t *testing.T) {
 			p := privateDir(t)
