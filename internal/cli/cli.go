@@ -222,6 +222,11 @@ func (a App) planTeam(id target.Identity, report Plan) *TeamPlan {
 		return unavailable("unavailable", "deployment routing cannot be verified")
 	}
 	if ready, err := a.nativeRuntimeReady(id, report.DockerContext); err != nil || !ready {
+		// A running container that is not the current RepoKit runtime is
+		// not previewed: team changes run only on the current runtime.
+		if state, _ := a.containerState(id, report.DockerContext); state == "running" {
+			return unavailable("runtime-outdated", "the running container is not the current RepoKit runtime; team convergence is previewed only on the current runtime")
+		}
 		return unavailable("runtime-not-running", "start the existing Compose service to preview team convergence")
 	}
 	runner := a.Initializer

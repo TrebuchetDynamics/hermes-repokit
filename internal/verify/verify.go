@@ -264,8 +264,8 @@ func CoreUsable(readiness []Probe) bool {
 // managedHistory reports whether soul is an earlier RepoKit-managed generation
 // of role, which setup upgrades in place.
 func managedHistory(role team.Role, soul string) bool {
-	for _, s := range append([]string{role.LegacySoul, role.PreviousSoul, role.PreviousRepositorySoul, role.PreviousRepositoryOriginalSoul}, role.PreviousManagedSouls...) {
-		if s != "" && s == soul {
+	for _, s := range role.History() {
+		if s == soul {
 			return true
 		}
 	}

@@ -468,3 +468,25 @@ func TestNativeWalkSkipsEntriesThatVanished(t *testing.T) {
 		t.Fatal("unreadable entry must still fail inspection")
 	}
 }
+
+func TestRepeatedPathDirectoryIsOneCollision(t *testing.T) {
+	root := t.TempDir()
+	id, err := Resolve(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, id.Container), []byte("other"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := strings.Join([]string{bin, bin + "/", bin}, string(os.PathListSeparator))
+	count := 0
+	for _, issue := range Inspect(id, path) {
+		if strings.HasPrefix(issue, "PATH collision") {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("repeated PATH directory reported %d collisions", count)
+	}
+}

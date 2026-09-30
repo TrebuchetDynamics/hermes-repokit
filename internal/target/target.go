@@ -125,10 +125,16 @@ func Inspect(id Identity, pathEnv string) []string {
 	} else if !os.IsNotExist(err) {
 		issues = append(issues, "cannot inspect native state")
 	}
+	seen := map[string]bool{}
 	for _, dir := range filepath.SplitList(pathEnv) {
 		if dir == "" {
 			dir = "."
 		}
+		// PATH often repeats a directory; one collision is one finding.
+		if seen[filepath.Clean(dir)] {
+			continue
+		}
+		seen[filepath.Clean(dir)] = true
 		p := filepath.Join(dir, id.Container)
 		if _, err := os.Lstat(p); err == nil {
 			resolved, e := filepath.EvalSymlinks(p)

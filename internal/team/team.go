@@ -20,8 +20,25 @@ type Role struct {
 	PreviousRepositoryOriginalSoul string   `json:"previous_repository_original_soul,omitempty"`
 	PreviousRepositorySoul         string   `json:"previous_repository_soul,omitempty"`
 	LegacySoul                     string   `json:"legacy_soul,omitempty"`
-	Toolsets                       []string `json:"toolsets"`
-	LegacyToolsets                 []string `json:"legacy_toolsets,omitempty"`
+	// ArchivedSouls are exact earlier generations from the archive; they are
+	// recognized as RepoKit's own output and upgraded, never installed.
+	ArchivedSouls  []string `json:"archived_souls,omitempty"`
+	Toolsets       []string `json:"toolsets"`
+	LegacyToolsets []string `json:"legacy_toolsets,omitempty"`
+}
+
+// History lists every earlier RepoKit generation of the role's SOUL. A SOUL
+// in this list is RepoKit's own untouched output, which convergence upgrades.
+func (r Role) History() []string {
+	out := []string{}
+	for _, s := range [][]string{{r.LegacySoul, r.PreviousSoul, r.PreviousRepositorySoul, r.PreviousRepositoryOriginalSoul}, r.PreviousManagedSouls, r.ArchivedSouls} {
+		for _, soul := range s {
+			if soul != "" {
+				out = append(out, soul)
+			}
+		}
+	}
+	return out
 }
 
 // ForRepository binds each permanent role to the selected repository. Prior
@@ -52,6 +69,11 @@ func ForRepository(id target.Identity) []Role {
 		}
 		if s := seven[role.Name]; s != "" && s != role.Soul {
 			role.PreviousManagedSouls = append(role.PreviousManagedSouls, s)
+		}
+		for _, s := range archivedSouls(id, role.Name) {
+			if s != role.Soul {
+				role.ArchivedSouls = append(role.ArchivedSouls, s)
+			}
 		}
 	}
 	return roles

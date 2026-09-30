@@ -85,7 +85,7 @@ func teamSet(name, key string, value any) string {
 	return teamCommand("-p", name, "config", "set", key, encoded)
 }
 func managedSouls(role team.Role) []string {
-	return append([]string{role.Soul, role.LegacySoul, role.PreviousSoul, role.PreviousRepositorySoul, role.PreviousRepositoryOriginalSoul}, role.PreviousManagedSouls...)
+	return append([]string{role.Soul}, role.History()...)
 }
 func readSoul(root *os.Root, name string) (string, error) {
 	path := ".hermes/SOUL.md"

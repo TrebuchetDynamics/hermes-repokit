@@ -68,6 +68,12 @@ func TestPlanPreviewsTeamOnlyForRunningDeployment(t *testing.T) {
 	if code != 0 || json.Unmarshal([]byte(out), &report) != nil || report.Team == nil || report.Team.Status != "runtime-not-running" || input.calls != 0 {
 		t.Fatalf("stopped runtime preview: code=%d calls=%d out=%s diag=%s", code, input.calls, out, diag)
 	}
+	// Running, but not the current RepoKit runtime: install upgrades it first.
+	r.runtime = strings.Replace(developmentRuntimeFixture(r.id), `"image":"`, `"image":"older/`, 1)
+	code, out, diag = invoke(t, a, "plan")
+	if code != 0 || json.Unmarshal([]byte(out), &report) != nil || report.Team == nil || report.Team.Status != "runtime-outdated" || input.calls != 0 {
+		t.Fatalf("outdated runtime preview: code=%d out=%s diag=%s", code, out, diag)
+	}
 	r.runtime = developmentRuntimeFixture(r.id)
 	code, out, diag = invoke(t, a, "plan", "--reset-profile", "executor")
 	if code != 0 || json.Unmarshal([]byte(out), &report) != nil || report.Team == nil || report.Team.Status != "pending-setup" || report.Team.Detail == "" {

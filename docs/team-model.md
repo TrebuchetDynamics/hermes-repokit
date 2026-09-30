@@ -267,6 +267,11 @@ Exact historical RepoKit SOULs upgrade only when managed configuration and role
 description still match; owner edits are preserved as customization and are not
 overwritten. RepoKit keeps no install-state file for this: every SOUL it has
 shipped is compiled in, so provenance cannot be lost or edited.
+Retired generations live in `internal/team/souls/archive/<role>/` as exact
+templates named by their SHA-256; they are added, never edited or removed. A
+pinned list of every SOUL each released revision could write must stay
+recognized, so a later cleanup cannot silently turn deployed RepoKit output
+into apparent owner customization that is never upgraded.
 Historical SOULs are matched by profile name, never by roster position, so tester
 starts with no managed history and no existing profile is remapped to it.
 An activated six-profile team whose default still holds the exact six-profile
