@@ -125,6 +125,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		probes = append(probes, verify.Profiles(id)...)
 		probes = append(probes, verify.Gateway(context.Background(), id, a.Runner)...)
 		probes = append(probes, verify.DefaultKanban(context.Background(), id, a.Runner)...)
+		probes = append(probes, verify.ChannelSessions(context.Background(), id, a.Runner)...)
 		probes = append(probes, verify.ReviewEvidence(context.Background(), id, a.Runner))
 		probes = append(probes, verify.HostSecurity(context.Background(), id, a.Runner)...)
 		readiness := verify.Readiness(probes)
