@@ -99,9 +99,8 @@ Reconciliation classifies each roster profile on its own:
 | State | Evidence | Action |
 |---|---|---|
 | current | current managed SOUL, description and managed config | none |
-| upgrade | exact earlier RepoKit SOUL, description and managed config | rewrite SOUL |
 | missing | no profile | create from default |
-| customized | SOUL outside RepoKit's compiled history, or changed description | preserve, report |
+| customized | a SOUL other than the current one, or a changed description | preserve, report |
 | drift | a managed config value the team depends on no longer holds | preserve, block |
 
 A customized profile is owner-controlled: it is never rewritten, it does not
@@ -112,7 +111,7 @@ for that role only through observed work.
 Role toolsets are required as a subset, so owner-added tools are preserved; a
 missing required tool, like any other conflicting managed field, is drift.
 Drift blocks every native write in that run, because the roster can no longer be
-proved and a partial upgrade could leave dispatch pointing at an unready team.
+proved and a partial write could leave dispatch pointing at an unready team.
 Models, providers, channels, plugins and memory are not managed fields. A rerun
 never replaces owner modifications, clears learned memories or deletes unknown
 profiles. Existing `builder` or domain profiles are left untouched.
@@ -120,9 +119,8 @@ profiles. Existing `builder` or domain profiles are left untouched.
 `repokit plan` previews this per profile in its `team` section when the
 deployment is running: each row names the profile, its state, the action
 install would take and which parts differ (`SOUL`, `description` or managed
-configuration keys; values are never printed). States beyond the table above
-are `adopt` (stock default claimed), `deferred` (upgrade waits for running
-work) and `held` (dispatch policy is owner-controlled, so nothing is changed).
+configuration keys; values are never printed). Beyond the table above, `adopt`
+means the stock default profile is claimed and `reset` a requested reset.
 
 Returning a profile to RepoKit's baseline is always explicit:
 
@@ -263,24 +261,12 @@ Every generated SOUL includes the repository basename, stable RepoKit project
 identity, profile role, permanent seven-profile roster and relationship to default.
 Hermes is the runtime, not the profile's repository identity. A persistent profile
 is distinct from a currently running worker. No absolute host path is embedded.
-Exact historical RepoKit SOULs upgrade only when managed configuration and role
-description still match; owner edits are preserved as customization and are not
-overwritten. RepoKit keeps no install-state file for this: every SOUL it has
-shipped is compiled in, so provenance cannot be lost or edited.
-Retired generations live in `internal/team/souls/archive/<role>/` as exact
-templates named by their SHA-256; they are added, never edited or removed. A
-pinned list of every SOUL each released revision could write must stay
-recognized, so a later cleanup cannot silently turn deployed RepoKit output
-into apparent owner customization that is never upgraded.
-Historical SOULs are matched by profile name, never by roster position, so tester
-starts with no managed history and no existing profile is remapped to it.
-An activated six-profile team whose default still holds the exact six-profile
-policy is upgraded by `setup`: tester is created, the six SOULs are
-rewritten and activation widens the allowlist, restarting the gateway once when
-no card is running. An operational seven-profile team is reconciled the same way
-whenever no card is running: untouched SOULs upgrade and missing roles are
-created. While a card runs, those upgrades are deferred and reported, never
-applied under a live worker. Any other owner-changed policy is only observed.
+RepoKit recognizes only its current generation and keeps no legacy support:
+a SOUL other than the current one is owner-customized and preserved, and an
+earlier release's profile is brought to the current baseline only by an
+explicit `install --reset-profile`. An operational seven-profile team is
+reconciled whenever no card is running: missing roles are created, never under
+a live worker. Any other owner-changed dispatch policy is only observed.
 
 Dispatch is off during bootstrap and incomplete setup. Successful setup activates
 one default gateway dispatcher with review dispatch enabled, concurrency one,

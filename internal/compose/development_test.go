@@ -45,7 +45,7 @@ func TestDevelopmentComposeKeepsCodingSeparateFromDaemon(t *testing.T) {
 func TestDevelopmentSelectionRequiresExactGeneratedDocument(t *testing.T) {
 	id, _ := target.Resolve(t.TempDir())
 	req := development.Requirements{Go: true}
-	opts := Options{HermesImage: qualification.FoundationImage, ToolchainCache: true, UID: os.Getuid(), GID: os.Getgid(), Development: &req}
+	opts := Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid(), Development: &req}
 	body, err := Render(id, opts)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func TestToolchainCacheVolumeKeepsGoCachesOutOfTheRepository(t *testing.T) {
 	goReq := development.Requirements{Go: true}
 	mount := "      - type: volume\n        source: toolchain-cache\n        target: /var/cache/repokit\n"
 	for _, tests := range []bool{false, true} {
-		body, err := Render(id, Options{HermesImage: qualification.FoundationImage, ToolchainCache: true, Development: &goReq, DockerTests: tests, UID: 1000, GID: 1000})
+		body, err := Render(id, Options{HermesImage: qualification.FoundationImage, Development: &goReq, DockerTests: tests, UID: 1000, GID: 1000})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -76,9 +76,9 @@ func TestToolchainCacheVolumeKeepsGoCachesOutOfTheRepository(t *testing.T) {
 			t.Fatalf("docker-tests=%v: toolchain cache volume missing or duplicated:\n%s", tests, s)
 		}
 	}
-	// No Go, or an earlier generation (zero value), renders no cache volume.
+	// Without Go there is no cache volume.
 	noGo := development.Requirements{}
-	for _, o := range []Options{{HermesImage: qualification.FoundationImage, ToolchainCache: true, Development: &noGo, UID: 1000, GID: 1000}, {HermesImage: qualification.FoundationImage, Development: &goReq, UID: 1000, GID: 1000}} {
+	for _, o := range []Options{{HermesImage: qualification.FoundationImage, Development: &noGo, UID: 1000, GID: 1000}} {
 		body, err := Render(id, o)
 		if err != nil || strings.Contains(string(body), "toolchain-cache") {
 			t.Fatalf("unexpected cache volume: %v\n%s", err, body)

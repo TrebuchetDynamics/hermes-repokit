@@ -46,7 +46,7 @@ func TestDevelopmentDoesNotClaimCodingAcceptanceFromToolPresence(t *testing.T) {
 func TestDerivedImageRequiresRecipeContentIDAndBaseLayers(t *testing.T) {
 	id, base := integrationFixture(t)
 	req := development.Requirements{Go: true}
-	data, _ := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, ToolchainCache: true, UID: os.Getuid(), GID: os.Getgid(), Development: &req})
+	data, _ := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid(), Development: &req})
 	os.WriteFile(id.Compose, data, 0600)
 	os.Mkdir(filepath.Join(id.Root, ".hermes/development-image"), 0700)
 	recipe, _ := development.Recipe(req)
@@ -87,7 +87,7 @@ func TestBuildxVersionUsesExactToken(t *testing.T) {
 func TestRuntimeMountsRequireTheExactToolchainVolume(t *testing.T) {
 	id, _ := integrationFixture(t)
 	req := development.Requirements{Go: true}
-	data, _ := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, ToolchainCache: true, UID: os.Getuid(), GID: os.Getgid(), Development: &req})
+	data, _ := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid(), Development: &req})
 	if err := os.WriteFile(id.Compose, data, 0600); err != nil {
 		t.Fatal(err)
 	}

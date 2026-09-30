@@ -22,7 +22,7 @@ func TestOlderGeneratedImageIsRecreatePendingNotRefused(t *testing.T) {
 	image := development.ImageName(r.id.Container, *o.Development)
 	for older, wantErr := range map[string]bool{
 		"repokit/" + r.id.Container + ":0123456789abcdef01234567": false,
-		r.id.Project + "-hermes-dev:0123456789abcdef01234567":     false,
+		r.id.Project + "-hermes-dev:0123456789abcdef01234567":     true,
 		"foreign/" + r.id.Container + ":0123456789abcdef01234567": true,
 	} {
 		r.runtime = string(bytes.Replace([]byte(current), []byte(image), []byte(older), 1))
@@ -33,10 +33,10 @@ func TestOlderGeneratedImageIsRecreatePendingNotRefused(t *testing.T) {
 	}
 }
 
-// A Go deployment whose running container predates the toolchain cache volume
-// (older generated image, only the two binds) awaits recreation; the current
-// image without the volume is not a qualified runtime.
-func TestContainerFromBeforeTheToolchainVolumeAwaitsRecreation(t *testing.T) {
+// A repository that gained a go.mod: its running container predates the Go
+// selection (older generated image, only the two binds) and awaits
+// recreation; the current image without the cache volume is not qualified.
+func TestContainerFromBeforeGoWasSelectedAwaitsRecreation(t *testing.T) {
 	a, r := foundationApp(t)
 	if err := os.WriteFile(filepath.Join(a.Directory, "go.mod"), []byte("module example.test/demo\n\ngo 1.26.0\n"), 0600); err != nil {
 		t.Fatal(err)

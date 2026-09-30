@@ -39,7 +39,7 @@ func isolatedDockerAcceptanceFixture(t *testing.T) (target.Identity, *dockerAcce
 	t.Helper()
 	id, base := integrationFixture(t)
 	req := development.Requirements{Go: true}
-	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, ToolchainCache: true, Development: &req, DockerTests: true, UID: os.Getuid(), GID: os.Getgid()})
+	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, Development: &req, DockerTests: true, UID: os.Getuid(), GID: os.Getgid()})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -117,7 +117,7 @@ func TestRemoveRefusesStateItDidNotCreate(t *testing.T) {
 	if err := os.WriteFile(r.id.Compose, append(data, []byte("# owner edit\n")...), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if code, _, diag := invoke(t, a, "remove"); code == 0 || !strings.Contains(diag, "not a RepoKit-generated Compose") || len(r.mutations) != 0 {
+	if code, _, diag := invoke(t, a, "remove"); code == 0 || !strings.Contains(diag, "not RepoKit's current generated Compose") || len(r.mutations) != 0 {
 		t.Fatalf("edited deployment removed: %s", diag)
 	}
 	b, r2 := installedForRemoval(t)

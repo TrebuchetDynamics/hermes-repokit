@@ -220,9 +220,9 @@ https://github.com/TrebuchetDynamics/hermes-repokit/archive/refs/heads/main.tar.
 and extract only skills/skill-hermes-repokit into your skills directory
 (~/.claude/skills for Claude Code, ~/.agents/skills for Codex, Pi or OpenCode).
 Load the skill, then use it to set up Hermes RepoKit for this repository:
-record a Git baseline, install the repokit CLI if missing, run plan and install,
-start the runtime with the exact Compose command install prints, and rerun
-install. Stop there and give me the exact `repokit setup` command to run in my
+record a Git baseline, install the repokit CLI if missing, run plan, then run
+install (it builds and starts the runtime itself). Stop there and give me the
+exact `repokit setup` command to run in my
 own terminal — never ask for or handle my credentials. After I confirm, run
 repokit verify and report bootstrap, host command, team, dispatch, development
 runtime and channels separately. Don't run --dispatch-check, commit, push or

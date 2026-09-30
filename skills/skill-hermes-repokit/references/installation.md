@@ -1,4 +1,4 @@
-# Install, resume, upgrade or migrate RepoKit
+# Install or resume RepoKit
 
 Work through these steps in order and stop at the first refusal; a refusal is
 evidence to report, not an obstacle to route around.
@@ -121,10 +121,8 @@ owner-customized profiles are preserved and reported, never overwritten.
 `setup --team` is the recovery form that never opens the wizard, and
 `--no-canary` skips the paid proof.
 
-Setup defers profile rewrites while a card is running and leaves an owner-changed
-dispatch policy untouched. An unmodified six-profile release is upgraded in place
-by `setup`: it adds `tester`, updates the managed SOULs and widens the allowlist
-with one restart.
+Setup never writes profiles while a card is running and leaves an owner-changed
+dispatch policy untouched.
 
 ## 6. Verify
 
@@ -171,20 +169,12 @@ service with the relabeled mounts and preserves all state. Never run
 `setenforce 0`, change global policy, add policy modules, relabel unrelated paths
 or hand-edit the Compose file.
 
-## Upgrades and legacy migration
+## Earlier releases
 
-`install` recognizes exact earlier generated deployments and upgrades them in
-place, keeping backups such as `compose.before-names.yaml` or
-`compose.before-core.yaml`, and recreates the service itself (run `setup` when
-the team changed). Edited launchers,
-recipes, backups and conflicting names are preserved and refused.
-
-The historical Hermes/Laya local-build stack is recognized too. Take a native
-backup, quiesce work, then stop its legacy services through their **original**
-Compose lifecycle before `install`; stopping a writer is not permission to delete
-its containers or data, and two writers must never share a database. RepoKit
-itself never stops or deletes legacy containers.
-
-Unrecognized or edited legacy topology refuses adoption. Report the exact
-preimage and the missing migration or owner decision. Do not hand-edit Compose,
-rename state, delete the old deployment or invent a `migrate` command.
+RepoKit keeps no legacy support: it recognizes only its current generation.
+`install` refuses a deployment from an earlier release, like an edited or
+foreign one, and prints the steps to start over. Relay them to the owner and
+let the owner run them: stop that deployment with
+`docker compose -f .hermes/compose.yaml down`, move `.hermes` aside, then
+`repokit install`. Do not hand-edit Compose, rename state, delete the old
+deployment or invent a `migrate` command.

@@ -105,7 +105,7 @@ func TestPlanAndVerifyInspectWithoutWritingOrNativeCalls(t *testing.T) {
 		r := &fakeRunner{}
 		var out, errout bytes.Buffer
 		app := App{Directory: root, Path: "", Runner: r, Stdin: strings.NewReader("")}
-		code := app.Run([]string{command, "--engineering"}, &out, &errout)
+		code := app.Run([]string{command}, &out, &errout)
 		if command == "plan" && code != 0 {
 			t.Fatalf("%d %s", code, errout.String())
 		}

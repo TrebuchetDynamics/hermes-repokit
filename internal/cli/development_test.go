@@ -75,8 +75,10 @@ func TestEnablingDockerTestsDefersUntilExistingRuntimeRecreated(t *testing.T) {
 	}
 }
 
-func TestLegacyDevelopmentDockerOptInMigrationChain(t *testing.T) {
-	a, _ := legacyMemoryFixture(t)
+// Opting a current deployment into the Docker test daemon, then rerunning
+// install without the flag, republishes in place and keeps the opt-in.
+func TestDockerTestsOptInOnACurrentDeployment(t *testing.T) {
+	a, _ := foundationApp(t)
 	if c, _, d := invoke(t, a, "install"); c != 0 {
 		t.Fatal(d)
 	}

@@ -127,9 +127,6 @@ Live and Docker proof that has not been exercised yet.
       and a restart; everything must keep working.
 - [ ] **More fresh repositories:** a Python repository without colliding root
       modules, and a Node repository, to exercise toolchain adequacy.
-- [ ] **Automated upgrade test:** turn the ad hoc old-release → new-release
-      upgrade probe into a Docker acceptance test (install with the previous tag,
-      upgrade, recreate, restart, state byte-identical).
 - [ ] **SELinux:** run on an SELinux-enforcing host (not yet available).
 - [ ] **Isolated Docker test daemon:** run `TestDockerIsolatedAcceptanceDaemon`
       (`REPOKIT_DIND_TESTS=1`).
@@ -147,9 +144,14 @@ Live and Docker proof that has not been exercised yet.
 
 ## Cleanup (low priority)
 
-- [ ] Retire legacy Compose recognition (Laya, previous names, pre-SELinux,
-      pre-docker-tests) once no deployment predates the recipe self-check.
-- [ ] Remove the no-op `--engineering` flag.
+- [x] Retire legacy support (owner decision, 2026-09-30): RepoKit recognizes
+      only its current generation. Historical SOUL generations and the SOUL
+      archive, the six-profile policy upgrade, the readable-names, Laya and
+      OpenViking-era migrations are gone; an earlier deployment is refused with
+      steps to start over. Kept as current-deployment reconfiguration: a changed
+      self-certified recipe (a repository gaining a go.mod), the Docker test
+      opt-in and the pre-SELinux render.
+- [x] Remove the no-op `--engineering` flag.
 - [ ] `verify` review evidence reads `kanban list/show`; confirm those never
       migrate the board schema, or gate them on an initialized board.
 - [ ] Local housekeeping: decide on the `hermes-s3upload` trial deployment,

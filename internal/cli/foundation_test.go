@@ -229,15 +229,15 @@ func TestFoundationRefusesStateExposedToGit(t *testing.T) {
 	}
 }
 
-func TestEngineeringProfilesCanBeSelectedBeforeSidecars(t *testing.T) {
+func TestInstallPublishesArtifactsBeforeProfiles(t *testing.T) {
 	a, r := foundationApp(t)
-	code, out, diag := invoke(t, a, "plan", "--engineering")
+	code, out, diag := invoke(t, a, "plan")
 	var plan Plan
 	if code != 0 || json.Unmarshal([]byte(out), &plan) != nil || len(plan.Unsupported) > 0 || len(plan.Profiles) != 7 {
-		t.Fatalf("engineering plan: %d %s %s", code, out, diag)
+		t.Fatalf("plan: %d %s %s", code, out, diag)
 	}
-	if code, out, diag = invoke(t, a, "install", "--engineering"); code != 0 {
-		t.Fatalf("engineering artifact install: %d %s %s", code, out, diag)
+	if code, out, diag = invoke(t, a, "install"); code != 0 {
+		t.Fatalf("artifact install: %d %s %s", code, out, diag)
 	}
 	if _, err := os.Stat(filepath.Join(r.id.Root, ".hermes/profiles")); !os.IsNotExist(err) {
 		t.Fatal("profiles created without native runtime")
@@ -259,7 +259,7 @@ func TestExistingPlanDisclosesNativeInitialization(t *testing.T) {
 	if code, _, diag := invoke(t, a, "install"); code != 0 {
 		t.Fatal(diag)
 	}
-	code, out, diag := invoke(t, a, "plan", "--engineering")
+	code, out, diag := invoke(t, a, "plan")
 	var p Plan
 	if code != 0 || json.Unmarshal([]byte(out), &p) != nil {
 		t.Fatalf("plan: %s %s", out, diag)
@@ -309,18 +309,11 @@ func TestVerifyDoesNotCertifyUnprovedWorkOrReportMemory(t *testing.T) {
 	}
 }
 
-func TestLegacyEngineeringIsOnlyAnAlias(t *testing.T) {
+func TestEngineeringFlagIsGone(t *testing.T) {
 	a, _ := foundationApp(t)
-	for _, installed := range []bool{false, true} {
-		if installed {
-			if code, _, diag := invoke(t, a, "install"); code != 0 {
-				t.Fatal(diag)
-			}
-		}
-		_, plain, _ := invoke(t, a, "plan")
-		_, legacy, _ := invoke(t, a, "plan", "--engineering")
-		if plain != legacy {
-			t.Fatal("legacy flag changes universal team plan")
+	for _, command := range []string{"plan", "install"} {
+		if code, _, _ := invoke(t, a, command, "--engineering"); code != 2 {
+			t.Fatalf("%s accepted the removed --engineering flag", command)
 		}
 	}
 }

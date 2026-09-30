@@ -173,3 +173,24 @@ func TestInstallReportsButKeepsTheOldInRepositoryCache(t *testing.T) {
 		t.Fatal("install deleted the old cache")
 	}
 }
+
+// RepoKit recognizes only its current generation: an earlier deployment is
+// refused with the steps to start over, and nothing is changed.
+func TestInstallRefusesAnEarlierDeploymentWithStartOverSteps(t *testing.T) {
+	a, r := foundationApp(t)
+	if code, _, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatal(diag)
+	}
+	data, _ := os.ReadFile(r.id.Compose)
+	earlier := strings.Replace(string(data), "      HERMES_HOME: /opt/data\n", "      HERMES_HOME: /opt/data\n      REPOKIT_OPENVIKING: \"1\"\n", 1)
+	if err := os.WriteFile(r.id.Compose, []byte(earlier), 0600); err != nil {
+		t.Fatal(err)
+	}
+	code, _, diag := invoke(t, a, "install")
+	if code == 0 || !strings.Contains(diag, "move .hermes aside, then rerun install") {
+		t.Fatalf("earlier deployment not refused with steps: code=%d diag=%s", code, diag)
+	}
+	if got, _ := os.ReadFile(r.id.Compose); string(got) != earlier {
+		t.Fatal("refused install changed the Compose file")
+	}
+}

@@ -110,7 +110,7 @@ func (a App) remove(id target.Identity, stdout, stderr io.Writer) int {
 	}
 	lock.Close()
 	os.Remove(filepath.Join(id.Root, ".hermes-repokit.lock"))
-	fmt.Fprintln(stdout, "RepoKit deployment removed. Run hermes-repokit install to start over.")
+	fmt.Fprintf(stdout, "RepoKit deployment removed. Run %s install to start over.\n", self())
 	return 0
 }
 
@@ -126,8 +126,10 @@ func (a App) planRemoval(id target.Identity) (removal, error) {
 		return plan, fmt.Errorf("the launcher is not RepoKit-generated; this .hermes was not created by RepoKit")
 	}
 	plan.dockerContext = dc
+	// `down --volumes` runs with this file, so only RepoKit's exact current
+	// Compose qualifies: an edited or earlier one could name owner volumes.
 	if _, ok := compose.DevelopmentInstallSelected(id); !ok {
-		return plan, fmt.Errorf(".hermes/compose.yaml is not a RepoKit-generated Compose file (edited or foreign); nothing was removed")
+		return plan, fmt.Errorf(".hermes/compose.yaml is not RepoKit's current generated Compose (edited, foreign or from an earlier release); nothing was removed")
 	}
 	data, err := os.ReadFile(id.Compose)
 	if err != nil {

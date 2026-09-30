@@ -68,7 +68,6 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	flags.Usage = func() {}
-	engineering := false
 	teamSetup := false
 	noCanary := false
 	dispatchCheck := false
@@ -79,9 +78,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		flags.BoolVar(&a.DockerTests, "docker-tests", false, "publish opt-in privileged isolated Docker acceptance service; never the host socket")
 		flags.StringVar(&a.resetProfile, "reset-profile", "", "return one roster profile to RepoKit's baseline SOUL, description and managed configuration; prior files are backed up")
 	}
-	if args[0] != "setup" {
-		flags.BoolVar(&engineering, "engineering", false, "legacy alias; generic team is the default")
-	} else {
+	if args[0] == "setup" {
 		flags.BoolVar(&teamSetup, "team", false, "recovery: reconcile the team from the saved default model without the private wizard")
 		flags.BoolVar(&noCanary, "no-canary", false, "skip the canary card (no model call); dispatch stays unproven")
 	}
@@ -148,7 +145,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		}
 		return a.remove(id, stdout, stderr)
 	case "plan", "install":
-		report := a.plan(id, engineering)
+		report := a.plan(id)
 		if args[0] == "plan" {
 			report.Team = a.planTeam(id, report)
 			enc := json.NewEncoder(stdout)
@@ -158,7 +155,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			}
 			return 0
 		}
-		return a.install(id, report, engineering, stdout, stderr)
+		return a.install(id, report, stdout, stderr)
 	}
 	return 2
 }
@@ -257,7 +254,7 @@ func (a App) selinuxState() selinux.State {
 	return selinux.Detect()
 }
 
-func (a App) plan(id target.Identity, engineering bool) Plan {
+func (a App) plan(id target.Identity) Plan {
 	p := Plan{Target: id, Collisions: target.Inspect(id, a.Path), CandidateImages: map[string]string{"hermes": qualification.FoundationImage}, Profiles: []string{"default"}, Plugins: []string{}, Kanban: map[string]any{"dispatch_in_gateway": false, "auto_decompose": false, "orchestrator_profile": "default", "max_in_progress": 1}, ProposedChanges: []string{"private .hermes native state", "standalone Hermes Compose and launcher", "native safe-default config; operator starts Compose and runs setup"}}
 
 	p.Development, _ = development.Detect(id.Root)
@@ -290,13 +287,10 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 	p.ProposedChanges = append(p.ProposedChanges, "create or reuse ~/.local/bin/"+id.Container+" as a symlink to the generated launcher when safe; preserve conflicts and report missing PATH")
 	p.ProposedChanges = append(p.ProposedChanges, "build and start "+id.Container+" with ordinary Docker Compose, then initialize native Kanban")
 	p.ProposedChanges = append(p.ProposedChanges, "add "+lockExcludeEntry+" to the local, never-committed .git/info/exclude unless already ignored, so the installer lock stays out of git status")
-	if compose.LegacyLayaBuildSelected(id) {
-		p.ProposedChanges = append(p.ProposedChanges, "recognized legacy Hermes/Laya build stack: install backs up compose.before-core.yaml and generates the core runtime; all service data preserved")
-	}
 	ctx := context.Background()
 	p.Collisions = append(p.Collisions, a.gitIssues(ctx, id)...)
 	if p.ExistingState {
-		captured, err := launcher.InstallContext(id)
+		captured, err := launcher.Context(id)
 		if err != nil {
 			p.Collisions = append(p.Collisions, "existing launcher context cannot be verified")
 			return p
@@ -323,7 +317,7 @@ func (a App) plan(id target.Identity, engineering bool) Plan {
 		p.Collisions = append(p.Collisions, "container names could not be inspected")
 	} else {
 		for _, name := range strings.Fields(containers.Output) {
-			if name == id.Container || (p.ExistingState && name == target.PreviousNames(id).Container) {
+			if name == id.Container {
 				observed := a.Runner.Run(ctx, "docker", "--context", p.DockerContext, "container", "inspect", "--format", verify.InspectFormat, name)
 				var state verify.Runtime
 				if !p.ExistingState || observed.Err != nil || observed.Truncated || json.Unmarshal([]byte(observed.Output), &state) != nil || state.Project != id.Project || state.Workspace != id.Root || state.Home != filepath.Join(id.Root, ".hermes") {
@@ -343,7 +337,7 @@ func recognized(command string) bool {
 	return false
 }
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify|start|stop|remove> [--engineering] [--help]")
+	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify|start|stop|remove> [--help]")
 	fmt.Fprintln(w, "       hermes-repokit install   then   hermes-repokit setup   (the whole first-time path)")
 	fmt.Fprintln(w, "       hermes-repokit setup [--no-canary] [--team] (--team: recovery without the private wizard)")
 	fmt.Fprintln(w, "       hermes-repokit verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)")

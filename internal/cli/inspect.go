@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 )
@@ -63,30 +62,14 @@ func (a App) nativeRuntimeReady(id target.Identity, dockerContext string) (bool,
 	if observed.Err != nil || observed.Truncated || json.Unmarshal([]byte(observed.Output), &runtime) != nil || runtime.Status != "running" {
 		return false, nil
 	}
-	if runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && verify.PriorRuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) && verify.PreviousNamedImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) {
-		return false, nil // Exact previous image name: recreate via printed Compose command.
-	}
-	// Same deployment running an older generated image (recipe upgraded on
-	// disk): recreation through the printed Compose command is pending.
-	if runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && verify.PriorRuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) && olderGeneratedImage(id, runtime.Image) {
+	same := runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes")
+	// The deployment was reconfigured on disk (a changed recipe, or newly
+	// selected Go or Docker tests); install recreates the container.
+	if same && olderGeneratedImage(id, runtime.Image) && verify.PriorRuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts, true) {
 		return false, nil
 	}
-	if _, selected := compose.DevelopmentSelected(id); selected && runtime.Image == qualification.FoundationImage && runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && runtime.UnexpectedMounts == "" {
+	if same && !verify.RuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) && verify.PriorRuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts, false) && verify.HermesImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) {
 		return false, nil
-	}
-	if selected, ok := compose.DevelopmentSelected(id); ok && selected.DockerTests && runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") {
-		base := map[string]string{"/workspace": id.Root, "/opt/data": filepath.Join(id.Root, ".hermes")}
-		valid := len(runtime.Mounts) == len(base)
-		for _, m := range runtime.Mounts {
-			want, ok := base[m.Destination]
-			if !ok || m.Type != "bind" || !m.RW || m.Source != want {
-				valid = false
-			}
-			delete(base, m.Destination)
-		}
-		if valid && len(base) == 0 && (verify.HermesImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) || verify.PreviousNamedImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner)) {
-			return false, nil
-		}
 	}
 	if !verify.HermesImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) || runtime.Service != "hermes" || !verify.RuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) || runtime.Project != id.Project || runtime.Workspace != id.Root || runtime.Home != filepath.Join(id.Root, ".hermes") {
 		return false, fmt.Errorf("running container image or identity does not match the qualified deployment")
@@ -103,13 +86,9 @@ func olderGeneratedImage(id target.Identity, image string) bool {
 	if !ok {
 		return false
 	}
-	for _, prefix := range []string{"repokit/" + id.Container + ":", id.Project + "-hermes-dev:"} {
-		if tag, found := strings.CutPrefix(image, prefix); found && generatedTag.MatchString(tag) {
-			// The current recipe tag keeps its separate image-ID checks.
-			return tag != development.Fingerprint(*selected.Development)[:24]
-		}
-	}
-	return false
+	tag, found := strings.CutPrefix(image, "repokit/"+id.Container+":")
+	// The current recipe tag keeps its separate image-ID checks.
+	return found && generatedTag.MatchString(tag) && tag != development.Fingerprint(*selected.Development)[:24]
 }
 
 // trackedStateIssue names committed .hermes paths, which Git already exposes,

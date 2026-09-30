@@ -30,20 +30,6 @@ func Render(id target.Identity, context string) ([]byte, error) {
 		"exec " + prefix + " exec -T --workdir /workspace hermes hermes \"$@\"\n"), nil
 }
 
-// InstallContext can recover the captured Docker context from the previous
-// command before its replacement has been published. Runtime checks require
-// Context, which never treats a missing current launcher as ready.
-func InstallContext(id target.Identity) (string, error) {
-	context, err := Context(id)
-	if os.IsNotExist(err) {
-		prior := target.PreviousNames(id)
-		if prior.Container != id.Container {
-			return Context(prior)
-		}
-	}
-	return context, err
-}
-
 // Context inspects only a byte-for-byte recognized launcher. Owner modifications
 // are allowed but make automatic context qualification unknown.
 func Context(id target.Identity) (string, error) {

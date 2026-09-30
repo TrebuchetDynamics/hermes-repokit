@@ -1,6 +1,6 @@
 ---
 name: skill-hermes-repokit
-description: Use when installing, resuming, verifying, upgrading, migrating or operating Hermes RepoKit in a repository — the repokit bootstrap CLI, the generated hermes-<repo> launcher, the seven-profile team, Kanban dispatch, the development runtime and channel parity. Not for unrelated Hermes installations, memory-provider setup, or developing RepoKit itself.
+description: Use when installing, resuming, verifying or operating Hermes RepoKit in a repository — the repokit bootstrap CLI, the generated hermes-<repo> launcher, the seven-profile team, Kanban dispatch, the development runtime and channel parity. Not for unrelated Hermes installations, memory-provider setup, or developing RepoKit itself.
 ---
 
 # Hermes RepoKit in repositories
@@ -18,7 +18,7 @@ memory stays user-managed; Git stays under owner control.**
 
 | Request | Read |
 | --- | --- |
-| Install, resume setup, upgrade or migrate a deployment | [installation](references/installation.md) |
+| Install or resume setup of a deployment | [installation](references/installation.md) |
 | Chat, profiles, Kanban, recovery, acceptance checks | [usage](references/usage.md) |
 | "Is it working?" / status only | Stay observational: `repokit verify` plus [usage](references/usage.md#readiness-report) |
 
@@ -38,8 +38,8 @@ push are each separately scoped.
    hash before any mutation. Never reset, stash, clean, commit or discard owner work.
 3. **Check the CLI you have.** Run `repokit --help` and follow the documentation
    of that revision (`README.md`, `docs/bootstrap-quickstart.md`). There is no
-   `--version`, no release binary and no `migrate`, `chat`, `start`, `run` or
-   `stop` subcommand — do not invent them.
+   `--version`, no release binary and no `migrate`, `chat` or `run` subcommand
+   — do not invent them.
 4. **Docker scope.** Touch only the target's own Compose project, through the
    exact command `install` printed (explicit context, absolute file,
    `--env-file /dev/null`). Never `docker kill`, `rm` or `prune` by name pattern,
@@ -73,7 +73,7 @@ push are each separately scoped.
 `repokit` and `hermes-repokit` are the same bootstrap binary. Prefer `repokit`:
 in a repository whose name normalizes to `repokit`, the generated launcher owns
 `hermes-repokit`. `hermes-<repo> setup` is **native** Hermes setup only; it does
-not reconcile the team. `--engineering` is a legacy no-op alias.
+not reconcile the team.
 
 ## Lifecycle at a glance
 

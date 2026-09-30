@@ -22,7 +22,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 )
 
-func (a App) install(id target.Identity, report Plan, engineering bool, stdout, stderr io.Writer) int {
+func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) int {
 	u := newUI(stdout, stderr)
 	u.title("install", id.Name, id.Root)
 	if len(report.Unsupported) > 0 {
@@ -33,7 +33,7 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		fmt.Fprintln(stderr, "target collisions:", strings.Join(report.Collisions, "; "))
 		return 1
 	}
-	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, ToolchainCache: true, Development: &report.Development, DockerTests: report.DockerTests, UID: os.Getuid(), GID: os.Getgid(), SELinux: a.selinuxState()})
+	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, Development: &report.Development, DockerTests: report.DockerTests, UID: os.Getuid(), GID: os.Getgid(), SELinux: a.selinuxState()})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -59,15 +59,14 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 	for name, data := range recipe {
 		artifacts["development-image/"+name] = install.Artifact{Data: data, Mode: 0600}
 	}
+	// Reconfiguring a current deployment republishes it in place: a changed
+	// recipe (such as a repository gaining a go.mod), opting into the Docker
+	// test daemon, or a host that enabled SELinux. Each exact preimage is
+	// backed up first. RepoKit recognizes no earlier release's files.
 	var previous []install.StackUpgrade
-	priorID := target.PreviousNames(id)
-	priorLauncher := ""
-	if priorID.Container != id.Container {
-		priorLauncher = priorID.Container
-	}
-	// Any older generated recipe self-certifies through its fingerprint label;
-	// an owner-edited recipe does not and is never upgraded. An interrupted
-	// upgrade is recognized from the exact recipe copy saved beside its backup.
+	// A generated recipe self-certifies through its fingerprint label; an
+	// owner-edited recipe does not and is never replaced. An interrupted change
+	// is recognized from the exact recipe copy saved beside its backup.
 	type olderRecipe struct {
 		files       map[string][]byte
 		fingerprint string
@@ -81,93 +80,42 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 			olderRecipes = append(olderRecipes, olderRecipe{files, fingerprint})
 		}
 	}
-	// OpenViking-era releases rendered the same stacks with an embedded-memory
-	// marker or a memory sidecar. They upgrade in place like any other
-	// generated preimage; their backups carry a distinct name, and memory data
-	// under .hermes/openviking is left untouched.
-	for _, memory := range []bool{false, true} {
-		backup := func(name string) string {
-			if !memory {
-				return name
-			}
-			if name == "" {
-				return "compose.before-openviking.yaml"
-			}
-			return strings.Replace(name, "compose.before-", "compose.before-openviking-", 1)
+	for _, tests := range []bool{false, true} {
+		if tests && !report.DockerTests {
+			continue
 		}
-		for _, tests := range []bool{false, true} {
-			if tests && !report.DockerTests {
-				continue
-			}
-			for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
-				opts := compose.Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: memory, Development: &report.Development, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
-				for _, older := range olderRecipes {
-					old, err := compose.LegacyDevelopment(id, opts, older.fingerprint)
-					if err != nil {
-						fmt.Fprintln(stderr, err)
-						return 1
-					}
-					previous = append(previous, install.StackUpgrade{Compose: old, BackupName: backup("compose.before-path.yaml"), PreviousRecipe: older.files, PreviousLauncher: priorLauncher})
-					old, err = compose.OlderRecipe(id, opts, older.fingerprint)
-					if err != nil {
-						fmt.Fprintln(stderr, err)
-						return 1
-					}
-					previous = append(previous, install.StackUpgrade{Compose: old, BackupName: backup("compose.before-recipe-" + older.fingerprint[:12] + ".yaml"), PreviousRecipe: older.files})
-				}
-				old, err := compose.PreviousNames(id, opts)
+		for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
+			opts := compose.Options{HermesImage: qualification.FoundationImage, Development: &report.Development, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
+			for _, older := range olderRecipes {
+				old, err := compose.OlderRecipe(id, opts, older.fingerprint)
 				if err != nil {
 					fmt.Fprintln(stderr, err)
 					return 1
 				}
-				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: backup("compose.before-names.yaml"), PreviousLauncher: priorLauncher})
+				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-recipe-" + older.fingerprint[:12] + ".yaml", PreviousRecipe: older.files})
 			}
 		}
-		old, err := compose.PreviousNames(id, compose.Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: memory, UID: os.Getuid(), GID: os.Getgid()})
-		if err != nil {
-			fmt.Fprintln(stderr, err)
+	}
+	if a.selinuxState().Enabled() {
+		// The same deployment rendered before the host enabled SELinux.
+		old, e := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, Development: &report.Development, DockerTests: report.DockerTests, UID: os.Getuid(), GID: os.Getgid()})
+		if e != nil {
+			fmt.Fprintln(stderr, e)
 			return 1
 		}
-		previous = append(previous, install.StackUpgrade{Compose: old, BackupName: backup(""), PreviousLauncher: priorLauncher})
-	}
-	legacy, err := compose.LegacyLayaBuild(priorID, os.Getuid(), os.Getgid())
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-		return 1
-	}
-	previous = append(previous, install.StackUpgrade{Compose: legacy, BackupName: "compose.before-core.yaml", PreviousLauncher: priorLauncher})
-	if a.selinuxState().Enabled() {
-		// Recognize a previously generated development runtime without SELinux
-		// relabeling so an existing deployment upgrades in place.
-		for _, memory := range []bool{false, true} {
-			old, e := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: memory, Development: &report.Development, DockerTests: report.DockerTests, UID: os.Getuid(), GID: os.Getgid()})
-			if e != nil {
-				fmt.Fprintln(stderr, e)
-				return 1
-			}
-			name := "compose.before-selinux.yaml"
-			if memory {
-				name = "compose.before-openviking-selinux.yaml"
-			}
-			previous = append(previous, install.StackUpgrade{Compose: old, BackupName: name})
-		}
+		previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-selinux.yaml"})
 	}
 	if report.DockerTests {
-		for _, memory := range []bool{false, true} {
-			old, e := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: memory, Development: &report.Development, UID: os.Getuid(), GID: os.Getgid()})
-			if e != nil {
-				fmt.Fprintln(stderr, e)
-				return 1
-			}
-			name := "compose.before-docker-tests.yaml"
-			if memory {
-				name = "compose.before-openviking-docker-tests.yaml"
-			}
-			previous = append(previous, install.StackUpgrade{Compose: old, BackupName: name})
+		// The same deployment before it opted into the Docker test daemon.
+		old, e := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, Development: &report.Development, UID: os.Getuid(), GID: os.Getgid(), SELinux: a.selinuxState()})
+		if e != nil {
+			fmt.Fprintln(stderr, e)
+			return 1
 		}
+		previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-docker-tests.yaml"})
 	}
 	created, err := install.PublishStackChecked(id, artifacts, previous, func() error {
-		current := a.plan(id, false)
+		current := a.plan(id)
 		if len(current.Unsupported) > 0 {
 			return fmt.Errorf("selected integration became unqualified")
 		}
@@ -187,6 +135,11 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 			fmt.Fprintln(stderr, "artifacts published, but durability confirmation failed; preserve .hermes and inspect before retrying")
 		}
 		fmt.Fprintln(stderr, "installation refused:", err)
+		if _, current := compose.DevelopmentInstallSelected(id); report.ExistingState && !current {
+			// RepoKit recognizes only its current generation, and never adopts
+			// an edited, foreign or earlier deployment.
+			fmt.Fprintln(stderr, "This .hermes is not RepoKit's current deployment (edited, foreign or from an earlier release). To start over, stop it with docker compose -f .hermes/compose.yaml down, move .hermes aside, then rerun install.")
+		}
 		return 1
 	}
 	if err := a.excludeInstallLock(context.Background(), id); err != nil {

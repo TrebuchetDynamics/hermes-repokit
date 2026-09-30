@@ -23,17 +23,6 @@ func HermesImageMatches(ctx context.Context, id target.Identity, dc, image, imag
 	return developmentImageContentMatches(ctx, id, dc, image, imageID, *o.Development, r)
 }
 
-// PreviousNamedImageMatches is only an installation transition check. A proven
-// image with the old tag can await Compose recreation; it is never reported as
-// a ready current runtime and no native setup runs against it.
-func PreviousNamedImageMatches(ctx context.Context, id target.Identity, dc, image, imageID string, r Runner) bool {
-	o, selected := compose.DevelopmentSelected(id)
-	if !selected || image != id.Project+"-hermes-dev:"+development.Fingerprint(*o.Development)[:24] {
-		return false
-	}
-	return developmentImageContentMatches(ctx, id, dc, image, imageID, *o.Development, r)
-}
-
 func developmentImageContentMatches(ctx context.Context, id target.Identity, dc, image, imageID string, req development.Requirements, r Runner) bool {
 	if !compose.LocalImageID(imageID) || !compose.DevelopmentRecipeMatches(id, req) {
 		return false
@@ -73,19 +62,38 @@ func RuntimeMountsMatch(id target.Identity, unexpected string, mounts []RuntimeM
 	return mountsMatch(id, o, mounts)
 }
 
-// PriorRuntimeMountsMatch also accepts a container created before the
-// toolchain cache volume existed. It qualifies only a pending recreation of
-// an older generated image, never a current runtime.
-func PriorRuntimeMountsMatch(id target.Identity, unexpected string, mounts []RuntimeMount) bool {
+// PriorRuntimeMountsMatch also accepts a container created before this
+// deployment's current options: before it selected Go (a repository that
+// gained a go.mod, so no toolchain cache volume yet) or before it opted into
+// the Docker test daemon. It qualifies only a pending recreation, never a
+// current runtime.
+//
+// olderImage selects which prior layouts qualify: a changed recipe (an older
+// image) may predate the Go selection, while the current image can differ from
+// its Compose only by the Docker test daemon opt-in.
+func PriorRuntimeMountsMatch(id target.Identity, unexpected string, mounts []RuntimeMount, olderImage bool) bool {
 	if RuntimeMountsMatch(id, unexpected, mounts) {
 		return true
 	}
 	o, selected := compose.DevelopmentSelected(id)
-	if !selected || !compose.ToolchainCacheMounted(o) {
+	if !selected {
 		return false
 	}
-	o.ToolchainCache = false
-	return mountsMatch(id, o, mounts)
+	for _, withoutGo := range []bool{false, olderImage} {
+		for _, withoutTests := range []bool{false, true} {
+			prior := o
+			if withoutGo {
+				prior.Development = &development.Requirements{}
+			}
+			if withoutTests {
+				prior.DockerTests = false
+			}
+			if (withoutGo || withoutTests) && mountsMatch(id, prior, mounts) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func mountsMatch(id target.Identity, o compose.Options, mounts []RuntimeMount) bool {

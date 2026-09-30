@@ -56,14 +56,6 @@ func Resolve(path string) (Identity, error) {
 	return Identity{root, name, container, fmt.Sprintf("repokit-%x", sum[:12]), filepath.Join(root, ".hermes", "compose.yaml"), filepath.Join(root, ".hermes", "bin", container)}, nil
 }
 
-// PreviousNames retains the stable repository identity while reconstructing the
-// original public names for exact generated-deployment migration only.
-func PreviousNames(id Identity) Identity {
-	id.Container = "hermes-" + id.Name
-	id.Launcher = filepath.Join(id.Root, ".hermes", "bin", id.Container)
-	return id
-}
-
 // broadMountRoots are host paths whose recursive mount or SELinux relabel
 // would touch unrelated system or user data rather than one repository.
 var broadMountRoots = map[string]bool{"/": true, "/home": true, "/root": true, "/usr": true, "/etc": true, "/var": true, "/opt": true, "/boot": true, "/srv": true}
