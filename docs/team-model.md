@@ -195,12 +195,16 @@ model-driven dispatch, artifact correctness or adversarial actor isolation.
 | Profile | Selected CLI toolsets | Boundary |
 | --- | --- | --- |
 | default | Native CLI preset + kanban (owner tools preserved) | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
-| researcher | file, web, memory | Artifact writes prohibited by SOUL |
-| planner | file, memory | Implementation prohibited by SOUL |
-| executor | file, terminal, code_execution, skills, memory | Work limited to the card |
-| tester | terminal, memory | No file-editing toolset; repository writes prohibited by SOUL |
-| reviewer | file, terminal, memory | Artifact writes prohibited by SOUL; terminal permits verification |
-| steward | terminal, file, memory | Profile administration only; project writes prohibited by SOUL |
+| researcher | file, web; memory granted | Artifact writes prohibited by SOUL |
+| planner | file; memory granted | Implementation prohibited by SOUL |
+| executor | file, terminal, code_execution, skills; memory granted | Work limited to the card |
+| tester | terminal; memory granted | No file-editing toolset; repository writes prohibited by SOUL |
+| reviewer | file, terminal; memory granted | Artifact writes prohibited by SOUL; terminal permits verification |
+| steward | terminal, file; memory granted | Profile administration only; project writes prohibited by SOUL |
+
+Specialists' memory is granted, not required: RepoKit selects the native memory
+tool when it creates or resets a specialist, but an owner who removes it causes
+no drift and RepoKit never adds it back.
 
 The pinned Hermes `file` bundle includes reads and writes; terminal execution
 also permits writes. These specialist boundaries are **advisory**, not an OS

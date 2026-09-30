@@ -48,10 +48,10 @@ against a fresh clone.
       names neither the file nor the fix. Report each tracked path and the remedy
       (move it outside `.hermes`, then `git rm --cached`).
       *Test:* repository tracking a file under `.hermes/` → message names it.
-- [ ] **Env-only channels are invisible to `verify`.** A Telegram channel
-      configured only through `.env` gets no `channel:telegram` row. Use the
-      public `hermes -p default tools list --platform <p>`.
-      *Test:* env-only Telegram → row reports Kanban from effective tools.
+- [x] **Env-only channels are invisible to `verify`.** `verify` now reads
+      configured platforms from public `send --list --json` (targets are never
+      reported) and judges a platform without a saved tool selection by
+      `tools list --platform <p>`.
 - [x] **Install output noise.** `install` starts the deployment itself and
       reports an in-place upgrade as an upgrade, not "Created …".
 - [x] **Toolchain caches live inside the repository.** The development recipe
@@ -115,6 +115,10 @@ against a fresh clone.
 
 ## Acceptance tests still open
 
+Review evidence credits only `executor` as the implementer and reads the newest
+20 reviewer-completed cards (`kanban list --assignee reviewer`), not the 5
+newest done cards.
+
 Live and Docker proof that has not been exercised yet.
 
 - [ ] **Tester loop:** a real task completes executor → tester → reviewer on the
@@ -133,9 +137,9 @@ Live and Docker proof that has not been exercised yet.
 
 ## Release engineering
 
-- [ ] **CI:** there is none. Add GitHub Actions for `go test`, `go test -race`,
-      `go vet` (plain and `-tags=docker`), gofmt and `git diff --check`; Docker
-      acceptance stays opt-in.
+- [x] **CI:** GitHub Actions runs gofmt, whitespace checks (pull requests),
+      `sh -n install.sh`, `go vet` (plain and `-tags=docker`), `go test` and
+      `go test -race`; Docker acceptance stays opt-in.
 - [ ] **Binaries:** publish linux/amd64 and linux/arm64 builds per release, or
       stop claiming "no host Go" in the README.
 - [ ] **arm64:** generated Compose pins `platform: linux/amd64` although the
