@@ -3,7 +3,6 @@
 package verify
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
@@ -132,25 +131,6 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 		probes = append(probes, Probe{"filesystem", Degraded, "unsafe or ambiguous repository/native state"})
 	}
 	return probes
-}
-
-func matchesCompose(id target.Identity, expected []byte) bool {
-	root, err := os.OpenRoot(id.Root)
-	if err != nil {
-		return false
-	}
-	defer root.Close()
-	f, err := root.Open(".hermes/compose.yaml")
-	if err != nil {
-		return false
-	}
-	defer f.Close()
-	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() {
-		return false
-	}
-	data, err := io.ReadAll(io.LimitReader(f, 65537))
-	return err == nil && len(data) <= 65536 && bytes.Equal(data, expected)
 }
 
 // Profiles checks generated public identities without invoking native commands.
