@@ -72,7 +72,10 @@ func RuntimeMountsMatch(id target.Identity, unexpected string, mounts []RuntimeM
 	}
 	need := 2
 	if o.DockerTests {
-		need = 4
+		need += 2
+	}
+	if compose.ToolchainCacheMounted(o) {
+		need++
 	}
 	if len(mounts) != need {
 		return false
@@ -94,6 +97,10 @@ func RuntimeMountsMatch(id target.Identity, unexpected string, mounts []RuntimeM
 			}
 		case "/docker-test/run":
 			if !o.DockerTests || m.RW || m.Type != "volume" || m.Name != id.Project+"_docker-test-run" {
+				return false
+			}
+		case compose.ToolchainCacheTarget:
+			if !compose.ToolchainCacheMounted(o) || m.Type != "volume" || m.Name != id.Project+"_"+compose.ToolchainCacheVolume {
 				return false
 			}
 		case "/docker-tests":

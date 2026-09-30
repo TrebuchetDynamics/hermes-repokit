@@ -26,12 +26,28 @@ type Options struct {
 	// runtime, or a memory sidecar without it. It exists only so install can
 	// recognize and upgrade those deployments; RepoKit never installs it.
 	HistoricalOpenViking bool
+	// ToolchainCache mounts a project-scoped volume for Go's module and build
+	// caches, keeping them out of the repository's .hermes. Current installs set
+	// it; the zero value reproduces earlier generated Compose for upgrades.
+	ToolchainCache bool
 	// SELinux selects private Docker bind relabeling for RepoKit-owned mounts.
 	// The zero value disables relabeling, preserving historical preimages.
 	SELinux selinux.State
 }
 
 var identity = regexp.MustCompile(`^[a-z0-9][a-z0-9-]+$`)
+
+// ToolchainCacheTarget and ToolchainCacheVolume name the toolchain cache
+// mount; Compose scopes the volume as <project>_toolchain-cache.
+const (
+	ToolchainCacheTarget = "/var/cache/repokit"
+	ToolchainCacheVolume = "toolchain-cache"
+)
+
+// ToolchainCacheMounted reports whether a render mounts the toolchain cache.
+func ToolchainCacheMounted(o Options) bool {
+	return o.ToolchainCache && o.Development != nil && o.Development.Go
+}
 
 func Render(id target.Identity, o Options) ([]byte, error) {
 	if !identity.MatchString(id.Project) || !identity.MatchString(id.Container) || !qualification.ImmutableImage(o.HermesImage) || o.UID <= 0 || o.GID <= 0 {
@@ -85,6 +101,12 @@ services:
         bind:
           create_host_path: false
 %s`, relabel)
+	if ToolchainCacheMounted(o) {
+		fmt.Fprintf(&s, `      - type: volume
+        source: %s
+        target: %s
+`, ToolchainCacheVolume, ToolchainCacheTarget)
+	}
 	if o.DockerTests {
 		s.WriteString(dockertest.Mounts())
 	}
@@ -94,7 +116,13 @@ services:
 			return nil, err
 		}
 		s.WriteString(extra)
-		s.WriteString(dockertest.Resources())
+		resources := dockertest.Resources()
+		if ToolchainCacheMounted(o) {
+			resources = strings.Replace(resources, "volumes:\n", "volumes:\n  "+ToolchainCacheVolume+":\n", 1)
+		}
+		s.WriteString(resources)
+	} else if ToolchainCacheMounted(o) {
+		s.WriteString("volumes:\n  " + ToolchainCacheVolume + ":\n")
 	}
 	if o.Development == nil && o.HistoricalOpenViking {
 		fmt.Fprintf(&s, `  openviking:

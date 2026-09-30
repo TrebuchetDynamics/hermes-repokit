@@ -39,7 +39,7 @@ func isolatedDockerAcceptanceFixture(t *testing.T) (target.Identity, *dockerAcce
 	t.Helper()
 	id, base := integrationFixture(t)
 	req := development.Requirements{Go: true}
-	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, Development: &req, DockerTests: true, UID: os.Getuid(), GID: os.Getgid()})
+	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, ToolchainCache: true, Development: &req, DockerTests: true, UID: os.Getuid(), GID: os.Getgid()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,6 +69,7 @@ func isolatedDockerAcceptanceFixture(t *testing.T) (target.Identity, *dockerAcce
 			{Type: "bind", Source: filepath.Join(id.Root, ".hermes"), Destination: "/opt/data", RW: true},
 			{Type: "volume", Name: id.Project + "_docker-test-run", Destination: "/docker-test/run", RW: false},
 			{Type: "volume", Name: id.Project + "_docker-test-work", Destination: "/docker-tests", RW: true},
+			{Type: "volume", Name: id.Project + "_toolchain-cache", Destination: "/var/cache/repokit", RW: true},
 		},
 	}
 	daemon := map[string]any{

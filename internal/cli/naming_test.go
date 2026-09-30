@@ -225,6 +225,11 @@ func previousNames(t *testing.T, a App, r *foundationRunner) []byte {
 		t.Fatal(err)
 	}
 	data = bytes.Replace(data, []byte("container_name: \"hermes-repokit\""), []byte("container_name: \"hermes-hermes-repokit\""), 1)
+	// The toolchain cache volume postdates readable names; no pre-rename
+	// deployment carried it.
+	data = bytes.Replace(data, []byte("      - type: volume\n        source: toolchain-cache\n        target: /var/cache/repokit\n"), nil, 1)
+	data = bytes.Replace(data, []byte("volumes:\n  toolchain-cache:\n"), []byte("volumes:\n"), 1)
+	data = bytes.TrimSuffix(data, []byte("volumes:\n"))
 	lines := strings.Split(string(data), "\n")
 	for i, line := range lines {
 		if strings.HasPrefix(line, "    image:") {

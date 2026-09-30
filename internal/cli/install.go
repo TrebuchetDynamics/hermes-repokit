@@ -33,7 +33,7 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		fmt.Fprintln(stderr, "target collisions:", strings.Join(report.Collisions, "; "))
 		return 1
 	}
-	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, Development: &report.Development, DockerTests: report.DockerTests, UID: os.Getuid(), GID: os.Getgid(), SELinux: a.selinuxState()})
+	data, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, ToolchainCache: true, Development: &report.Development, DockerTests: report.DockerTests, UID: os.Getuid(), GID: os.Getgid(), SELinux: a.selinuxState()})
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
@@ -201,6 +201,14 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		u.ok("Deployment", "created private .hermes state, Compose file and launcher")
 	default:
 		u.ok("Deployment", "existing deployment and native configuration preserved")
+	}
+	// Earlier recipes kept Go's caches in .hermes/development, inside the
+	// repository, where whole-tree tools trip over third-party sources. The
+	// cache is regenerable but unproven as RepoKit's alone, so it is reported,
+	// never deleted.
+	if info, err := os.Lstat(filepath.Join(id.Root, ".hermes", "development")); err == nil && info.IsDir() {
+		old := tildePath(filepath.Join(id.Root, ".hermes", "development"))
+		u.note(old + " holds Go caches from an earlier RepoKit and is no longer used; the new cache is the project's " + compose.ToolchainCacheVolume + " volume. Remove it when convenient: chmod -R u+w " + old + " && rm -rf " + old)
 	}
 	home, homeErr := os.UserHomeDir()
 	if homeErr != nil {

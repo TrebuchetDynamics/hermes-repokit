@@ -46,7 +46,7 @@ func TestDevelopmentDoesNotClaimCodingAcceptanceFromToolPresence(t *testing.T) {
 func TestDerivedImageRequiresRecipeContentIDAndBaseLayers(t *testing.T) {
 	id, base := integrationFixture(t)
 	req := development.Requirements{Go: true}
-	data, _ := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid(), Development: &req})
+	data, _ := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, ToolchainCache: true, UID: os.Getuid(), GID: os.Getgid(), Development: &req})
 	os.WriteFile(id.Compose, data, 0600)
 	os.Mkdir(filepath.Join(id.Root, ".hermes/development-image"), 0700)
 	recipe, _ := development.Recipe(req)
@@ -81,5 +81,35 @@ func TestBuildxVersionUsesExactToken(t *testing.T) {
 	}
 	if !containsVersionToken("github.com/docker/buildx v0.37.1 abc", "v0.37.1") {
 		t.Fatal("rejected exact version")
+	}
+}
+
+func TestRuntimeMountsRequireTheExactToolchainVolume(t *testing.T) {
+	id, _ := integrationFixture(t)
+	req := development.Requirements{Go: true}
+	data, _ := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, ToolchainCache: true, UID: os.Getuid(), GID: os.Getgid(), Development: &req})
+	if err := os.WriteFile(id.Compose, data, 0600); err != nil {
+		t.Fatal(err)
+	}
+	base := []RuntimeMount{
+		{Type: "bind", Source: id.Root, Destination: "/workspace", RW: true},
+		{Type: "bind", Source: id.Root + "/.hermes", Destination: "/opt/data", RW: true},
+	}
+	cache := RuntimeMount{Type: "volume", Name: id.Project + "_toolchain-cache", Destination: "/var/cache/repokit", RW: true}
+	if !RuntimeMountsMatch(id, "x", append(append([]RuntimeMount{}, base...), cache)) {
+		t.Fatal("generated toolchain volume refused")
+	}
+	for name, m := range map[string]RuntimeMount{
+		"missing":      {},
+		"foreign name": {Type: "volume", Name: "shared-cache", Destination: "/var/cache/repokit", RW: true},
+		"host bind":    {Type: "bind", Source: "/home", Destination: "/var/cache/repokit", RW: true},
+	} {
+		mounts := append([]RuntimeMount{}, base...)
+		if m.Type != "" {
+			mounts = append(mounts, m)
+		}
+		if RuntimeMountsMatch(id, "x", mounts) {
+			t.Fatalf("%s toolchain mount accepted", name)
+		}
 	}
 }

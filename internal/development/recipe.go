@@ -46,10 +46,14 @@ const goInstall = `RUN set -eu; \
     cd /tmp/repokit-go-smoke; \
     GOTOOLCHAIN=local GO111MODULE=off GOCACHE=/tmp/repokit-go-cache /usr/local/go/bin/go test -race; \
     rm -rf /tmp/repokit-go-smoke /tmp/repokit-go-cache
+# Go caches live on the project's toolchain-cache volume, never in the
+# repository's .hermes. Docker copies this sticky, world-writable directory
+# into the empty volume, so the runtime-remapped hermes user can write there.
+RUN install -d -m 1777 /var/cache/repokit
 ENV PATH="/usr/local/go/bin:${PATH}" \
     GOTOOLCHAIN=local \
-    GOCACHE=/opt/data/development/go-build \
-    GOMODCACHE=/opt/data/development/go-mod
+    GOCACHE=/var/cache/repokit/go-build \
+    GOMODCACHE=/var/cache/repokit/go-mod
 `
 
 func recipeInputs(req Requirements) map[string][]byte {

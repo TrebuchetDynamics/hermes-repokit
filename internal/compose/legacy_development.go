@@ -58,12 +58,13 @@ func DevelopmentInstallSelected(id target.Identity) (Options, bool) {
 	// Older renders share one on-disk image tag, so the toolchain selection
 	// must come from the recipe itself rather than from the Compose bytes.
 	recipeGo := bytes.Contains(recipe["Dockerfile"], []byte("https://go.dev/dl/go"))
-	for _, memory := range []bool{false, true} {
+	for _, variant := range []struct{ memory, cache bool }{{false, true}, {false, false}, {true, false}} {
+		memory := variant.memory
 		for _, goTool := range []bool{false, true} {
 			for _, tests := range []bool{false, true} {
 				for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
 					req := development.Requirements{Go: goTool}
-					o := Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: memory, Development: &req, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
+					o := Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: memory, ToolchainCache: variant.cache, Development: &req, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
 					renders := []func(target.Identity, Options) ([]byte, error){Render, PreviousNames}
 					if generated && goTool == recipeGo {
 						for _, older := range []func(target.Identity, Options, string) ([]byte, error){LegacyDevelopment, OlderRecipe} {
@@ -76,6 +77,7 @@ func DevelopmentInstallSelected(id target.Identity) (Options, bool) {
 							// Only installation options carry forward; the
 							// historical memory stack is never re-rendered.
 							o.HistoricalOpenViking = false
+							o.ToolchainCache = true
 							return o, true
 						}
 					}

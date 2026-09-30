@@ -54,7 +54,7 @@ against a fresh clone.
       *Test:* env-only Telegram → row reports Kanban from effective tools.
 - [x] **Install output noise.** `install` starts the deployment itself and
       reports an in-place upgrade as an upgrade, not "Created …".
-- [ ] **Toolchain caches live inside the repository.** The development recipe
+- [x] **Toolchain caches live inside the repository.** The development recipe
       sets `GOMODCACHE=/opt/data/development/go-mod` and
       `GOCACHE=/opt/data/development/go-build` (`internal/development/recipe.go`),
       and `/opt/data` is `<repo>/.hermes`. Go's `./...` skips dot-directories, but
@@ -66,6 +66,8 @@ against a fresh clone.
       that repository-wide checks exclude `.hermes`.
       *Test:* after a Go build in the container, `gofmt -l .` in the repository
       lists nothing under `.hermes`.
+      Fixed: Go caches use the project's `toolchain-cache` volume at
+      `/var/cache/repokit`; `install` reports a leftover `.hermes/development`.
 - [ ] **Monorepo toolchains.** Detection reads root manifests only, so PMB's
       Python/Rust subprojects were missed. Defer unless real projects need it.
 

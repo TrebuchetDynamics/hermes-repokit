@@ -155,3 +155,21 @@ func TestBootstrapOwnedHostCommandIsKeptAndDoesNotBlockInstall(t *testing.T) {
 		t.Fatalf("host command resolving to the launcher not used: %s", got)
 	}
 }
+
+func TestInstallReportsButKeepsTheOldInRepositoryCache(t *testing.T) {
+	a, r := foundationApp(t)
+	if code, _, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatal(diag)
+	}
+	old := filepath.Join(r.id.Root, ".hermes", "development", "go-mod")
+	if err := os.MkdirAll(old, 0700); err != nil {
+		t.Fatal(err)
+	}
+	code, out, diag := invoke(t, a, "install")
+	if code != 0 || !strings.Contains(out, "is no longer used") || !strings.Contains(out, "rm -rf") {
+		t.Fatalf("leftover cache not reported: code=%d out=%s diag=%s", code, out, diag)
+	}
+	if _, err := os.Stat(old); err != nil {
+		t.Fatal("install deleted the old cache")
+	}
+}

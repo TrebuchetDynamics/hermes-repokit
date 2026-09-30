@@ -184,3 +184,22 @@ func TestRecipePinsInputsAndChangesForGo(t *testing.T) {
 		t.Fatal("manifest inventory changed same image recipe")
 	}
 }
+
+func TestGoCachesLiveOnTheToolchainVolume(t *testing.T) {
+	files, err := Recipe(Requirements{Go: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := string(files["Dockerfile"])
+	for _, want := range []string{"install -d -m 1777 /var/cache/repokit", "GOCACHE=/var/cache/repokit/go-build", "GOMODCACHE=/var/cache/repokit/go-mod"} {
+		if !strings.Contains(dockerfile, want) {
+			t.Errorf("recipe missing %q", want)
+		}
+	}
+	if strings.Contains(dockerfile, "/opt/data/development") {
+		t.Error("Go caches still point into the repository's .hermes")
+	}
+	if _, ok := GeneratedRecipe(files); !ok {
+		t.Error("recipe no longer self-certifies")
+	}
+}

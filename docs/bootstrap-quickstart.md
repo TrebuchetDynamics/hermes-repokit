@@ -288,6 +288,13 @@ upgraded with a retained backup; edited recipes are preserved and refused.
 `verify` reports actual development tool versions and profile workdirs separately
 from memory and model-driven acceptance.
 
+Go's module and build caches live on a project-scoped `toolchain-cache` volume
+mounted at `/var/cache/repokit`, not in the repository, so whole-tree commands
+such as `gofmt -l .` or `grep -r` never walk third-party sources. The volume
+survives restarts and recreation and is removed with the deployment. Earlier
+releases kept these caches in `.hermes/development`; `install` reports that
+directory once it is unused, with a removal command, and never deletes it.
+
 For a repository that needs Docker integration tests, explicitly select:
 
 ```sh
