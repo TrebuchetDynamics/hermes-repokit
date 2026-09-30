@@ -81,33 +81,54 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 			olderRecipes = append(olderRecipes, olderRecipe{files, fingerprint})
 		}
 	}
-	for _, tests := range []bool{false, true} {
-		if tests && !report.DockerTests {
-			continue
+	// OpenViking-era releases rendered the same stacks with an embedded-memory
+	// marker or a memory sidecar. They upgrade in place like any other
+	// generated preimage; their backups carry a distinct name, and memory data
+	// under .hermes/openviking is left untouched.
+	for _, memory := range []bool{false, true} {
+		backup := func(name string) string {
+			if !memory {
+				return name
+			}
+			if name == "" {
+				return "compose.before-openviking.yaml"
+			}
+			return strings.Replace(name, "compose.before-", "compose.before-openviking-", 1)
 		}
-		for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
-			opts := compose.Options{HermesImage: qualification.FoundationImage, Development: &report.Development, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
-			for _, older := range olderRecipes {
-				old, err := compose.LegacyDevelopment(id, opts, older.fingerprint)
+		for _, tests := range []bool{false, true} {
+			if tests && !report.DockerTests {
+				continue
+			}
+			for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
+				opts := compose.Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: memory, Development: &report.Development, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
+				for _, older := range olderRecipes {
+					old, err := compose.LegacyDevelopment(id, opts, older.fingerprint)
+					if err != nil {
+						fmt.Fprintln(stderr, err)
+						return 1
+					}
+					previous = append(previous, install.StackUpgrade{Compose: old, BackupName: backup("compose.before-path.yaml"), PreviousRecipe: older.files, PreviousLauncher: priorLauncher})
+					old, err = compose.OlderRecipe(id, opts, older.fingerprint)
+					if err != nil {
+						fmt.Fprintln(stderr, err)
+						return 1
+					}
+					previous = append(previous, install.StackUpgrade{Compose: old, BackupName: backup("compose.before-recipe-" + older.fingerprint[:12] + ".yaml"), PreviousRecipe: older.files})
+				}
+				old, err := compose.PreviousNames(id, opts)
 				if err != nil {
 					fmt.Fprintln(stderr, err)
 					return 1
 				}
-				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-path.yaml", PreviousRecipe: older.files, PreviousLauncher: priorLauncher})
-				old, err = compose.OlderRecipe(id, opts, older.fingerprint)
-				if err != nil {
-					fmt.Fprintln(stderr, err)
-					return 1
-				}
-				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-recipe-" + older.fingerprint[:12] + ".yaml", PreviousRecipe: older.files})
+				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: backup("compose.before-names.yaml"), PreviousLauncher: priorLauncher})
 			}
-			old, err := compose.PreviousNames(id, opts)
-			if err != nil {
-				fmt.Fprintln(stderr, err)
-				return 1
-			}
-			previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-names.yaml", PreviousLauncher: priorLauncher})
 		}
+		old, err := compose.PreviousNames(id, compose.Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: memory, UID: os.Getuid(), GID: os.Getgid()})
+		if err != nil {
+			fmt.Fprintln(stderr, err)
+			return 1
+		}
+		previous = append(previous, install.StackUpgrade{Compose: old, BackupName: backup(""), PreviousLauncher: priorLauncher})
 	}
 	legacy, err := compose.LegacyLayaBuild(priorID, os.Getuid(), os.Getgid())
 	if err != nil {
@@ -115,29 +136,35 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		return 1
 	}
 	previous = append(previous, install.StackUpgrade{Compose: legacy, BackupName: "compose.before-core.yaml", PreviousLauncher: priorLauncher})
-	old, err := compose.PreviousNames(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()})
-	if err != nil {
-		fmt.Fprintln(stderr, err)
-		return 1
-	}
-	previous = append(previous, install.StackUpgrade{Compose: old, PreviousLauncher: priorLauncher})
 	if a.selinuxState().Enabled() {
 		// Recognize a previously generated development runtime without SELinux
 		// relabeling so an existing deployment upgrades in place.
-		old, e := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, Development: &report.Development, DockerTests: report.DockerTests, UID: os.Getuid(), GID: os.Getgid()})
-		if e != nil {
-			fmt.Fprintln(stderr, e)
-			return 1
+		for _, memory := range []bool{false, true} {
+			old, e := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: memory, Development: &report.Development, DockerTests: report.DockerTests, UID: os.Getuid(), GID: os.Getgid()})
+			if e != nil {
+				fmt.Fprintln(stderr, e)
+				return 1
+			}
+			name := "compose.before-selinux.yaml"
+			if memory {
+				name = "compose.before-openviking-selinux.yaml"
+			}
+			previous = append(previous, install.StackUpgrade{Compose: old, BackupName: name})
 		}
-		previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-selinux.yaml"})
 	}
 	if report.DockerTests {
-		old, e := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, Development: &report.Development, UID: os.Getuid(), GID: os.Getgid()})
-		if e != nil {
-			fmt.Fprintln(stderr, e)
-			return 1
+		for _, memory := range []bool{false, true} {
+			old, e := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: memory, Development: &report.Development, UID: os.Getuid(), GID: os.Getgid()})
+			if e != nil {
+				fmt.Fprintln(stderr, e)
+				return 1
+			}
+			name := "compose.before-docker-tests.yaml"
+			if memory {
+				name = "compose.before-openviking-docker-tests.yaml"
+			}
+			previous = append(previous, install.StackUpgrade{Compose: old, BackupName: name})
 		}
-		previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-docker-tests.yaml"})
 	}
 	created, err := install.PublishStackChecked(id, artifacts, previous, func() error {
 		current := a.plan(id, false)

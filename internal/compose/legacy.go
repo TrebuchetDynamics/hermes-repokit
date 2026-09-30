@@ -17,7 +17,7 @@ func LegacyLayaBuildSelected(id target.Identity) bool {
 // LegacyLayaBuild is the exact ce7b6c8 generated preimage, for migration only.
 // It does not add a Laya selection to new installations or adopt edited stacks.
 func LegacyLayaBuild(id target.Identity, uid, gid int) ([]byte, error) {
-	base, err := Render(id, Options{HermesImage: qualification.FoundationImage, UID: uid, GID: gid})
+	base, err := Render(id, Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: true, UID: uid, GID: gid})
 	if err != nil {
 		return nil, err
 	}

@@ -12,11 +12,20 @@ import (
 	"strings"
 )
 
+// historicalOpenVikingImage is the memory image the OpenViking-era releases
+// pinned. It is rendered only to recognize those generated deployments.
+const historicalOpenVikingImage = "ghcr.io/volcengine/openviking@sha256:569193efd49ad15a818c98ca66bfb566d1726713f1f3ec9c488b97fa66757d05"
+
 type Options struct {
 	HermesImage string
 	UID, GID    int
 	Development *development.Requirements
 	DockerTests bool
+	// HistoricalOpenViking reproduces the exact Compose that OpenViking-era
+	// releases generated: an embedded-memory marker on the development
+	// runtime, or a memory sidecar without it. It exists only so install can
+	// recognize and upgrade those deployments; RepoKit never installs it.
+	HistoricalOpenViking bool
 	// SELinux selects private Docker bind relabeling for RepoKit-owned mounts.
 	// The zero value disables relabeling, preserving historical preimages.
 	SELinux selinux.State
@@ -56,6 +65,9 @@ services:
       HERMES_UID: %q
       HERMES_GID: %q
 `, id.Container, fmt.Sprint(o.UID), fmt.Sprint(o.GID))
+	if o.Development != nil && o.HistoricalOpenViking {
+		s.WriteString("      REPOKIT_OPENVIKING: \"1\"\n")
+	}
 	relabel := ""
 	if mode := o.SELinux.RelabelMode(); mode != "" {
 		relabel = "          selinux: " + mode + "\n"
@@ -83,6 +95,29 @@ services:
 		}
 		s.WriteString(extra)
 		s.WriteString(dockertest.Resources())
+	}
+	if o.Development == nil && o.HistoricalOpenViking {
+		fmt.Fprintf(&s, `  openviking:
+    image: %q
+    user: %q
+    restart: unless-stopped
+    environment:
+      HOME: /app/.openviking
+      OPENVIKING_CONFIG_FILE: /app/.openviking/ov.conf
+      OPENVIKING_WITH_BOT: "0"
+    healthcheck:
+      test: ["CMD", "openviking-entrypoint", "--healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - type: bind
+        source: "./openviking"
+        target: /app/.openviking
+        bind:
+          create_host_path: false
+%s`, historicalOpenVikingImage, fmt.Sprintf("%d:%d", o.UID, o.GID), relabel)
 	}
 	return []byte(s.String()), nil
 }

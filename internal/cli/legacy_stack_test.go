@@ -15,7 +15,7 @@ import (
 // Public generated preimage from ce7b6c8; never read or adopt private state.
 func legacyLayaCompose(t *testing.T, id target.Identity) []byte {
 	t.Helper()
-	base, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, UID: os.Getuid(), GID: os.Getgid()})
+	base, err := compose.Render(id, compose.Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: true, UID: os.Getuid(), GID: os.Getgid()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestInstallMigratesExactLegacySidecarsPreservingOwnerState(t *testing.T) {
 				t.Fatal(err)
 			}
 			state := filepath.Join(a.Directory, ".hermes")
-			preserved := map[string]string{"config.yaml": "owner-config\n", "memories/private.conf": "private owner config", "laya/model": "owner model", "profiles/owner/SOUL.md": "owner identity", "kanban.db": "existing board"}
+			preserved := map[string]string{"config.yaml": "owner-config\n", "memories/private.conf": "private owner config", "openviking/ov.conf": "private memory config", "laya/model": "owner model", "profiles/owner/SOUL.md": "owner identity", "kanban.db": "existing board"}
 			for name, data := range preserved {
 				path := filepath.Join(state, name)
 				if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {

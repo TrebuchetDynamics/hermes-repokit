@@ -58,21 +58,26 @@ func DevelopmentInstallSelected(id target.Identity) (Options, bool) {
 	// Older renders share one on-disk image tag, so the toolchain selection
 	// must come from the recipe itself rather than from the Compose bytes.
 	recipeGo := bytes.Contains(recipe["Dockerfile"], []byte("https://go.dev/dl/go"))
-	for _, goTool := range []bool{false, true} {
-		for _, tests := range []bool{false, true} {
-			for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
-				req := development.Requirements{Go: goTool}
-				o := Options{HermesImage: qualification.FoundationImage, Development: &req, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
-				renders := []func(target.Identity, Options) ([]byte, error){Render, PreviousNames}
-				if generated && goTool == recipeGo {
-					for _, older := range []func(target.Identity, Options, string) ([]byte, error){LegacyDevelopment, OlderRecipe} {
-						renders = append(renders, func(id target.Identity, o Options) ([]byte, error) { return older(id, o, fingerprint) })
+	for _, memory := range []bool{false, true} {
+		for _, goTool := range []bool{false, true} {
+			for _, tests := range []bool{false, true} {
+				for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
+					req := development.Requirements{Go: goTool}
+					o := Options{HermesImage: qualification.FoundationImage, HistoricalOpenViking: memory, Development: &req, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
+					renders := []func(target.Identity, Options) ([]byte, error){Render, PreviousNames}
+					if generated && goTool == recipeGo {
+						for _, older := range []func(target.Identity, Options, string) ([]byte, error){LegacyDevelopment, OlderRecipe} {
+							renders = append(renders, func(id target.Identity, o Options) ([]byte, error) { return older(id, o, fingerprint) })
+						}
 					}
-				}
-				for _, render := range renders {
-					expected, err := render(id, o)
-					if err == nil && bytes.Equal(data, expected) {
-						return o, true
+					for _, render := range renders {
+						expected, err := render(id, o)
+						if err == nil && bytes.Equal(data, expected) {
+							// Only installation options carry forward; the
+							// historical memory stack is never re-rendered.
+							o.HistoricalOpenViking = false
+							return o, true
+						}
 					}
 				}
 			}

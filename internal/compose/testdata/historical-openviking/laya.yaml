@@ -1,0 +1,71 @@
+# Native state is authoritative. Ordinary Docker Compose owns this deployment.
+name: "repokit-0123456789abcdef01234567"
+services:
+  hermes:
+    image: "nousresearch/hermes-agent@sha256:d4da4a40cd7a28aba983775d9fd31d94cbf153eeb0cb9e844d6d0f612b7c24db"
+    container_name: "hermes-atlas"
+    restart: unless-stopped
+    working_dir: /workspace
+    # Keep the native exec endpoint available before interactive provider setup.
+    command: ["sleep", "infinity"]
+    environment:
+      HERMES_HOME: /opt/data
+      HERMES_WRITE_SAFE_ROOT: /opt/data:/workspace
+      HERMES_UID: "1000"
+      HERMES_GID: "1000"
+    volumes:
+      - type: bind
+        source: ".."
+        target: /workspace
+        bind:
+          create_host_path: false
+      - type: bind
+        source: "."
+        target: /opt/data
+        bind:
+          create_host_path: false
+  openviking:
+    image: "ghcr.io/volcengine/openviking@sha256:569193efd49ad15a818c98ca66bfb566d1726713f1f3ec9c488b97fa66757d05"
+    user: "1000:1000"
+    restart: unless-stopped
+    environment:
+      HOME: /app/.openviking
+      OPENVIKING_CONFIG_FILE: /app/.openviking/ov.conf
+      OPENVIKING_WITH_BOT: "0"
+    healthcheck:
+      test: ["CMD", "openviking-entrypoint", "--healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - type: bind
+        source: "./openviking"
+        target: /app/.openviking
+        bind:
+          create_host_path: false
+  laya:
+    build:
+      context: ./laya-image
+    platform: linux/amd64
+    network_mode: service:hermes
+    depends_on:
+      hermes:
+        condition: service_started
+        restart: true
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m
+    cpus: 4
+    mem_limit: 6g
+    environment:
+      HF_HOME: /cache/huggingface
+      TORCHINDUCTOR_CACHE_DIR: /cache/torchinductor
+    volumes:
+      - type: bind
+        source: "./laya"
+        target: /cache
+        bind:
+          create_host_path: false
