@@ -145,3 +145,41 @@ func TestRemovePreservesForeignHostCommandAndHandlesAbsentContainer(t *testing.T
 		t.Fatal("compose down must still run to clean a leftover network")
 	}
 }
+
+// Go marks its module cache read-only. Deployments installed before the
+// toolchain cache volume kept that cache in .hermes/development, so remove
+// must delete read-only directories inside .hermes, and nothing outside it.
+func TestRemoveDeletesReadOnlyToolchainCache(t *testing.T) {
+	a, r := installedForRemoval(t)
+	module := filepath.Join(a.Directory, ".hermes", "development", "go-mod", "example.test", "mod@v1.0.0")
+	if err := os.MkdirAll(module, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(module, "mod.go"), []byte("package mod\n"), 0444); err != nil {
+		t.Fatal(err)
+	}
+	for _, dir := range []string{module, filepath.Dir(module)} {
+		if err := os.Chmod(dir, 0555); err != nil {
+			t.Fatal(err)
+		}
+	}
+	outside := t.TempDir()
+	if err := os.Chmod(outside, 0555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(outside, 0700) })
+	if err := os.Symlink(outside, filepath.Join(a.Directory, ".hermes", "development", "link")); err != nil {
+		t.Fatal(err)
+	}
+	a.Confirm = func(string) (string, error) { return r.id.Name, nil }
+	code, out, diag := invoke(t, a, "remove")
+	if code != 0 || strings.Contains(diag, "could not be deleted") {
+		t.Fatalf("read-only cache blocked removal: code=%d out=%s diag=%s", code, out, diag)
+	}
+	if _, err := os.Lstat(filepath.Join(a.Directory, ".hermes")); !os.IsNotExist(err) {
+		t.Fatal(".hermes survived")
+	}
+	if info, err := os.Stat(outside); err != nil || info.Mode().Perm() != 0555 {
+		t.Fatalf("remove changed a directory outside .hermes: %v %v", info, err)
+	}
+}

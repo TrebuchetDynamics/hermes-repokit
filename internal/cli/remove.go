@@ -96,7 +96,7 @@ func (a App) remove(id target.Identity, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stdout, "Removed host command %s.\n", plan.hostCommand)
 		}
 	}
-	if err := os.RemoveAll(filepath.Join(id.Root, ".hermes")); err != nil {
+	if err := removeState(filepath.Join(id.Root, ".hermes")); err != nil {
 		fmt.Fprintf(stderr, "Warning: part of .hermes could not be deleted (%v); remove the rest manually.\n", err)
 	} else {
 		fmt.Fprintln(stdout, "Deleted .hermes.")
@@ -230,4 +230,23 @@ func (a App) dropLockExclude(ctx context.Context, id target.Identity) error {
 		return fmt.Errorf("could not remove %s from %s", lockExcludeEntry, path)
 	}
 	return nil
+}
+
+// removeState deletes the private state tree. Go marks its module cache
+// read-only, and earlier recipes kept that cache in .hermes/development, so a
+// failed first pass makes directories inside the tree writable and retries.
+// WalkDir never follows symbolic links, so nothing outside the tree changes.
+func removeState(dir string) error {
+	if err := os.RemoveAll(dir); err == nil {
+		return nil
+	}
+	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err == nil && d.IsDir() {
+			if info, e := d.Info(); e == nil && info.Mode().Perm()&0200 == 0 {
+				os.Chmod(path, info.Mode().Perm()|0700)
+			}
+		}
+		return nil
+	})
+	return os.RemoveAll(dir)
 }
