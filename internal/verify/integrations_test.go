@@ -17,8 +17,8 @@ import (
 )
 
 type integrationRunner struct {
-	hermes, service, image, config, health string
-	calls                                  [][]string
+	hermes, service, image string
+	calls                  [][]string
 }
 
 func (r *integrationRunner) Run(_ context.Context, p string, args ...string) process.Result {
@@ -64,26 +64,11 @@ func integrationFixture(t *testing.T) (target.Identity, *integrationRunner) {
 	}
 	r := &integrationRunner{
 		hermes: fmt.Sprintf(`{"id":"%s","status":"running","image":%q,"project":%q,"service":"hermes","workspace":%q,"home":%q}`, strings.Repeat("a", 64), qualification.FoundationImage, id.Project, id.Root, filepath.Join(id.Root, ".hermes")),
-		config: `{"memory":"active"}`, health: "healthy\n",
 	}
 	return id, r
 }
 
-func TestRuntimeIntegrationsKeepReadinessAndAcceptanceIndependent(t *testing.T) {
-	id, r := integrationFixture(t)
-	probes := RuntimeIntegrations(context.Background(), id, r)
-	if len(probes) != 1 || probes[0].Status == Active || probes[0].Status == Healthy {
-		t.Fatalf("passive checks certified memory or review: %+v", probes)
-	}
-	for _, call := range r.calls {
-		joined := strings.Join(call, " ")
-		if strings.Contains(joined, " -c ") {
-			t.Fatalf("custom Python probe executed: %s", joined)
-		}
-	}
-}
-
-func TestRuntimeIntegrationsRefuseExecOnIdentityMismatch(t *testing.T) {
+func TestIntegrationRuntimeRefusesIdentityMismatch(t *testing.T) {
 	for _, field := range []string{"image", "project", "workspace", "home", "service", "status", "id", "unexpectedMounts"} {
 		t.Run(field, func(t *testing.T) {
 			id, r := integrationFixture(t)
@@ -92,22 +77,14 @@ func TestRuntimeIntegrationsRefuseExecOnIdentityMismatch(t *testing.T) {
 			state[field] = "different"
 			data, _ := json.Marshal(state)
 			r.hermes = string(data)
-			RuntimeIntegrations(context.Background(), id, r)
+			if _, _, err := integrationRuntime(context.Background(), id, r); err == nil {
+				t.Fatalf("runtime accepted after %s mismatch", field)
+			}
 			for _, call := range r.calls {
 				if strings.Contains(strings.Join(call, " "), " exec ") {
 					t.Fatalf("exec after %s mismatch", field)
 				}
 			}
 		})
-	}
-}
-
-func TestRuntimeIntegrationsDoNotExecuteCustomPython(t *testing.T) {
-	id, r := integrationFixture(t)
-	RuntimeIntegrations(context.Background(), id, r)
-	for _, call := range r.calls {
-		if strings.Contains(strings.Join(call, " "), " -c ") {
-			t.Fatal("custom Python verification executed")
-		}
 	}
 }

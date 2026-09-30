@@ -8,7 +8,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
-//go:embed souls/*.md souls/v6/*.md
+//go:embed souls/*.md souls/v6/*.md souls/v7/*.md
 var souls embed.FS
 
 type Role struct {
@@ -29,6 +29,7 @@ type Role struct {
 // adding a role cannot remap an existing profile's history. A role absent from
 // earlier generations has no managed history.
 func ForRepository(id target.Identity) []Role {
+	seven := sevenRoleGeneration(id)
 	prior := map[string]Role{}
 	for _, role := range sixRoleGeneration(id) {
 		prior[role.Name] = role
@@ -48,6 +49,9 @@ func ForRepository(id target.Identity) []Role {
 			role.PreviousRepositoryOriginalSoul = p.PreviousRepositoryOriginalSoul
 			role.PreviousManagedSouls = append(append([]string{}, p.PreviousManagedSouls...), p.Soul)
 			role.LegacyToolsets = p.LegacyToolsets
+		}
+		if s := seven[role.Name]; s != "" && s != role.Soul {
+			role.PreviousManagedSouls = append(role.PreviousManagedSouls, s)
 		}
 	}
 	return roles
@@ -92,15 +96,17 @@ const defaultMaintenance = `## Channels and identity
 Profile is identity. Platform is the conversation surface. Session is conversation history.
 Runtime is the serving process. CLI, Telegram and other primary human-facing
 channels are surfaces for this same default repository orchestrator, not separate
-agents. They share this SOUL, the permanent roster, repository Kanban board,
-project memory identity. Histories and native
-platform extras can differ. Check routing before treating another profile's
+agents. They share this SOUL, the permanent roster and the repository Kanban
+board. Histories, native platform extras and owner-configured Hermes features
+such as memory can differ. Check routing before treating another profile's
 channel as yours. Programmatic reduced-capability surfaces need not mirror chat.
 
 Every configured human-facing default channel requires its native platform core
-capabilities plus Kanban and memory. Use native preset-derived selections; never
-freeze a copied CLI tool list or remove platform extras. Existing conversations
-can retain old tool schemas: request a fresh conversation after changing tools.
+capabilities plus Kanban. Memory and other optional Hermes features are the
+owner's configuration: preserve them, but do not require or enable them. Use
+native preset-derived selections; never freeze a copied CLI tool list or remove
+platform extras. Existing conversations can retain old tool schemas: request a
+fresh conversation after changing tools.
 
 Messaging channels are full remote development consoles. Handle lightweight file
 reads, repository searches, Git inspection and diagnostic commands directly;
@@ -133,7 +139,7 @@ repository artifact work still belongs to executor, tester and reviewer.
 Route specialist creation, retirement, SOUL and capability changes to steward.
 
 You may repair, but must not remove, repository identity, the permanent roster,
-Kanban and memory availability, independent review, repository isolation.
+Kanban availability, independent review, repository isolation.
 Never replace or
 read raw credentials, private bot tokens or OAuth state into a transcript; never
 weaken authentication, delete profiles, or erase memory or board history. Secret changes require owner-performed private native setup.

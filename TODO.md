@@ -44,7 +44,7 @@ against a fresh clone.
 - [ ] **Env-only channels are invisible to `verify`.** A Telegram channel
       configured only through `.env` gets no `channel:telegram` row. Use the
       public `hermes -p default tools list --platform <p>`.
-      *Test:* env-only Telegram → row reports Kanban/memory from effective tools.
+      *Test:* env-only Telegram → row reports Kanban from effective tools.
 - [ ] **Install output noise.** `install` always prints "Start Hermes with
       ordinary Compose" (even when running) and "Created …" on upgrades.
       Print only what applies.
@@ -77,6 +77,10 @@ against a fresh clone.
 
 - [x] Remove the embedded shared-memory provider. RepoKit neither configures nor
       verifies memory; the operator owns provider setup and behavior.
+- [x] Drop memory from RepoKit's contracts: default channels require only Kanban
+      (owner tool choices preserved, memory never enabled), `verify` no longer
+      reports memory, and the default SOUL no longer guarantees it. The first
+      seven-role SOUL generation is frozen so those defaults still upgrade.
 
 ## Upstream
 

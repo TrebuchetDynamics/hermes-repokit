@@ -99,7 +99,7 @@ func TestTeamPlansSevenPublicNativeProfilesFromExactManagedDefault(t *testing.T)
 		case "model.default":
 			value = "provider/model"
 		case "toolsets":
-			value = []string{"kanban", "memory"}
+			value = []string{"file", "memory"}
 		case "skills.project_discovery":
 			value = true
 		default:
@@ -118,6 +118,11 @@ func TestTeamPlansSevenPublicNativeProfilesFromExactManagedDefault(t *testing.T)
 	}
 	if strings.Count(plan.Script, "'profile' 'create'") != 6 {
 		t.Fatalf("expected six native worker creates: %s", plan.Script)
+	}
+	// RepoKit adds only Kanban to default's tools; the owner's memory choice is
+	// preserved and never enabled by RepoKit.
+	if !strings.Contains(plan.Script, `'-p' 'default' 'config' 'set' 'toolsets' '["file","memory","kanban"]'`) || strings.Contains(plan.Script, "'enable' 'kanban' 'memory'") {
+		t.Fatalf("default tool reconciliation changed owner tools:\n%s", plan.Script)
 	}
 	for _, role := range roles[1:] {
 		if !strings.Contains(plan.Script, "'profile' 'create' '"+role.Name+"'") {
@@ -138,13 +143,14 @@ func TestTeamResultDoesNotEchoUntrustedNativeOutput(t *testing.T) {
 
 func TestDefaultChannelToolsCompletesOnlyMissingHumanChannels(t *testing.T) {
 	run := func(args ...string) ([]byte, error) {
-		return []byte(`{"cli":["file"],"telegram":["file","terminal"],"discord":["kanban","memory"],"api_server":["file"]}`), nil
+		return []byte(`{"cli":["file"],"telegram":["file","terminal"],"discord":["kanban"],"api_server":["file"]}`), nil
 	}
 	script, err := defaultChannelTools(run)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(script, "'tools' 'enable' 'kanban' 'memory' '--platform' 'telegram'") || strings.Contains(script, "discord") || strings.Contains(script, "api_server") || strings.Contains(script, "'cli'") {
+	// Kanban is RepoKit's; memory is the owner's and is neither required nor enabled.
+	if !strings.Contains(script, "'tools' 'enable' 'kanban' '--platform' 'telegram'") || strings.Contains(script, "memory") || strings.Contains(script, "discord") || strings.Contains(script, "api_server") || strings.Contains(script, "'cli'") {
 		t.Fatalf("unexpected channel reconciliation:\n%s", script)
 	}
 	bad := func(args ...string) ([]byte, error) { return []byte(`{"tele gram":["file"]}`), nil }

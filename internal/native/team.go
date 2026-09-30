@@ -426,7 +426,8 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 	}
 	// Native CLI owns configuration semantics. The global fallback is the only
 	// publicly inspectable default tool boundary; channel discovery is separate.
-	// Required tools are added, never replaced, and only when missing.
+	// Kanban is the only required tool: it is added, never replaced, and only
+	// when missing. Memory and every other tool are the owner's choice.
 	changes := ""
 	tools, err := configValue(run, "default", "toolsets")
 	if err != nil {
@@ -439,12 +440,8 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 	if !ok || !holdsTeamValue(tools, []string{}) {
 		return teamPlan{}, errors.New("native default tool selection differs")
 	}
-	if !holdsTeamValue(tools, []string{"kanban", "memory"}) {
-		for _, v := range []string{"kanban", "memory"} {
-			if !holdsTeamValue(selected, []string{v}) {
-				selected = append(selected, v)
-			}
-		}
+	if !holdsTeamValue(tools, []string{"kanban"}) {
+		selected = append(selected, "kanban")
 		changes += teamSet("default", "toolsets", selected)
 	}
 	channelsValue, err := configValue(run, "default", "platform_toolsets")
@@ -455,8 +452,8 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 	if channelsValue != nil && !ok {
 		return teamPlan{}, errors.New("native channel tool selection differs")
 	}
-	if !holdsTeamValue(configured["cli"], []string{"kanban", "memory"}) {
-		changes += teamCommand("-p", "default", "tools", "enable", "kanban", "memory", "--platform", "cli")
+	if !holdsTeamValue(configured["cli"], []string{"kanban"}) {
+		changes += teamCommand("-p", "default", "tools", "enable", "kanban", "--platform", "cli")
 	}
 	channelTools, err := defaultChannelTools(run)
 	if err != nil {
@@ -651,8 +648,9 @@ func teamResult(output string) (TeamReport, error) {
 	return TeamReport{}, errors.New("native team provisioning result missing; inspect existing profiles before retrying")
 }
 
-// defaultChannelTools enables Kanban and memory for default on every saved
-// human-facing channel that lacks them, through native `tools enable`.
+// defaultChannelTools enables Kanban for default on every saved human-facing
+// channel that lacks it, through native `tools enable`. Other tools on the
+// channel, memory included, are the owner's and are left alone.
 func defaultChannelTools(run teamCLI) (string, error) {
 	value, err := configValue(run, "default", "platform_toolsets")
 	if err != nil {
@@ -682,8 +680,8 @@ func defaultChannelTools(run teamCLI) (string, error) {
 				have[s] = true
 			}
 		}
-		if !have["kanban"] || !have["memory"] {
-			script += teamCommand("-p", "default", "tools", "enable", "kanban", "memory", "--platform", channel)
+		if !have["kanban"] {
+			script += teamCommand("-p", "default", "tools", "enable", "kanban", "--platform", channel)
 		}
 	}
 	return script, nil

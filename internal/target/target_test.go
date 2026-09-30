@@ -2,6 +2,7 @@ package target
 
 import (
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
@@ -439,5 +440,31 @@ func TestHuggingFaceModelCacheMetadataPreservesNativeArtifacts(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// vanishedEntry is a directory listing whose file was deleted before Info.
+type vanishedEntry struct{ dir bool }
+
+func (v vanishedEntry) Name() string               { return "gone" }
+func (v vanishedEntry) IsDir() bool                { return v.dir }
+func (v vanishedEntry) Type() fs.FileMode          { return 0 }
+func (v vanishedEntry) Info() (fs.FileInfo, error) { return nil, fs.ErrNotExist }
+
+// A running Hermes deletes short-lived files while the native state is walked;
+// an entry that vanished is skipped, but the state root and real errors are not.
+func TestNativeWalkSkipsEntriesThatVanished(t *testing.T) {
+	state := "/r/.hermes"
+	if info, err := walkedInfo(state+"/tmp.yaml", state, vanishedEntry{}, nil); info != nil || err != nil {
+		t.Fatalf("vanished file must be skipped: %v %v", info, err)
+	}
+	if _, err := walkedInfo(state+"/scratch", state, vanishedEntry{dir: true}, fs.ErrNotExist); err != filepath.SkipDir {
+		t.Fatalf("vanished directory must be skipped: %v", err)
+	}
+	if _, err := walkedInfo(state, state, nil, fs.ErrNotExist); err == nil {
+		t.Fatal("missing state root must fail")
+	}
+	if _, err := walkedInfo(state+"/locked", state, vanishedEntry{dir: true}, fs.ErrPermission); err == nil {
+		t.Fatal("unreadable entry must still fail inspection")
 	}
 }

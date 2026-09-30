@@ -32,3 +32,20 @@ func TestInstallTrustsProjectSkillsBeforeRuntimeStarts(t *testing.T) {
 		t.Fatal("stopped install rerun replaced owner skill settings")
 	}
 }
+
+// A fresh default keeps Hermes's native CLI preset (memory included) and only
+// opts into Kanban; RepoKit neither adds nor removes native tools.
+func TestInstallSeedsNativePresetPlusKanban(t *testing.T) {
+	a, _ := foundationApp(t)
+	if code, _, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatalf("install: %s", diag)
+	}
+	data, err := os.ReadFile(filepath.Join(a.Directory, ".hermes/config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	config := string(data)
+	if !strings.Contains(config, "toolsets: [hermes-cli, kanban]\n") || !strings.Contains(config, "  cli: [hermes-cli, kanban]\n") || strings.Contains(config, "memory") {
+		t.Fatalf("fresh default must be the native preset plus Kanban:\n%s", config)
+	}
+}

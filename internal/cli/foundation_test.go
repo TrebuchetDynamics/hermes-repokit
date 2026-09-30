@@ -283,7 +283,9 @@ func TestGenericTeamIsDefaultPlan(t *testing.T) {
 	}
 }
 
-func TestVerifyDoesNotCertifyUnqualifiedIntegrations(t *testing.T) {
+// verify reports what RepoKit promises; memory is a Hermes feature it neither
+// configures nor reports.
+func TestVerifyDoesNotCertifyUnprovedWorkOrReportMemory(t *testing.T) {
 	a, _ := foundationApp(t)
 	_, out, _ := invoke(t, a, "verify")
 	var probes []verify.Probe
@@ -293,12 +295,15 @@ func TestVerifyDoesNotCertifyUnqualifiedIntegrations(t *testing.T) {
 	pending := map[string]bool{}
 	for _, p := range probes {
 		switch p.Component {
-		case "memory", "review:evidence", "CORE_READY", "MEMORY":
+		case "review:evidence", "CORE_READY":
 			pending[p.Component] = p.Status != verify.Healthy
 		}
+		if strings.Contains(strings.ToLower(p.Component+p.Detail), "memory") {
+			t.Fatalf("verify reported memory: %+v", p)
+		}
 	}
-	if !pending["memory"] || !pending["review:evidence"] || !pending["CORE_READY"] || !pending["MEMORY"] {
-		t.Fatal("missing explicit integration gates")
+	if !pending["review:evidence"] || !pending["CORE_READY"] {
+		t.Fatal("missing explicit readiness gates")
 	}
 }
 

@@ -79,13 +79,15 @@ report drift. Do not erase them or re-clear their memory on retry.
 Default's pristine upstream SOUL is adopted only when all managed config fields
 already match RepoKit defaults and existing description is absent or expected.
 Default uses the installed Hermes platform preset's resolved categories plus
-explicit Kanban and memory on configured interactive channels. Native `tools
+explicit Kanban on configured interactive channels. Memory and other optional
+Hermes tools are the owner's configuration: RepoKit neither requires nor enables
+them, and preserves whatever is selected. Native `tools
 enable` owns persistence and built-in/plugin bookkeeping; existing extra tools
 are preserved. Hermes rejects composite preset names in that command, so RepoKit
 resolves the native preset first instead of passing an ignored alias. No lists
 are materialized for unconfigured channels or reduced programmatic surfaces.
-The legacy profile-wide Kanban fallback remains; it is not a memory-provider
-readiness claim. Native enablement repairs required disabled categories.
+The legacy profile-wide Kanban fallback remains. Native enablement repairs a
+disabled Kanban category.
 New specialist clones have inherited human-channel selections narrowed to their
 role subsets; their
 task-scoped lifecycle tools remain native dispatcher behavior. Existing worker
@@ -135,9 +137,8 @@ while a card is running or when the dispatch policy is owner-controlled, and a
 reset that could not be applied fails install. Resetting a missing profile
 creates it.
 
-Verification reports `kanban:default:<platform>`, `memory:default:<platform>` and
-the profile-wide Kanban fallback, plus a declared channel routing/core matrix.
-A missing saved-platform opt-in is degraded. Healthy configuration does not
+Verification reports `channel:<platform>` for each saved human-facing channel
+of default. A channel without the Kanban tool is degraded. Healthy configuration does not
 change a cached session schema: start a fresh conversation after reconciliation.
 Setup starts or converges the native gateway only after its activation gates pass;
 saving Telegram credentials alone does not establish operational readiness.
@@ -191,7 +192,7 @@ model-driven dispatch, artifact correctness or adversarial actor isolation.
 
 | Profile | Selected CLI toolsets | Boundary |
 | --- | --- | --- |
-| default | Native CLI preset + kanban + memory | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
+| default | Native CLI preset + kanban (owner tools preserved) | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
 | researcher | file, web, memory | Artifact writes prohibited by SOUL |
 | planner | file, memory | Implementation prohibited by SOUL |
 | executor | file, terminal, code_execution, skills, memory | Work limited to the card |

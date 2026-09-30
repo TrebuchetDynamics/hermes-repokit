@@ -84,9 +84,9 @@ RepoKit) with no changed files. A passing card is archived; a failing card is
 preserved for inspection.
 
 `verify` is observational. It uses public `hermes config get`, `gateway status`
-and `kanban list/show --json` and reports `CORE_READY` first, marking memory as
-user-managed. `CORE_READY` is `healthy` only when configuration, runtime,
-toolchain, dispatch policy, gateway and channel tools are healthy **and** a
+and `kanban list/show --json` and reports `CORE_READY` first; memory is not
+reported. `CORE_READY` is `healthy` only when configuration, runtime,
+toolchain, dispatch policy, gateway and channel Kanban tools are healthy **and** a
 recent done card shows same-card review (an implementation run requesting review,
 a later tester run forwarding it, and reviewer completing the card last). Without that evidence it is `unqualified`.
 `verify` exits 0 unless core is `degraded`. Passive verify does not configure or

@@ -74,11 +74,11 @@ func TestTesterMigrationIsByNameNotPosition(t *testing.T) {
 			continue
 		}
 		n := len(role.PreviousManagedSouls)
-		if n != 5 || role.PreviousManagedSouls[n-1] != prior.Soul || role.LegacySoul != prior.LegacySoul {
+		if n < 5 || role.PreviousManagedSouls[4] != prior.Soul || role.LegacySoul != prior.LegacySoul {
 			t.Fatalf("%s lost its own six-role history", role.Name)
 		}
 		for _, other := range six {
-			if other.Name != role.Name && role.PreviousManagedSouls[n-1] == other.Soul {
+			if other.Name != role.Name && role.PreviousManagedSouls[4] == other.Soul {
 				t.Fatalf("%s inherited %s history", role.Name, other.Name)
 			}
 		}
@@ -107,5 +107,43 @@ func TestSameCardChainContract(t *testing.T) {
 				t.Errorf("%s missing %q", name, text)
 			}
 		}
+	}
+}
+
+// The first seven-profile generation installed these exact bytes. Default
+// changed afterwards (memory left the channel contract), so existing seven-role
+// defaults must still be recognized as managed and upgraded.
+func TestSevenRoleGenerationIsFrozenAndDefaultUpgrades(t *testing.T) {
+	id := target.Identity{Name: "atlas", Project: "repokit-123"}
+	hashes := map[string]string{
+		"default":    "90af8cc7daa82b766fe24418b05d1244d480bb8fcd6d45e00f223c0231b4a59b",
+		"researcher": "92af343d24bed01aa7099c64a0a724aa659766807c5b65c2339a0682da569521",
+		"planner":    "7b5c202af506368a3f6412951b43e562b47ac51b7aa2b33572d69b7d86ae1269",
+		"executor":   "818ec48f5ebbb5cc3c0c593be8018d80ac3edb0ceddd5020cfe12c83492c67bf",
+		"tester":     "05f2f5b73811dadff4463ac564a07c0efc55040f4d3c399d1f051d52f6637b17",
+		"reviewer":   "799ff9d795d6f8a9b6e7b9f1f2118371fab642252c1ae2eb3a3dba7844ef82f2",
+		"steward":    "93d4849cea6ccde6e9909605929b249801f073aab28dd5bc528241e35e3f703f",
+	}
+	seven := sevenRoleGeneration(id)
+	if len(seven) != len(hashes) {
+		t.Fatalf("seven-role generation has %d roles", len(seven))
+	}
+	for name, soul := range seven {
+		if got := fmt.Sprintf("%x", sha256.Sum256([]byte(soul))); got != hashes[name] {
+			t.Fatalf("%s seven-role migration source changed: %s", name, got)
+		}
+	}
+	for _, role := range ForRepository(id) {
+		prior := seven[role.Name]
+		if role.Soul == prior {
+			continue
+		}
+		if role.PreviousManagedSouls[len(role.PreviousManagedSouls)-1] != prior {
+			t.Fatalf("%s lost its seven-role history", role.Name)
+		}
+	}
+	current := ForRepository(id)[0]
+	if current.Soul == seven["default"] || strings.Contains(current.Soul, "Kanban and memory") {
+		t.Fatal("default still requires memory on its channels")
 	}
 }
