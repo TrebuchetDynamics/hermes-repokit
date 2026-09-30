@@ -247,9 +247,9 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 		return 1
 	}
 	if !ready {
-		u.pending("Kanban", "initialization pending: the container is not running")
+		u.pending("Kanban", "initialization pending: the container is not running the current deployment")
 		if a.resetProfile != "" {
-			u.fail("profile reset not applied: the container is not running")
+			u.fail("profile reset not applied: the container is not running the current deployment")
 			return 1
 		}
 		if afterSetup {
