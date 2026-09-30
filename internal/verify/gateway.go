@@ -55,7 +55,7 @@ func DefaultKanban(ctx context.Context, id target.Identity, r Runner) []Probe {
 		case native.OperationalPolicy(kanban):
 			dispatch = Probe{"kanban:dispatch", Healthy, "automatic dispatch configured on default: review dispatch, seven-profile allowlist, max_in_progress=1, auto_decompose=false"}
 		case native.UpgradablePolicy(kanban):
-			dispatch = Probe{"kanban:dispatch", PendingSetup, "six-profile dispatch policy; run setup --team to add tester and widen the allowlist"}
+			dispatch = Probe{"kanban:dispatch", PendingSetup, "six-profile dispatch policy; run repokit setup to add tester and widen the allowlist"}
 		case kanban["dispatch_in_gateway"] == true:
 			dispatch = Probe{"kanban:dispatch", Degraded, "dispatch enabled with an owner-changed policy; RepoKit preserves it"}
 		case kanban["dispatch_in_gateway"] == false || kanban["dispatch_in_gateway"] == nil:

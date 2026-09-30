@@ -85,7 +85,9 @@ func foundationApp(t *testing.T) (App, *foundationRunner) {
 		r.composeCalls = append(r.composeCalls, strings.Join(args, " "))
 		return nil
 	}
-	return App{Directory: root, Runner: r, Initializer: r, ComposeExec: compose}, r
+	// The canary card needs a model; tests that exercise it replace this.
+	canary := func(target.Identity, string) (string, error) { return "t_canary", nil }
+	return App{Directory: root, Runner: r, Initializer: r, ComposeExec: compose, Canary: canary}, r
 }
 func invoke(t *testing.T, a App, args ...string) (int, string, string) {
 	t.Helper()

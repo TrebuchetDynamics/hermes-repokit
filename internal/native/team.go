@@ -19,7 +19,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
 
-var ErrTeamPending = errors.New("team setup pending: configure the default model privately, then run setup --team")
+var ErrTeamPending = errors.New("team pending: Hermes private setup has not chosen a default model yet; run repokit setup")
 
 // teamCLI is the public Hermes surface. Output never enters an error message:
 // config values and native diagnostics may contain private owner state.

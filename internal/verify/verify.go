@@ -112,7 +112,7 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 			artifact = Probe{"compose", Healthy, "generated Hermes-only Compose matches this repository"}
 		}
 	}
-	board := Probe{"kanban", PendingSetup, "native board absent; after Compose start rerun install"}
+	board := Probe{"kanban", PendingSetup, "native board absent; run repokit install"}
 	if info, err := os.Lstat(filepath.Join(id.Root, ".hermes/kanban.db")); err == nil {
 		board = Probe{"kanban", Degraded, "native board is not a nonempty regular file"}
 		if info.Mode().IsRegular() && info.Size() > 0 {
@@ -185,7 +185,7 @@ func Profiles(id target.Identity) []Probe {
 				f.Close()
 				if e == nil && string(soul) != role.Soul && managedHistory(role, string(soul)) {
 					probe.Status = PendingSetup
-					probe.Detail = "historical managed SOUL needs repository identity upgrade; run setup --team"
+					probe.Detail = "historical managed SOUL needs repository identity upgrade; run repokit setup"
 				} else if e != nil || string(soul) != role.Soul {
 					probe.Status = Degraded
 					probe.Detail = "role SOUL drift; owner identity preserved"
@@ -246,7 +246,7 @@ func CoreUsable(readiness []Probe) bool {
 }
 
 // managedHistory reports whether soul is an earlier RepoKit-managed generation
-// of role, which setup --team upgrades in place.
+// of role, which setup upgrades in place.
 func managedHistory(role team.Role, soul string) bool {
 	for _, s := range append([]string{role.LegacySoul, role.PreviousSoul, role.PreviousRepositorySoul, role.PreviousRepositoryOriginalSoul}, role.PreviousManagedSouls...) {
 		if s != "" && s == soul {

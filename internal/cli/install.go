@@ -192,16 +192,29 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 	if code := a.initialize(id, report.DockerContext, false, stdout, stderr); code != 0 {
 		return code
 	}
-	// Only a complete scaffold can yield a generation.
-	complete := true
+	// Only a complete scaffold can yield a generation. A pending profile needs
+	// setup (never provisioned, or a RepoKit upgrade); any other state is a
+	// profile that differs from RepoKit's baseline, which setup cannot fix.
+	complete, teamPending := true, false
+	var differs []string
 	for _, probe := range verify.Profiles(id) {
-		complete = complete && probe.Status == verify.Healthy
+		switch probe.Status {
+		case verify.Healthy:
+		case verify.PendingSetup:
+			complete, teamPending = false, true
+		default:
+			complete = false
+			differs = append(differs, strings.TrimPrefix(probe.Component, "profile:"))
+		}
 	}
 	ready, _ := a.nativeRuntimeReady(id, report.DockerContext)
+	gateway := ""
 	if complete && ready {
-		if code := a.finishSetup(id, report.DockerContext, 0, stdout, stderr); code != 0 {
+		code, state := a.finishSetup(id, report.DockerContext, 0, stdout, stderr)
+		if code != 0 {
 			return code
 		}
+		gateway = state
 	}
 	if report.DockerTests {
 		u.pending("Docker tests", "opt-in privileged test daemon (no host Docker socket) not started")
@@ -209,11 +222,21 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 	}
 	switch {
 	case !ready:
-		u.next([2]string{"repokit start", "start the deployment, then rerun repokit install"})
+		u.next([2]string{self() + " start", "recreate the container once the running card finishes"})
+	case teamPending:
+		u.headline("Setup is still required.",
+			"If Hermes has no model yet, setup opens Hermes's own private setup in your terminal; RepoKit never sees it.",
+			"RepoKit then creates the team, turns on dispatch and proves it with one canary card.")
+		u.next([2]string{self() + " setup", "the only remaining step"})
 	case !complete:
-		u.next([2]string{"repokit setup", "choose the model provider and create the team (in your own terminal)"})
+		u.headline("Some profiles differ from RepoKit's baseline: "+strings.Join(differs, ", ")+".",
+			"Owner changes are preserved, so dispatch was not re-checked by this run.")
+		u.next([2]string{self() + " plan", "see what differs"}, [2]string{self() + " verify", "check readiness"})
+	case gateway == "not-running":
+		// install never starts a gateway the owner stopped; setup does.
+		u.next([2]string{self() + " setup", "start the gateway and prove dispatch"})
 	default:
-		u.next([2]string{"repokit verify", "check readiness"}, [2]string{id.Container, "talk to your team"})
+		u.ready(id)
 	}
 	return 0
 }
@@ -257,18 +280,22 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 		return 1
 	}
 	u.ok("Kanban", "native board ready")
-	u.ok("Team", "seven profiles reconciled")
-	if len(teamReport.Customized) > 0 {
-		u.note("owner-customized profiles preserved: " + strings.Join(teamReport.Customized, ", ") + " (RepoKit does not overwrite them or apply newer defaults)")
-	}
+	u.team(teamReport)
+	// Per-profile lines already show each state; these add what to do next.
+	perRole := len(teamReport.Roles) > 0
 	if len(teamReport.Reset) > 0 {
-		u.ok("Reset", strings.Join(teamReport.Reset, ", ")+" returned to RepoKit baseline")
+		if !perRole {
+			u.ok("Reset", strings.Join(teamReport.Reset, ", ")+" returned to RepoKit baseline")
+		}
 		u.note("prior SOUL.md, config.yaml and profile.yaml kept beside them as *.before-reset-<UTC time>; start a fresh conversation to use the new identity")
 	} else if a.resetProfile != "" {
 		u.ok("Reset", a.resetProfile+" had no existing profile to reset; it now starts from RepoKit's baseline")
 	}
 	if len(teamReport.Deferred) > 0 {
-		u.pending("Team", "SOUL upgrades deferred while a card is running: "+strings.Join(teamReport.Deferred, ", ")+"; rerun install when the board is idle")
+		if !perRole {
+			u.pending("Team", "SOUL upgrades deferred while a card is running: "+strings.Join(teamReport.Deferred, ", "))
+		}
+		u.note("rerun " + self() + " install when the board is idle to apply deferred upgrades")
 	}
 	return 0
 }

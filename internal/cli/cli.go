@@ -41,6 +41,8 @@ type App struct {
 	Confirm func(prompt string) (string, error)
 	// ComposeExec replaces the streamed `docker compose` invocation in tests.
 	ComposeExec func(stdout, stderr io.Writer, args ...string) error
+	// Canary replaces the setup canary card in tests.
+	Canary func(id target.Identity, dockerContext string) (string, error)
 	// resetProfile names one roster profile install returns to RepoKit's
 	// baseline, and plan previews.
 	resetProfile string
@@ -68,6 +70,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	flags.Usage = func() {}
 	engineering := false
 	teamSetup := false
+	noCanary := false
 	dispatchCheck := false
 	if args[0] == "verify" {
 		flags.BoolVar(&dispatchCheck, "dispatch-check", false, "create one researcher card and require automatic gateway completion")
@@ -79,7 +82,8 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	if args[0] != "setup" {
 		flags.BoolVar(&engineering, "engineering", false, "legacy alias; generic team is the default")
 	} else {
-		flags.BoolVar(&teamSetup, "team", false, "resume team provisioning using the saved default model; no private wizard")
+		flags.BoolVar(&teamSetup, "team", false, "recovery: reconcile the team from the saved default model without the private wizard")
+		flags.BoolVar(&noCanary, "no-canary", false, "skip the canary card (no model call); dispatch stays unproven")
 	}
 	err := flags.Parse(args[1:])
 	if errors.Is(err, flag.ErrHelp) && len(args) == 2 && (args[1] == "-h" || args[1] == "--help") {
@@ -114,54 +118,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	}
 	switch args[0] {
 	case "setup":
-		// Explicit setup activates the team, so it starts a stopped gateway.
-		a.startGateway = true
-		if issues := target.Inspect(id, ""); len(issues) > 0 {
-			fmt.Fprintln(stderr, "unsafe native state:", strings.Join(issues, "; "))
-			return 1
-		}
-		if issues := a.gitIssues(context.Background(), id); len(issues) > 0 {
-			fmt.Fprintln(stderr, "setup refused: private state protection is unverified:", strings.Join(issues, "; "))
-			return 1
-		}
-		dockerContext, routingErr := launcher.Context(id)
-		if routingErr != nil {
-			fmt.Fprintln(stderr, "setup refused: deployment routing cannot be verified")
-			return 1
-		}
-		for _, p := range verify.Inspect(context.Background(), id, a.Runner) {
-			if p.Component == "compose" && p.Status != verify.Healthy {
-				fmt.Fprintln(stderr, "setup refused: generated Compose cannot be verified")
-				return 1
-			}
-		}
-		ready, runtimeErr := a.nativeRuntimeReady(id, dockerContext)
-		if runtimeErr != nil {
-			fmt.Fprintln(stderr, "setup refused:", runtimeErr)
-			return 1
-		}
-		if !ready {
-			fmt.Fprintf(stderr, "Setup requires the running pinned Hermes deployment. Inspect Docker access and service state. Start with: %s\n", launcher.StartCommand(id.Compose, dockerContext))
-			return 1
-		}
-		if err := a.waitForNativeCLI(id, dockerContext); err != nil {
-			fmt.Fprintln(stderr, "setup deferred:", err)
-			return 1
-		}
-		if teamSetup {
-			return a.finishSetup(id, dockerContext, a.initialize(id, dockerContext, true, stdout, stderr), stdout, stderr)
-		}
-		if code := native.Setup(id.Launcher, id.Compose, dockerContext, a.Stdin, stdout, stderr); code != 0 {
-			return code
-		}
-		if !native.InteractiveInput(a.Stdin) {
-			fmt.Fprintln(stderr, "Default setup was noninteractive; team provisioning remains pending. Run setup in your terminal.")
-			return 1
-		}
-		if code := a.initialize(id, dockerContext, true, stdout, stderr); code != 0 {
-			return code
-		}
-		return a.finishSetup(id, dockerContext, 0, stdout, stderr)
+		return a.setup(id, teamSetup, noCanary, stdout, stderr)
 	case "verify":
 		probes := verify.Inspect(context.Background(), id, a.Runner)
 		if issues := a.gitIssues(context.Background(), id); len(issues) > 0 {
@@ -280,7 +237,7 @@ func (a App) planTeam(id target.Identity, report Plan) *TeamPlan {
 	case "drift":
 		plan.Detail = "managed configuration drift blocks every write in this run; inspect the drift profiles or reset one with --reset-profile"
 	case "pending-setup":
-		plan.Detail = "configure the default model privately, then run setup --team"
+		plan.Detail = "Hermes private setup has not chosen a default model yet; run repokit setup"
 	default:
 		plan.Detail = "owner-customized profiles are preserved; none will be overwritten"
 	}
@@ -382,7 +339,8 @@ func recognized(command string) bool {
 }
 func usage(w io.Writer) {
 	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify|start|stop|remove> [--engineering] [--help]")
-	fmt.Fprintln(w, "       hermes-repokit setup [--team]")
+	fmt.Fprintln(w, "       hermes-repokit install   then   hermes-repokit setup   (the whole first-time path)")
+	fmt.Fprintln(w, "       hermes-repokit setup [--no-canary] [--team] (--team: recovery without the private wizard)")
 	fmt.Fprintln(w, "       hermes-repokit verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)")
 	fmt.Fprintln(w, "       hermes-repokit <plan|install> [--docker-tests] [--reset-profile <role>]")
 	fmt.Fprintln(w, "       hermes-repokit start | stop (start or stop the deployment; state is kept)")

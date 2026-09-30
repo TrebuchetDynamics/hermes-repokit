@@ -25,11 +25,13 @@ type InputRunner interface {
 }
 
 // TeamReport names roster profiles whose owner identity was preserved, and
-// untouched earlier RepoKit SOULs whose upgrade waits for idle workers.
+// untouched earlier RepoKit SOULs whose upgrade waits for idle workers. Roles
+// is the per-profile plan that was applied, in roster order.
 type TeamReport struct {
 	Customized []string
 	Deferred   []string
 	Reset      []string
+	Roles      []RoleStatus
 }
 
 // TeamStatus previews team convergence: the decision install would make, read
@@ -94,7 +96,11 @@ func Initialize(ctx context.Context, id target.Identity, dockerContext string, a
 	if err != nil {
 		return TeamReport{}, err
 	}
-	return teamResult(result.Output)
+	report, err := teamResult(result.Output)
+	if err == nil {
+		report.Roles = plan.Roles
+	}
+	return report, err
 }
 
 func runBootstrap(ctx context.Context, id target.Identity, dockerContext string, afterSetup bool, script string, r InputRunner) (process.Result, error) {

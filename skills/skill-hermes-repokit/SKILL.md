@@ -60,15 +60,15 @@ push are each separately scoped.
 | Intent | Command |
 | --- | --- |
 | Inspect a repository (writes nothing) | `repokit plan` |
-| Publish Compose, launcher, host link; later init Kanban | `repokit install` |
-| Private provider setup and team activation | `repokit setup` |
-| Resume/reconcile the team without the wizard | `repokit setup --team` |
+| Build and start the deployment, host link, Kanban; converge on reruns | `repokit install` |
+| Private provider setup, then team, dispatch and canary → `RepoKit ready.` | `repokit setup` |
+| Recovery: reconcile the team without the wizard | `repokit setup --team` |
 | Observe readiness | `repokit verify` |
 | Paid proof of automatic dispatch (one no-write card) | `repokit verify --dispatch-check` |
 | Add an isolated Docker test daemon | `repokit plan --docker-tests`, `repokit install --docker-tests` |
 | Native default chat | `hermes-<repo>` (no arguments) |
 | Other native Hermes commands | `hermes-<repo> kanban list`, `profile list`, `gateway status`, … |
-| Start/stop/recreate services | Ordinary Compose with the launcher's captured routing |
+| Stop or start the deployment (state kept) | `repokit stop`, `repokit start` |
 
 `repokit` and `hermes-repokit` are the same bootstrap binary. Prefer `repokit`:
 in a repository whose name normalizes to `repokit`, the generated launcher owns

@@ -71,16 +71,21 @@ func TestDockerFoundation(t *testing.T) {
 	// Team scaffolding is credential-free. Synthetic provider settings cannot
 	// establish core gateway convergence or a real researcher canary; optional
 	// memory is not an activation gate. Require the core convergence boundary.
-	// runActivationCLI runs a stage that ends in gateway activation. Setup never
-	// claims a worker ran; want names the expected gateway outcome.
-	runActivationCLI := func(want string, command ...string) {
+	// runActivationCLI runs a stage that ends in gateway activation; each want
+	// names an expected outcome line, and forbid a claim it must not make.
+	runActivationCLI := func(want []string, forbid string, command ...string) {
 		t.Helper()
 		cmd := exec.CommandContext(ctx, installer, command...)
 		cmd.Dir = root
 		cmd.Env = append(installerEnv, "DOCKER_CONTEXT="+dc)
 		out, err := cmd.CombinedOutput()
-		if err != nil || !strings.Contains(string(out), want) || !strings.Contains(string(out), "no worker has run yet") {
-			t.Fatalf("expected %q from %v: %v %s", want, command, err, out)
+		if err != nil || strings.Contains(string(out), forbid) {
+			t.Fatalf("%v: %v %s", command, err, out)
+		}
+		for _, w := range want {
+			if !strings.Contains(string(out), w) {
+				t.Fatalf("expected %q from %v: %s", w, command, out)
+			}
 		}
 	}
 	// An independent owner stack must remain untouched throughout installation,
@@ -244,7 +249,9 @@ func TestDockerFoundation(t *testing.T) {
 
 	// Explicit setup activates the team: the fresh gateway is started once
 	// through the native command, without claiming any worker ran.
-	runActivationCLI("default gateway started", "setup", "--team")
+	// Credential-free: the canary would need a model, so it is skipped and the
+	// run must say dispatch is unproven rather than claim a worker ran.
+	runActivationCLI([]string{"default gateway started", "native automatic dispatch", "skipped (--no-canary)"}, "gateway ran researcher card", "setup", "--team", "--no-canary")
 	scaffoldVerify := exec.CommandContext(ctx, installer, "verify")
 	scaffoldVerify.Dir = root
 	output, verifyErr := scaffoldVerify.CombinedOutput()
@@ -333,7 +340,9 @@ func TestDockerFoundation(t *testing.T) {
 		}
 		time.Sleep(time.Second)
 	}
-	runActivationCLI("-p default gateway start", "install")
+	// An owner-stopped gateway stays stopped on install, which then points at
+	// setup instead of claiming the team is ready.
+	runActivationCLI([]string{"-p default gateway start", "setup"}, "RepoKit ready.", "install")
 	status := docker("exec", "-T", "--user", "hermes", "--env", "HOME=/opt/data", "hermes", "hermes", "-p", "default", "gateway", "status")
 	if !strings.Contains(string(status), "not running") {
 		t.Fatalf("install rerun started an owner-stopped gateway: %s", status)

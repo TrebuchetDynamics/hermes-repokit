@@ -16,7 +16,7 @@ hermes-design-notes plugins list
 
 With no arguments the launcher selects `default`; arguments pass through to
 native Hermes unchanged. `hermes-design-notes setup` is native setup only — use
-`repokit setup --team` for team reconciliation. Native syntax is
+`repokit setup` for team reconciliation. Native syntax is
 version-sensitive: check scoped `--help` before dispatch, profile or config
 changes.
 
@@ -36,7 +36,7 @@ rejection to exercise the loop.
 
 Before promising progress, check configured and live dispatch separately
 (`hermes-<repo> config get kanban --json`, `gateway status`, `kanban list`). If
-activation is incomplete, resume with `repokit setup --team`; do not bypass it
+activation is incomplete, rerun `repokit setup`; do not bypass it
 with one-shot dispatch, and preserve queued work. Do not commit or push work the
 team produced unless asked.
 
