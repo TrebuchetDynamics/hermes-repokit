@@ -183,7 +183,7 @@ func TestRecipePinsInputsAndChangesForGo(t *testing.T) {
 			t.Fatalf("unpinned pip install: %s", line)
 		}
 	}
-	for _, want := range []string{"ast-grep/releases/download/0.45.3/", "ast-grep --version | grep -F 0.45.3", "ddgs --help"} {
+	for _, want := range []string{"ast-grep/releases/download/0.45.3/", "ast-grep --version | grep -F 0.45.3", "ddgs --help", "sheeki03/tirith/releases/download/v0.4.2/", "tirith --version | grep -F 0.4.2"} {
 		if !strings.Contains(string(goRecipe["Dockerfile"]), want) {
 			t.Fatalf("missing %s", want)
 		}

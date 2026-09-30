@@ -54,6 +54,23 @@ RUN set -eu; \
     install -m 0555 /tmp/repokit-ast-grep/sg /usr/local/bin/sg; \
     rm -rf /tmp/repokit-ast-grep /tmp/repokit-ast-grep.zip; \
     ast-grep --version | grep -F 0.45.3
+# Hermes scans every terminal command with tirith before running it. Hermes
+# downloads it lazily and, after a failed first download, runs commands
+# unscanned for a day; ship the pinned binary so scanning works from boot.
+RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) tirith_arch=x86_64; tirith_sha=efa6bf414a83dba385d4f13137e8677f850ced9102fe74ebb14c72f31df0dc77 ;; \
+      arm64) tirith_arch=aarch64; tirith_sha=c550b1bfb0c8c872ab3421cd6ef756f260f7cf4981a18cedd49f141fa2d77569 ;; \
+      *) echo 'Unqualified tirith architecture' >&2; exit 1 ;; \
+    esac; \
+    curl --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 300 \
+      "https://github.com/sheeki03/tirith/releases/download/v0.4.2/tirith-${tirith_arch}-unknown-linux-gnu.tar.gz" -o /tmp/repokit-tirith.tar.gz; \
+    printf '%s  %s\n' "$tirith_sha" /tmp/repokit-tirith.tar.gz | sha256sum -c -; \
+    mkdir /tmp/repokit-tirith; \
+    tar -xzf /tmp/repokit-tirith.tar.gz -C /tmp/repokit-tirith tirith; \
+    install -m 0555 /tmp/repokit-tirith/tirith /usr/local/bin/tirith; \
+    rm -rf /tmp/repokit-tirith /tmp/repokit-tirith.tar.gz; \
+    tirith --version | grep -F 0.4.2
 COPY repokit-ddgs-requirements.txt /tmp/repokit-ddgs-requirements.txt
 # --no-config and /tmp keep uv from applying Hermes's own project settings.
 RUN set -eu; cd /tmp; \
