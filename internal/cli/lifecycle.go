@@ -159,6 +159,11 @@ func (a App) start(id target.Identity, stdout, stderr io.Writer) int {
 		return 1
 	}
 	u.ok("Hermes", "answering")
+	// A deployment whose team was never set up has no gateway to check yet.
+	if _, pending, _ := profileProgress(verify.Profiles(id)); pending {
+		u.next([2]string{self() + " setup", "set up the team"})
+		return 0
+	}
 	u.next([2]string{id.Container + " -p default gateway status", "check the team's gateway"})
 	return 0
 }

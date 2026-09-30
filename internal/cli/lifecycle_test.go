@@ -95,6 +95,10 @@ func TestStopAndStartRoundTrip(t *testing.T) {
 	if code != 0 || !strings.HasSuffix(r.composeCalls[len(r.composeCalls)-1], " up -d --build hermes") || !strings.Contains(out, "answering") {
 		t.Fatalf("start: code=%d calls=%v out=%s diag=%s", code, r.composeCalls, out, diag)
 	}
+	// The team was never set up, so there is no gateway to check yet.
+	if !strings.Contains(out, "setup  set up the team") || strings.Contains(out, "gateway status") {
+		t.Fatalf("start on a deployment without a team did not point at setup:\n%s", out)
+	}
 	calls := len(r.composeCalls)
 	if code, out, _ := invoke(t, a, "start"); code != 0 || len(r.composeCalls) != calls || !strings.Contains(out, "already running") {
 		t.Fatalf("start on a running deployment changed it: %v %s", r.composeCalls, out)
