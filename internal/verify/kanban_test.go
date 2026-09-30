@@ -2,6 +2,7 @@ package verify
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -78,9 +79,9 @@ func TestGatewayAndReviewEvidenceFromPublicCLI(t *testing.T) {
 	id, base := integrationFixture(t)
 	r := &hermesRunner{integrationRunner: base, replies: map[string]string{
 		"gateway status": "✓ Gateway is running (PID: 9)",
-		"kanban list --status done --sort completed-desc --json": `[{"id":"t_a"},{"id":"t_b"}]`,
-		"kanban show t_a --json":                                 `{"runs":[{"profile":"executor","outcome":"completed"}]}`,
-		"kanban show t_b --json":                                 `{"runs":[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]}`,
+		"kanban list --status done --assignee reviewer --sort completed-desc --json": `[{"id":"t_a"},{"id":"t_b"}]`,
+		"kanban show t_a --json": `{"runs":[{"profile":"executor","outcome":"completed"}]}`,
+		"kanban show t_b --json": `{"runs":[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]}`,
 	}}
 	if got := status(Gateway(context.Background(), id, r), "gateway"); got != Healthy {
 		t.Fatal(got)
@@ -89,7 +90,7 @@ func TestGatewayAndReviewEvidenceFromPublicCLI(t *testing.T) {
 		t.Fatal(p)
 	}
 	// A card completed by its implementer alone is not independent review.
-	r.replies["kanban list --status done --sort completed-desc --json"] = `[{"id":"t_a"}]`
+	r.replies["kanban list --status done --assignee reviewer --sort completed-desc --json"] = `[{"id":"t_a"}]`
 	r.replies["gateway status"] = "✗ Gateway is not running"
 	if p := ReviewEvidence(context.Background(), id, r); p.Status != Unqualified {
 		t.Fatal(p)
@@ -136,9 +137,67 @@ func TestAcceptanceChainRequiresTesterAfterLatestImplementation(t *testing.T) {
 		"tester completed the card":                  {rr("executor", "review_requested", "tester", "completed"), false},
 		"tester is implementer":                      {rr("tester", "review_requested", "reviewer", "completed"), false},
 		"reviewer not last":                          {rr("executor", "review_requested", "tester", "review_requested", "reviewer", "completed", "executor", "completed"), false},
+		"planner is not an implementer":              {rr("planner", "review_requested", "tester", "review_requested", "reviewer", "completed"), false},
+		"steward is not an implementer":              {rr("steward", "review_requested", "tester", "review_requested", "reviewer", "completed"), false},
 	} {
 		if got := acceptanceChain(c.runs) != ""; got != c.ok {
 			t.Errorf("%s: accepted=%v", name, got)
+		}
+	}
+}
+
+// The qualifying card may be older than recent research or admin work: only
+// reviewer-completed cards are read, within a bounded window.
+func TestReviewEvidenceSurvivesUnrelatedLaterWork(t *testing.T) {
+	id, base := integrationFixture(t)
+	reviewed := []string{}
+	replies := map[string]string{}
+	for i := 0; i < reviewEvidenceWindow; i++ {
+		card := fmt.Sprintf("t_%02d", i)
+		reviewed = append(reviewed, `{"id":"`+card+`"}`)
+		replies["kanban show "+card+" --json"] = `{"runs":[{"profile":"reviewer","outcome":"completed"}]}`
+	}
+	// The only qualifying card is the oldest inside the window.
+	replies["kanban show t_19 --json"] = `{"runs":[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]}`
+	replies["kanban list --status done --assignee reviewer --sort completed-desc --json"] = "[" + strings.Join(reviewed, ",") + `,{"id":"t_old"}]`
+	replies["kanban show t_old --json"] = replies["kanban show t_19 --json"]
+	r := &hermesRunner{integrationRunner: base, replies: replies}
+	if p := ReviewEvidence(context.Background(), id, r); p.Status != Healthy || !strings.Contains(p.Detail, "t_19") {
+		t.Fatalf("evidence inside the window lost: %+v", p)
+	}
+	for _, call := range r.calls {
+		if strings.Contains(strings.Join(call, " "), "kanban show t_old") {
+			t.Fatal("read past the bounded window")
+		}
+	}
+}
+
+// A channel configured only through the environment has no saved selection;
+// it is judged by Hermes's effective tools, and its targets are never shown.
+func TestEnvOnlyChannelsUseEffectiveTools(t *testing.T) {
+	id, base := integrationFixture(t)
+	r := &hermesRunner{integrationRunner: base, replies: map[string]string{
+		"config get kanban --json":            operationalKanban,
+		"config get platform_toolsets --json": `{"cli":["kanban"]}`,
+		"send --list --json":                  `{"platforms":{"telegram":[{"id":"6586915095","name":"Private Name","type":"dm"}],"discord":[{"id":"1","name":"x"}],"cron":[]}}`,
+		"tools list --platform telegram":      "Built-in toolsets (telegram):\n  ✓ enabled  web  🔍 Web\n  ✓ enabled  kanban  📌 Kanban\n  ✓ enabled  memory  💾 Memory\n",
+		"tools list --platform discord":       "Built-in toolsets (discord):\n  ✗ disabled  kanban  📌 Kanban\n",
+	}}
+	probes := DefaultKanban(context.Background(), id, r)
+	if status(probes, "channel:telegram") != Healthy || status(probes, "channel:discord") != Degraded || status(probes, "channel:cli") != Healthy || status(probes, "channel:cron") != "" {
+		t.Fatalf("%+v", probes)
+	}
+	for _, p := range probes {
+		if strings.Contains(p.Detail, "6586915095") || strings.Contains(p.Detail, "Private Name") {
+			t.Fatalf("private target leaked: %+v", p)
+		}
+	}
+	for out, want := range map[string][2]bool{
+		"  ✓ enabled  kanban  📌 Kanban": {true, true}, "  ✗ disabled  kanban  📌 Kanban": {false, true},
+		"  ✓ enabled  kanban_extra  x": {false, false}, "unexpected output": {false, false},
+	} {
+		if enabled, known := kanbanEnabled(out); enabled != want[0] || known != want[1] {
+			t.Errorf("%q: enabled=%v known=%v", out, enabled, known)
 		}
 	}
 }
