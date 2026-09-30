@@ -613,3 +613,40 @@ func TestOperationalTeamCreatesMissingRolesOnlyWhenIdle(t *testing.T) {
 		t.Fatalf("profiles written under a running worker: %v\n%s", err, plan.Script)
 	}
 }
+
+// Memory is granted to a new specialist but never required: removing it from
+// an existing profile is the owner's choice, not drift, and is not re-added.
+func TestMemoryToolIsGrantedNotRequired(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	config := map[string]map[string]any{}
+	for _, role := range roles[1:] {
+		without := []string{}
+		for _, name := range role.Toolsets {
+			if name != "memory" {
+				without = append(without, name)
+			}
+		}
+		if len(without) == len(role.Toolsets) {
+			t.Fatalf("%s is not granted memory", role.Name)
+		}
+		config[role.Name] = map[string]any{"toolsets": without, "platform_toolsets.cli": without}
+	}
+	root, run := deployTeam(t, roles, teamFixture{souls: currentSouls(roles), config: config})
+	plan, err := teamScript(id, false, "", run, root)
+	if err != nil || plan.Status != "configured" || len(plan.Drift)+len(plan.Customized) != 0 {
+		t.Fatalf("owner-removed memory treated as drift: %q %v %v %v", plan.Status, plan.Drift, plan.Customized, err)
+	}
+	if strings.Contains(writes(plan.Script), "'config' 'set'") {
+		t.Fatalf("memory re-added to an existing profile:\n%s", plan.Script)
+	}
+	tester := roleNamed(roles, "tester")
+	souls := currentSouls(roles)
+	delete(souls, "tester")
+	root, run = deployTeam(t, roles, teamFixture{souls: souls})
+	plan, err = teamScript(id, false, "", run, root)
+	granted, _ := json.Marshal(tester.Toolsets)
+	if err != nil || !strings.Contains(plan.Script, "'-p' 'tester' 'config' 'set' 'toolsets' '"+string(granted)+"'") || !strings.Contains(string(granted), "memory") {
+		t.Fatalf("new tester not granted its role toolsets with memory: %v\n%s", err, plan.Script)
+	}
+}

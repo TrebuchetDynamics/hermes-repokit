@@ -125,6 +125,32 @@ func expectedTeamFields(role team.Role) map[string]any {
 	return fields
 }
 
+// grantedOnly names toolsets RepoKit grants when it creates or resets a
+// specialist but never requires afterwards. Hermes's native memory tool is part
+// of the team design, yet it is the owner's to remove: a profile without it is
+// not drift and RepoKit does not re-add it. Memory providers are never touched.
+var grantedOnly = map[string]bool{"memory": true}
+
+// requiredTeamFields is expectedTeamFields without granted-only toolsets:
+// what an existing profile must still hold to count as compatible.
+func requiredTeamFields(role team.Role) map[string]any {
+	fields := expectedTeamFields(role)
+	for _, key := range []string{"toolsets", "platform_toolsets.cli"} {
+		granted, ok := fields[key].([]string)
+		if !ok {
+			continue
+		}
+		required := []string{}
+		for _, name := range granted {
+			if !grantedOnly[name] {
+				required = append(required, name)
+			}
+		}
+		fields[key] = required
+	}
+	return fields
+}
+
 // holdsTeamValue reports whether an observed native value satisfies a managed
 // one. Role toolsets are required as a subset, so owner additions survive.
 func holdsTeamValue(got, want any) bool {
@@ -191,7 +217,7 @@ func classifyRole(run teamCLI, root *os.Root, role team.Role) (roleCheck, error)
 		return roleCheck{}, err
 	}
 	check := roleCheck{soul: soul, soulManaged: matchingSoul(soul, role), descManaged: desc == role.Description}
-	fields := expectedTeamFields(role)
+	fields := requiredTeamFields(role)
 	if role.Name == "default" {
 		// After activation default carries the complete managed dispatch
 		// policy; anything between off and that policy is owner drift.
