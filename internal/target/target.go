@@ -25,10 +25,13 @@ var codeKernelSocket = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/herm
 // profileUVCache is a specialist's own uv cache (its HOME is profiles/<p>/home).
 var profileUVCache = regexp.MustCompile(`^profiles/[^/]+/home/\.cache/uv/`)
 
-// workerScratch is a worker's disposable scratch space. Workers copy
+// workerScratch is a worker's disposable scratch space. Workers copy whole
 // repositories there, repository symlinks included; RepoKit never reads or
-// writes it, so a link inside cannot redirect anything RepoKit manages.
+// writes it, so a link inside cannot redirect anything RepoKit manages. Each
+// entry is checked itself, but its contents are not walked: repository copies
+// would otherwise exhaust the inspection limit.
 var workerScratch = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/.+`)
+var workerScratchEntry = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/[^/]+$`)
 var browserHarnessSocket = regexp.MustCompile(`^(profiles/[^/]+/)?home/\.config/browser-harness/runtime/[^/]+\.sock$`)
 var huggingFaceModelLink = regexp.MustCompile(`^\.cache/huggingface/hub/models--[A-Za-z0-9][A-Za-z0-9._-]*/(blobs/[0-9a-f]{40}([0-9a-f]{24})?|snapshots/[0-9a-f]{40}/[^/]+(/[^/]+)*)$`)
 var huggingFaceCacheMetadata = regexp.MustCompile(`^\.cache/huggingface/hub/(\.locks/models--[A-Za-z0-9][A-Za-z0-9._-]*/[0-9a-f]{40}([0-9a-f]{24})?\.lock|blobs/[0-9a-f]{2}/[0-9a-f]{64}\.(lock|refs))$`)
@@ -120,6 +123,9 @@ func Inspect(id Identity, pathEnv string) []string {
 			}
 			if !safeNativeEntry(filepath.ToSlash(rel), id.Container, info) && !containedToolLink(filepath.ToSlash(rel), p, id.Container, info) {
 				issues = append(issues, "unsafe native path: "+strings.TrimPrefix(p, id.Root+"/"))
+			}
+			if d.IsDir() && workerScratchEntry.MatchString(filepath.ToSlash(rel)) {
+				return fs.SkipDir
 			}
 			return nil
 		})

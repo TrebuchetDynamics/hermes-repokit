@@ -619,3 +619,25 @@ func TestContainedToolLinksAreAccepted(t *testing.T) {
 		}
 	}
 }
+
+// Workers copy whole repositories into scratch; RepoKit checks each scratch
+// entry but does not walk the copy, whose modes and size are the repository's.
+func TestWorkerScratchCopiesAreNotWalked(t *testing.T) {
+	p := privateDir(t)
+	state := filepath.Join(p, ".hermes")
+	deep := filepath.Join(state, "profiles/tester/cache/scratch/copy/web/node_modules")
+	if err := os.MkdirAll(deep, 0700); err != nil {
+		t.Fatal(err)
+	}
+	shared := filepath.Join(deep, "shared.lock")
+	os.WriteFile(shared, nil, 0600)
+	os.Chmod(shared, 0666)
+	id, _ := Resolve(p)
+	if issues := Inspect(id, ""); len(issues) != 0 {
+		t.Fatalf("scratch copy walked: %v", issues)
+	}
+	os.Chmod(filepath.Join(state, "profiles/tester/cache/scratch/copy"), 0777)
+	if issues := Inspect(id, ""); len(issues) != 1 {
+		t.Fatalf("world-writable scratch entry accepted: %v", issues)
+	}
+}
