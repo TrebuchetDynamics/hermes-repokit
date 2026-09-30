@@ -3,10 +3,22 @@
 RepoKit configures a repository-specific Hermes team through public Hermes
 interfaces, proves what it can prove, then gets out of the way.
 
-**Released:** [v0.2.2](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.2)
-(current generation plus in-place upgrade from v0.2.0; Go toolchain caches on a
-project volume; CI). The same-card executor → tester → reviewer loop is proven
-live; a reviewer request-changes correction cycle is not yet.
+**Released:** [v0.2.3](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.3)
+(role-shaped profiles with curated official skills; untouched v0.2.2 profiles
+upgrade in place; stale-conversation check in `verify`). The same-card
+executor → tester → reviewer loop is proven live; a reviewer request-changes
+correction cycle is not yet.
+
+## Proven in v0.2.3
+
+- Dogfood and s3upload moved to role-shaped profiles in place: every profile
+  reset to the new baseline, all 15 granted official skills installed, each
+  specialist's toolsets as designed, and `ast-grep`/`ddgs` working in the
+  rebuilt image; `verify` exit 0 on both, s3upload `CORE_READY` healthy.
+- The new `sessions` probe flags both Telegram chats, begun before the current
+  identity, until `/new`.
+- s3upload skills card `t_3359311e`: steward → tester (blocked, then passed) →
+  reviewer on the same card.
 
 ## Proven in v0.2.2
 
