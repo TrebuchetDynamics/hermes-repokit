@@ -100,19 +100,19 @@ func TestRoleBaselinesAreConsistent(t *testing.T) {
 	}
 }
 
-// The previous release's SOULs are pinned: these are the exact SOULs v0.2.2
-// installed for this identity (hashes computed from the v0.2.2 source).
+// The previous release's SOULs are pinned: these are the exact SOULs v0.2.3
+// installed for this identity (hashes computed from the v0.2.3 source).
 func TestPreviousReleaseSoulsAreFrozen(t *testing.T) {
 	want := map[string]string{
 		"default":    "a0e888b68ba09421634bfe220e8f278366e8c788a56d36498ac070b0bfb46f56",
 		"researcher": "92af343d24bed01aa7099c64a0a724aa659766807c5b65c2339a0682da569521",
 		"planner":    "7b5c202af506368a3f6412951b43e562b47ac51b7aa2b33572d69b7d86ae1269",
-		"executor":   "818ec48f5ebbb5cc3c0c593be8018d80ac3edb0ceddd5020cfe12c83492c67bf",
+		"executor":   "a2a93014c3d31f6599929e542aff8e0aa0e5c320f08d26342a385e188378f706",
 		"tester":     "05f2f5b73811dadff4463ac564a07c0efc55040f4d3c399d1f051d52f6637b17",
 		"reviewer":   "799ff9d795d6f8a9b6e7b9f1f2118371fab642252c1ae2eb3a3dba7844ef82f2",
-		"steward":    "93d4849cea6ccde6e9909605929b249801f073aab28dd5bc528241e35e3f703f",
+		"steward":    "47f5d4a6d78a9b391dccad4671c9d946ec88cb7598e2c8e6de9cf81cef0e7c54",
 	}
-	if PreviousRelease != "v0.2.2" {
+	if PreviousRelease != "v0.2.3" {
 		t.Fatalf("PreviousRelease is %s; regenerate souls/previous from that release and update these hashes", PreviousRelease)
 	}
 	for _, r := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {

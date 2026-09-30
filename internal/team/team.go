@@ -15,7 +15,7 @@ var souls embed.FS
 // PreviousRelease is the one earlier release whose managed SOULs RepoKit still
 // recognizes, so an untouched profile from it upgrades in place instead of
 // reading as owner-customized. Nothing older is recognized.
-const PreviousRelease = "v0.2.2"
+const PreviousRelease = "v0.2.3"
 
 // Placeholders in souls/previous: each template is the previous release's exact
 // rendered SOUL with the repository name and stable ID left open.

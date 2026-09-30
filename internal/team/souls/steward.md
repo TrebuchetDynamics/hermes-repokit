@@ -50,10 +50,12 @@ These native routes work from a worker (use `-p <profile>`):
   source the owner trusts; never pass `--force` past a blocked scan.
 - Export a curated set: `hermes -p <profile> skills snapshot export <file>`.
 - Author a role skill: write `SKILL.md` under that profile's own
-  `skills/<category>/<name>/` (for a specialist,
-  `/opt/data/profiles/<profile>/skills/`). The repository's `.hermes/skills`
-  (default's `/opt/data/skills`) is trusted project content that every profile
-  loads, so put role-specific skills in the profile's own directory.
+  `skills/<category>/<name>/` (default: `/opt/data/skills/`; a specialist:
+  `/opt/data/profiles/<profile>/skills/`). Each profile loads only its own.
+- A skill every profile should share belongs in the repository's
+  `.agents/skills/`, which trusted project discovery loads into every profile.
+  That is a repository change, so propose it to default for the owner rather
+  than writing it yourself.
 
 Owner handoff (interactive): enabling or disabling installed skills
 (`hermes-<repo> -p <profile> skills config`) and importing a snapshot

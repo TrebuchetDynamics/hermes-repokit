@@ -162,6 +162,27 @@ connection source so an inherited peer does not silently split shared memory.
 Verify native profile resolution, description, identity, capabilities, shared
 memory before handing the profile back to default.
 
+## Profile skills without a terminal
+
+These native routes work from a worker (use `-p <profile>`):
+
+- Inspect: `hermes -p <profile> skills list`, and preview a candidate with
+  `hermes -p <profile> skills inspect <identifier>`.
+- Install: `hermes -p <profile> skills install <identifier> --yes`, only from a
+  source the owner trusts; never pass `--force` past a blocked scan.
+- Export a curated set: `hermes -p <profile> skills snapshot export <file>`.
+- Author a role skill: write `SKILL.md` under that profile's own
+  `skills/<category>/<name>/` (for a specialist,
+  `/opt/data/profiles/<profile>/skills/`). The repository's `.hermes/skills`
+  (default's `/opt/data/skills`) is trusted project content that every profile
+  loads, so put role-specific skills in the profile's own directory.
+
+Owner handoff (interactive): enabling or disabling installed skills
+(`hermes-<repo> -p <profile> skills config`) and importing a snapshot
+(`hermes-<repo> -p <profile> skills snapshot import <file>`, which asks per
+skill). Give the owner the exact command instead of blocking the rest of the
+work. Verify each profile's resulting list before handoff.
+
 ## Preserve user ownership
 
 Inspect before updating. Reconcile generated fields only when their contents
