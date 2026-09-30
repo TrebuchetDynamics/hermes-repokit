@@ -16,8 +16,9 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 )
 
-// gitIssues inspects index and effective ignore rules without printing filenames
-// from private state. Both install admission and verify enforce these checks.
+// gitIssues inspects index and effective ignore rules. It names only paths Git
+// already tracks, never untracked private state. Both install admission and
+// verify enforce these checks.
 func (a App) gitIssues(ctx context.Context, id target.Identity) []string {
 	var issues []string
 	git := a.Runner.Run(ctx, "git", "-C", id.Root, "rev-parse", "--show-toplevel")
@@ -28,7 +29,7 @@ func (a App) gitIssues(ctx context.Context, id target.Identity) []string {
 	if tracked.Err != nil || tracked.Truncated {
 		issues = append(issues, "cannot inspect tracked private state")
 	} else if tracked.Output != "" {
-		issues = append(issues, "private .hermes state is tracked by Git")
+		issues = append(issues, trackedStateIssue(strings.Split(strings.TrimSuffix(tracked.Output, "\x00"), "\x00")))
 	}
 
 	if _, err := os.Lstat(filepath.Join(id.Root, ".hermes")); err == nil {
@@ -109,4 +110,27 @@ func olderGeneratedImage(id target.Identity, image string) bool {
 		}
 	}
 	return false
+}
+
+// trackedStateIssue names committed .hermes paths, which Git already exposes,
+// and the remedy. Control characters are dropped so a path cannot rewrite the
+// terminal.
+func trackedStateIssue(paths []string) string {
+	shown := []string{}
+	for _, p := range paths {
+		if len(shown) == 3 {
+			break
+		}
+		shown = append(shown, strings.Map(func(r rune) rune {
+			if r < 0x20 || r == 0x7f {
+				return -1
+			}
+			return r
+		}, p))
+	}
+	more := ""
+	if len(paths) > len(shown) {
+		more = fmt.Sprintf(" and %d more", len(paths)-len(shown))
+	}
+	return fmt.Sprintf("private .hermes state is tracked by Git (%s%s); move anything you need outside .hermes, then untrack it with `git rm -r --cached .hermes` (files stay on disk) and commit", strings.Join(shown, ", "), more)
 }

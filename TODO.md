@@ -44,7 +44,7 @@ against a fresh clone.
       `install` adds `/.hermes-repokit.lock` to the local, never-committed
       `info/exclude` (worktree-aware), unless already ignored. The tracked
       `.gitignore` is never edited; an unsafe exclude file only warns.
-- [ ] **Actionable collision text.** "private .hermes state is tracked by Git"
+- [x] **Actionable collision text.** "private .hermes state is tracked by Git"
       names neither the file nor the fix. Report each tracked path and the remedy
       (move it outside `.hermes`, then `git rm --cached`).
       *Test:* repository tracking a file under `.hermes/` → message names it.

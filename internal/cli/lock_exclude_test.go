@@ -114,3 +114,15 @@ func TestPlanDisclosesExcludeEntry(t *testing.T) {
 		t.Fatalf("plan does not disclose the exclude entry: %s", out)
 	}
 }
+
+func TestTrackedPrivateStateNamesPathsAndRemedy(t *testing.T) {
+	issue := trackedStateIssue([]string{".hermes/notes.md", ".hermes/a\x1b[2Jb", ".hermes/c", ".hermes/d"})
+	for _, want := range []string{".hermes/notes.md", ".hermes/a[2Jb", "and 1 more", "git rm -r --cached .hermes"} {
+		if !strings.Contains(issue, want) {
+			t.Fatalf("issue missing %q: %s", want, issue)
+		}
+	}
+	if strings.ContainsAny(issue, "\x1b") {
+		t.Fatalf("control character reached the terminal: %q", issue)
+	}
+}
