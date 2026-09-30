@@ -30,7 +30,7 @@ Reuse an installed `repokit` if `command -v repokit` resolves and `repokit --hel
 lists `plan|install|setup|verify`. Otherwise install it (Linux, Go 1.26+, curl):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.1/install.sh | REPOKIT_REF=v0.2.1 sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.2/install.sh | REPOKIT_REF=v0.2.2 sh
 ```
 
 Install the latest release shown above unless the owner asks for unreleased
@@ -173,8 +173,9 @@ or hand-edit the Compose file.
 
 ## Earlier releases
 
-RepoKit keeps no legacy support: it recognizes only its current generation.
-`install` refuses a deployment from an earlier release, like an edited or
+RepoKit keeps no legacy support: it recognizes only its current generation,
+plus v0.2.0 deployments, which `repokit install` upgrades in place (just run
+it). `install` refuses a deployment from any earlier release, like an edited or
 foreign one, and prints the steps to start over. Relay them to the owner and
 let the owner run them: stop that deployment with
 `docker compose -f .hermes/compose.yaml down`, move `.hermes` aside, then

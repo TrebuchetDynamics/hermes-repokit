@@ -36,9 +36,11 @@ unmodified. Once the owner changes managed team state through normal Hermes
 usage, that state is owner-controlled: later installs may report it or offer
 newer defaults, but never silently overwrite it.
 
-RepoKit keeps no legacy support: it recognizes only its current generation.
-Files from an earlier release, like edited or foreign ones, are preserved and
-refused, never migrated; the owner starts over by stopping that deployment,
+RepoKit keeps no legacy support: it recognizes only its current generation and
+the previous release, v0.2.0, which `install` upgrades in place (a Go
+deployment gains the toolchain-cache volume; the old Compose and recipe are
+backed up). Files from any earlier release, like edited or foreign ones, are
+preserved and refused, never migrated; the owner starts over by stopping that deployment,
 moving `.hermes` aside and installing again.
 RepoKit does not hand-patch generated Compose or private `.hermes` state and
 does not remove owner-installed plugins or private data automatically.

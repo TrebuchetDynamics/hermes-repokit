@@ -3,10 +3,19 @@
 RepoKit configures a repository-specific Hermes team through public Hermes
 interfaces, proves what it can prove, then gets out of the way.
 
-**Released:** [v0.2.1](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.1)
-(current generation only, no legacy support; Go toolchain caches on a project
-volume; CI). The same-card executor → tester → reviewer loop is proven live; a
-reviewer request-changes correction cycle is not yet.
+**Released:** [v0.2.2](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.2)
+(current generation plus in-place upgrade from v0.2.0; Go toolchain caches on a
+project volume; CI). The same-card executor → tester → reviewer loop is proven
+live; a reviewer request-changes correction cycle is not yet.
+
+## Proven in v0.2.2
+
+- A real v0.2.0 deployment of a Go repository, with a full team, upgrades in
+  place: the v0.2.0 Compose and recipe are backed up as
+  `compose.before-toolchain-cache-*`, the container is rebuilt with the
+  toolchain-cache volume, all seven profiles stay current, dispatch is
+  unchanged and `verify` reports nothing unhealthy. v0.2.1 refused it. A
+  non-Go v0.2.0 deployment upgrades with nothing to change.
 
 ## Proven in v0.2.1
 
