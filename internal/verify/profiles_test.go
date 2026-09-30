@@ -55,3 +55,31 @@ func TestAbsentProfilesPointAtRepoKitSetup(t *testing.T) {
 		}
 	}
 }
+
+// A profile still on the previous release's untouched SOUL works; verify names
+// it as upgradable without failing core readiness.
+func TestPreviousReleaseSoulIsUpgradableNotCustomized(t *testing.T) {
+	id := target.Identity{Name: "atlas", Project: "repokit-123", Root: t.TempDir()}
+	var steward team.Role
+	for _, r := range team.ForRepository(id) {
+		if r.Name == "steward" {
+			steward = r
+		}
+	}
+	dir := filepath.Join(id.Root, ".hermes", "profiles", "steward")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for name, data := range map[string]string{"config.yaml": "x", "profile.yaml": "x", "SOUL.md": steward.PreviousSoul} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := status(Profiles(id), "profile:steward"); got != Upgradable {
+		t.Fatalf("got %s", got)
+	}
+	readiness := Readiness([]Probe{{"hermes", Healthy, ""}, {"profile:steward", Upgradable, ""}, {"review:evidence", Healthy, ""}})
+	if readiness[0].Status != Healthy {
+		t.Fatalf("upgradable profile failed core: %+v", readiness[0])
+	}
+}

@@ -98,7 +98,17 @@ func readSoul(root *os.Root, name string) (string, error) {
 
 // matchingSoul reports RepoKit's current managed SOUL; RepoKit recognizes no
 // earlier generation, so any other SOUL is owner state.
-func matchingSoul(soul string, role team.Role) bool { return soul == role.Soul }
+// matchingSoul reports a RepoKit-managed SOUL: the current one, or the exact
+// SOUL the previous release installed (which install upgrades in place).
+func matchingSoul(soul string, role team.Role) bool {
+	return soul == role.Soul || previousSoul(soul, role)
+}
+
+// previousSoul reports an untouched SOUL from team.PreviousRelease that differs
+// from the current one.
+func previousSoul(soul string, role team.Role) bool {
+	return role.PreviousSoul != "" && soul == role.PreviousSoul && soul != role.Soul
+}
 
 // profileDescription reads the exact native description through the public
 // CLI; native YAML folds long descriptions across lines.
@@ -193,9 +203,12 @@ type roleCheck struct {
 	config      []string
 }
 
-// customized reports an owner-changed identity: a SOUL outside RepoKit's
-// compiled history, or a different description.
+// customized reports an owner-changed identity: a SOUL that is neither the
+// current nor the previous release's, or a different description.
 func (c roleCheck) customized() bool { return !c.soulManaged || !c.descManaged }
+
+// previous reports an untouched previous-release SOUL awaiting upgrade.
+func (c roleCheck) previous(role team.Role) bool { return previousSoul(c.soul, role) }
 
 // compatible reports that every managed configuration value the team depends
 // on still holds.
@@ -296,6 +309,8 @@ type RoleStatus struct {
 
 var roleActions = map[string]string{
 	"current":    "none",
+	"upgrade":    "rewrite the untouched " + team.PreviousRelease + " SOUL",
+	"deferred":   "upgrade the " + team.PreviousRelease + " SOUL after running work finishes",
 	"missing":    "create",
 	"adopt":      "claim stock default",
 	"customized": "preserve",
@@ -387,6 +402,9 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 				plan.role(role.Name, "drift", check.differs(role))
 			case check.customized():
 				plan.role(role.Name, "customized", check.differs(role))
+			case check.previous(role):
+				// Never rewrite an identity under a running worker.
+				plan.role(role.Name, "deferred", []string{"SOUL"})
 			default:
 				plan.role(role.Name, "current", nil)
 			}
@@ -519,6 +537,9 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 			case check.customized():
 				plan.role(role.Name, "customized", check.differs(role))
 				continue
+			case check.previous(role):
+				plan.role(role.Name, "upgrade", []string{"SOUL"})
+				changes += soulWrite(role.Name, role.Soul)
 			default:
 				plan.role(role.Name, "current", nil)
 			}

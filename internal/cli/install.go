@@ -305,7 +305,7 @@ func profileProgress(probes []verify.Probe) (complete, teamPending bool, unverif
 	complete = true
 	for _, probe := range probes {
 		switch probe.Status {
-		case verify.Healthy, verify.Customized:
+		case verify.Healthy, verify.Customized, verify.Upgradable:
 		case verify.PendingSetup:
 			complete, teamPending = false, true
 		default:

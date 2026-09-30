@@ -31,6 +31,9 @@ const (
 	// Customized is a roster profile whose owner changed its identity. RepoKit
 	// preserves it; it is not a fault, but RepoKit no longer vouches for it.
 	Customized Status = "customized"
+	// Upgradable is a roster profile still holding the previous release's
+	// untouched SOUL. It works; install rewrites it when no card is running.
+	Upgradable Status = "upgradable"
 )
 
 type Probe struct {
@@ -167,6 +170,9 @@ func Profiles(id target.Identity) []Probe {
 				if e != nil {
 					probe.Status = Degraded
 					probe.Detail = "role SOUL unreadable"
+				} else if string(soul) != role.Soul && role.PreviousSoul != "" && string(soul) == role.PreviousSoul {
+					probe.Status = Upgradable
+					probe.Detail = "untouched " + team.PreviousRelease + " SOUL; repokit install upgrades it when no card is running"
 				} else if string(soul) != role.Soul {
 					probe.Status = Customized
 					probe.Detail = "owner-customized SOUL preserved; RepoKit does not overwrite it (reset with install --reset-profile " + role.Name + ")"
@@ -206,6 +212,9 @@ func Readiness(probes []Probe) []Probe {
 		if p.Status == Customized {
 			customized = append(customized, strings.TrimPrefix(p.Component, "profile:"))
 			continue
+		}
+		if p.Status == Upgradable {
+			continue // a working profile awaiting its RepoKit upgrade
 		}
 		if coreComponent(p.Component) && p.Status != Healthy {
 			failing = append(failing, p.Component)
