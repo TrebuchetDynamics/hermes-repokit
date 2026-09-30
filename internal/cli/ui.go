@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
 // ui prints aligned status lines in the same style as install.sh: color only
@@ -116,9 +115,9 @@ func (u ui) team(report native.TeamReport) {
 
 // ready closes a successful run: the team is set up and the owner's next
 // step is simply to talk to it.
-func (u ui) ready(id target.Identity) {
+func (u ui) ready(command string) {
 	fmt.Fprintf(u.out, "\n%sRepoKit ready.%s\n", u.bold+u.green, u.reset)
-	u.next([2]string{id.Container, "open the project team"})
+	u.next([2]string{command, "open the project team"})
 }
 
 // tildePath shortens paths under the user's home for display only.

@@ -120,6 +120,10 @@ After publishing the generated launcher, `install` automatically creates:
 It creates missing `.local` and `bin` directories under the current user's home
 when safe, and reuses a symlink to the same launcher on reruns. Existing files,
 directories and links to other targets (including dangling links) are preserved.
+For a repository whose name normalizes to `repokit`, `hermes-repokit` may already
+be the RepoKit bootstrap installed by `install.sh`. `install` keeps it, reports
+it and proceeds; open the team with the launcher path it prints, or remove that
+copy (`repokit` stays the bootstrap) and rerun `install` to create the link.
 Home and destination directories must be owned by the current user and must not
 be writable by group or others; `.local` and `bin` must not redirect through
 symlinks. RepoKit never changes existing directory permissions.

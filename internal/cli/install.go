@@ -192,15 +192,23 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 	if err := a.excludeInstallLock(context.Background(), id); err != nil {
 		u.warn(".hermes-repokit.lock may appear in git status (%v); add %s to .git/info/exclude", err, lockExcludeEntry)
 	}
-	if created {
+	// created means files were written; over existing state that is an
+	// in-place upgrade of recognized generated files, never a fresh start.
+	switch {
+	case created && report.ExistingState:
+		u.ok("Deployment", "upgraded the generated Compose file and launcher; previous Compose backed up, native configuration preserved")
+	case created:
 		u.ok("Deployment", "created private .hermes state, Compose file and launcher")
-	} else {
+	default:
 		u.ok("Deployment", "existing deployment and native configuration preserved")
 	}
 	home, homeErr := os.UserHomeDir()
 	if homeErr != nil {
 		u.warn("host command unavailable (%v); use %s directly", homeErr, tildePath(id.Launcher))
-	} else if command, err := launcher.Expose(id, home); err != nil {
+	} else if command, err := launcher.Expose(id, home); err != nil && target.RepoKitBootstrap(command) {
+		u.pending("Host command", tildePath(command)+" is the RepoKit bootstrap; kept")
+		u.note("open this team with " + tildePath(id.Launcher) + ", or remove that copy (`repokit` stays the bootstrap) and rerun install")
+	} else if err != nil {
 		u.warn("host command unavailable (%v); use %s directly", err, tildePath(id.Launcher))
 	} else {
 		u.ok("Host command", tildePath(command)+" → "+tildePath(id.Launcher))
@@ -249,7 +257,7 @@ func (a App) install(id target.Identity, report Plan, engineering bool, stdout, 
 		// install never starts a gateway the owner stopped; setup does.
 		u.next([2]string{self() + " setup", "start the gateway and prove dispatch"})
 	default:
-		u.ready(id)
+		u.ready(a.teamCommand(id))
 	}
 	return 0
 }
@@ -342,4 +350,20 @@ func profileProgress(probes []verify.Probe) (complete, teamPending bool, unverif
 		}
 	}
 	return complete, teamPending, unverified
+}
+
+// teamCommand is how the owner opens this team: the host command when PATH
+// resolves it to this launcher, otherwise the launcher path itself.
+func (a App) teamCommand(id target.Identity) string {
+	for _, dir := range filepath.SplitList(a.Path) {
+		p := filepath.Join(dir, id.Container)
+		if _, err := os.Lstat(p); err != nil {
+			continue
+		}
+		if resolved, err := filepath.EvalSymlinks(p); err == nil && resolved == id.Launcher {
+			return id.Container
+		}
+		break // the first match shadows the rest
+	}
+	return tildePath(id.Launcher)
 }

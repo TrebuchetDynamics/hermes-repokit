@@ -490,3 +490,24 @@ func TestRepeatedPathDirectoryIsOneCollision(t *testing.T) {
 		t.Fatalf("repeated PATH directory reported %d collisions", count)
 	}
 }
+
+func TestRepoKitBootstrapOnPathIsNotACollision(t *testing.T) {
+	id, err := Resolve(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	command := filepath.Join(bin, id.Container)
+	for data, collides := range map[string]bool{
+		"\x7fELF...usage: hermes-repokit <plan|install|setup|verify|start|stop|remove>...": false,
+		"#!/bin/sh\necho owner tool\n": true,
+	} {
+		if err := os.WriteFile(command, []byte(data), 0700); err != nil {
+			t.Fatal(err)
+		}
+		found := strings.Contains(strings.Join(Inspect(id, bin), "; "), "PATH collision")
+		if found != collides {
+			t.Fatalf("%q: collision=%v", data[:12], found)
+		}
+	}
+}

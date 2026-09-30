@@ -2,6 +2,7 @@
 package target
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -138,7 +139,10 @@ func Inspect(id Identity, pathEnv string) []string {
 		p := filepath.Join(dir, id.Container)
 		if _, err := os.Lstat(p); err == nil {
 			resolved, e := filepath.EvalSymlinks(p)
-			if e != nil || resolved != id.Launcher {
+			// A repository named repokit shares its host command name with
+			// the RepoKit bootstrap. That entry is preserved and reported by
+			// install, like install.sh preserves a launcher; it never blocks.
+			if e != nil || resolved != id.Launcher && !RepoKitBootstrap(resolved) {
 				issues = append(issues, "PATH collision: "+p)
 			}
 		} else if !os.IsNotExist(err) {
@@ -214,4 +218,19 @@ func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
 func owned(info fs.FileInfo) bool {
 	st, ok := info.Sys().(*syscall.Stat_t)
 	return ok && st.Uid == uint32(os.Geteuid())
+}
+
+// bootstrapUsage is the usage prefix every RepoKit-built binary embeds;
+// install.sh recognizes its own bootstrap by the same prefix.
+const bootstrapUsage = "usage: hermes-repokit <plan|install|setup|verify"
+
+// RepoKitBootstrap reports whether path is a regular file holding a
+// RepoKit-built bootstrap binary.
+func RepoKitBootstrap(path string) bool {
+	info, err := os.Lstat(path)
+	if err != nil || !info.Mode().IsRegular() || info.Size() > 256<<20 {
+		return false
+	}
+	data, err := os.ReadFile(path)
+	return err == nil && bytes.Contains(data, []byte(bootstrapUsage))
 }

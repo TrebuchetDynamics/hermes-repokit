@@ -3,6 +3,8 @@ package cli
 import (
 	"encoding/json"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -117,5 +119,39 @@ func TestCustomizedProfilesDoNotHoldBackInstallActivation(t *testing.T) {
 	complete, pending, unverified = profileProgress([]verify.Probe{probe("executor", verify.Customized), probe("tester", verify.PendingSetup), probe("reviewer", verify.Degraded)})
 	if complete || !pending || strings.Join(unverified, ",") != "reviewer" {
 		t.Fatalf("pending or unverified profile not reported: %v %v %v", complete, pending, unverified)
+	}
+}
+
+// A repository whose host command name is taken by the RepoKit bootstrap
+// installs anyway: the bootstrap is kept and reported, and the ready hint
+// names the launcher, never the shadowed command.
+func TestBootstrapOwnedHostCommandIsKeptAndDoesNotBlockInstall(t *testing.T) {
+	a, r := foundationApp(t)
+	bin := filepath.Join(os.Getenv("HOME"), ".local", "bin")
+	if err := os.MkdirAll(bin, 0700); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap := filepath.Join(bin, r.id.Container)
+	if err := os.WriteFile(bootstrap, []byte("usage: hermes-repokit <plan|install|setup|verify|start>"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	a.Path = bin
+	if code, out, diag := invoke(t, a, "install"); code != 0 || !strings.Contains(out, "is the RepoKit bootstrap; kept") {
+		t.Fatalf("bootstrap blocked install or was not reported: code=%d out=%s diag=%s", code, out, diag)
+	}
+	if data, _ := os.ReadFile(bootstrap); !strings.Contains(string(data), "usage: hermes-repokit") {
+		t.Fatal("bootstrap replaced")
+	}
+	if got := a.teamCommand(r.id); got == r.id.Container {
+		t.Fatal("ready hint names the command the bootstrap shadows")
+	}
+	if err := os.Remove(bootstrap); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(r.id.Launcher, bootstrap); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.teamCommand(r.id); got != r.id.Container {
+		t.Fatalf("host command resolving to the launcher not used: %s", got)
 	}
 }

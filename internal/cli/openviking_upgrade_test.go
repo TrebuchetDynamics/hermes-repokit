@@ -72,8 +72,12 @@ func TestInstallUpgradesOpenVikingEraDeployment(t *testing.T) {
 		t.Fatal("OpenViking-era Compose not recognized as RepoKit-generated")
 	}
 
-	if code, out, diag := invoke(t, a, "install"); code != 0 {
+	code, out, diag := invoke(t, a, "install")
+	if code != 0 {
 		t.Fatalf("OpenViking-era deployment not upgraded: out=%s diag=%s", out, diag)
+	}
+	if !strings.Contains(out, "upgraded the generated Compose file") || strings.Contains(out, "created private .hermes state") {
+		t.Fatalf("upgrade reported as a fresh deployment:\n%s", out)
 	}
 	got, _ := os.ReadFile(filepath.Join(state, "compose.yaml"))
 	if !bytes.Equal(got, current) {

@@ -116,7 +116,7 @@ func (a App) setup(id target.Identity, teamOnly, noCanary bool, stdout, stderr i
 		}
 		u.ok("Canary", "gateway ran researcher card "+task+" automatically; card archived")
 	}
-	u.ready(id)
+	u.ready(a.teamCommand(id))
 	return 0
 }
 
