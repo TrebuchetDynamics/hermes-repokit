@@ -24,6 +24,11 @@ var codeKernelSocket = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/herm
 // profile home; granted browser tools create it during ordinary work.
 // profileUVCache is a specialist's own uv cache (its HOME is profiles/<p>/home).
 var profileUVCache = regexp.MustCompile(`^profiles/[^/]+/home/\.cache/uv/`)
+
+// workerScratch is a worker's disposable scratch space. Workers copy
+// repositories there, repository symlinks included; RepoKit never reads or
+// writes it, so a link inside cannot redirect anything RepoKit manages.
+var workerScratch = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/.+`)
 var browserHarnessSocket = regexp.MustCompile(`^(profiles/[^/]+/)?home/\.config/browser-harness/runtime/[^/]+\.sock$`)
 var huggingFaceModelLink = regexp.MustCompile(`^\.cache/huggingface/hub/models--[A-Za-z0-9][A-Za-z0-9._-]*/(blobs/[0-9a-f]{40}([0-9a-f]{24})?|snapshots/[0-9a-f]{40}/[^/]+(/[^/]+)*)$`)
 var huggingFaceCacheMetadata = regexp.MustCompile(`^\.cache/huggingface/hub/(\.locks/models--[A-Za-z0-9][A-Za-z0-9._-]*/[0-9a-f]{40}([0-9a-f]{24})?\.lock|blobs/[0-9a-f]{2}/[0-9a-f]{64}\.(lock|refs))$`)
@@ -192,7 +197,7 @@ func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
 	if info.Mode()&os.ModeSymlink != 0 {
 		// Native model snapshots and per-repository blob entries are pointers;
 		// inspect their metadata without following container-only cache targets.
-		return toolLink || huggingFaceModelLink.MatchString(rel)
+		return toolLink || huggingFaceModelLink.MatchString(rel) || workerScratch.MatchString(rel)
 	}
 	if info.IsDir() {
 		return info.Mode().Perm()&0022 == 0

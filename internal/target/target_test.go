@@ -155,6 +155,8 @@ func TestNativeToolInstallDoesNotInvalidatePrivateDeployment(t *testing.T) {
 		"home/.cache/uv/wheels-v6/pypi/edge-tts/revision":            "../../../archive-v0/revision",
 		".cache/uv/wheels-v6/pypi/browser-use/revision":              "../../../archive-v0/revision",
 		"profiles/executor/home/.cache/uv/archive-v0/abc/bin/python": "/usr/bin/python",
+		"profiles/tester/cache/scratch/probe/docs/.uhd-images":       "/usr/share/uhd/images",
+		"cache/scratch/probe/e2e/cmd":                                "../cmd",
 		".local/share/uv/tools/browser-use/bin/python":               "/usr/local/bin/python3",
 		".local/bin/cua-driver":                                      "/opt/data/.cua-driver/packages/current/cua-driver",
 		".cua-driver/packages/current":                               "releases/0.30.2-linux",
@@ -205,7 +207,7 @@ func TestNativeToolExceptionsDoNotPermitRedirectedManagedPaths(t *testing.T) {
 		"development-image", ".cache", ".cache/uv", ".local", ".local/bin",
 		".local/share", ".local/share/uv", ".local/share/uv/tools", ".cua-driver", ".cua-driver/packages",
 		"profiles/executor/config.yaml", "development-image/Dockerfile",
-		"home", "home/.cache", "home/.cache/uv", "profiles/executor/home/.cache/uv", "lazy-packages", "gateway.sock", "state/gateway.loop-tick.123.sock",
+		"home", "home/.cache", "home/.cache/uv", "profiles/executor/home/.cache/uv", "cache/scratch", "profiles/tester/cache/scratch", "lazy-packages", "gateway.sock", "state/gateway.loop-tick.123.sock",
 	} {
 		t.Run(rel, func(t *testing.T) {
 			p := privateDir(t)
