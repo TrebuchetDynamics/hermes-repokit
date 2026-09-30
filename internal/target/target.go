@@ -212,8 +212,11 @@ func owned(info fs.FileInfo) bool {
 	return ok && st.Uid == uint32(os.Geteuid())
 }
 
-// bootstrapUsage is the usage prefix every RepoKit-built binary embeds;
-// install.sh recognizes its own bootstrap by the same prefix.
+// bootstrapUsage is RepoKit's self-identification: install.sh and
+// RepoKitBootstrap recognize a RepoKit-built binary by finding this text in it.
+// This constant is what embeds it in every build (usage output names the
+// invoked command instead), so it must keep this exact text; the install-script
+// acceptance tests fail if it is lost.
 const bootstrapUsage = "usage: hermes-repokit <plan|install|setup|verify"
 
 // RepoKitBootstrap reports whether path is a regular file holding a

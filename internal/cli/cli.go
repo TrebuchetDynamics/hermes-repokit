@@ -329,14 +329,19 @@ func recognized(command string) bool {
 	}
 	return false
 }
+
+// usage names the command as it was invoked: in a repository named repokit,
+// hermes-repokit is that repository's Hermes launcher, not the bootstrap.
 func usage(w io.Writer) {
-	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify|start|stop|remove> [--help]")
-	fmt.Fprintln(w, "       hermes-repokit install   then   hermes-repokit setup   (the whole first-time path)")
-	fmt.Fprintln(w, "       hermes-repokit setup [--no-canary] [--team] (--team: recovery without the private wizard)")
-	fmt.Fprintln(w, "       hermes-repokit verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)")
-	fmt.Fprintln(w, "       hermes-repokit <plan|install> [--docker-tests] [--reset-profile <role>]")
-	fmt.Fprintln(w, "       hermes-repokit start | stop (start or stop the deployment; state is kept)")
-	fmt.Fprintln(w, "       hermes-repokit remove (deletes the deployment and .hermes after typed confirmation)")
+	me := self()
+	pad := strings.Repeat(" ", len("usage: "))
+	fmt.Fprintf(w, "usage: %s <plan|install|setup|verify|start|stop|remove> [--help]\n", me)
+	fmt.Fprintf(w, "%s%s install   then   %s setup   (the whole first-time path)\n", pad, me, me)
+	fmt.Fprintf(w, "%s%s setup [--no-canary] [--team] (--team: recovery without the private wizard)\n", pad, me)
+	fmt.Fprintf(w, "%s%s verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)\n", pad, me)
+	fmt.Fprintf(w, "%s%s <plan|install> [--docker-tests] [--reset-profile <role>]\n", pad, me)
+	fmt.Fprintf(w, "%s%s start | stop (start or stop the deployment; state is kept)\n", pad, me)
+	fmt.Fprintf(w, "%s%s remove (deletes the deployment and .hermes after typed confirmation)\n", pad, me)
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }
 
