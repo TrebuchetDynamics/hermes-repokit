@@ -3,6 +3,7 @@ package verify
 import (
 	"context"
 	"encoding/json"
+	"regexp"
 	"sort"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
@@ -67,16 +68,68 @@ func DefaultKanban(ctx context.Context, id target.Identity, r Runner) []Probe {
 	}
 	var selections map[string]any
 	if out, ok := hermesCLI(ctx, r, dc, container, "config", "get", "platform_toolsets", "--json"); ok && json.Unmarshal([]byte(out), &selections) == nil {
-		channels = channelTools(selections)
+		effective := func(platform string) (bool, bool) {
+			out, ok := hermesCLI(ctx, r, dc, container, "tools", "list", "--platform", platform)
+			if !ok {
+				return false, false
+			}
+			return kanbanEnabled(out)
+		}
+		channels = channelTools(selections, configuredPlatforms(ctx, r, dc, container), effective)
 	}
 	return append([]Probe{dispatch, notify}, channels...)
 }
 
-// channelTools requires Kanban on every saved human-facing channel of default
-// so Telegram and CLI can create and follow the same work. Memory and other
-// optional tools are owner-managed and not checked.
-func channelTools(selections map[string]any) []Probe {
+// configuredPlatforms names the messaging platforms Hermes can deliver to,
+// from public `send --list --json` (no message is sent). This includes
+// channels configured only through the environment, which have no saved tool
+// selection. Only platform names are used; targets and chat names are private.
+func configuredPlatforms(ctx context.Context, r Runner, dc, container string) []string {
+	out, ok := hermesCLI(ctx, r, dc, container, "send", "--list", "--json")
+	var listed struct {
+		Platforms map[string]json.RawMessage `json:"platforms"`
+	}
+	if !ok || json.Unmarshal([]byte(out), &listed) != nil {
+		return nil
+	}
+	names := make([]string, 0, len(listed.Platforms))
+	for name := range listed.Platforms {
+		names = append(names, name)
+	}
+	return names
+}
+
+var kanbanToolLine = regexp.MustCompile(`(?m)^\s*(✓ enabled|✗ disabled)\s+kanban\s`)
+
+// kanbanEnabled reads the kanban row of public `tools list --platform` output:
+// (enabled, known).
+func kanbanEnabled(out string) (bool, bool) {
+	m := kanbanToolLine.FindStringSubmatch(out)
+	if m == nil {
+		return false, false
+	}
+	return m[1] == "✓ enabled", true
+}
+
+// channelTools requires Kanban on every human-facing channel of default so
+// Telegram and CLI can create and follow the same work. Saved per-channel
+// selections are read directly; a configured channel without one (set up only
+// through the environment) is judged by Hermes's effective tools for it.
+// Memory and other optional tools are owner-managed and not checked.
+func channelTools(selections map[string]any, configured []string, effective func(string) (bool, bool)) []Probe {
 	var result []Probe
+	for _, platform := range configured {
+		if _, saved := selections[platform]; saved || nonInteractive[platform] || !platformName.MatchString(platform) {
+			continue
+		}
+		p := Probe{"channel:" + platform, Unknown, "configured without a saved tool selection; effective tools unavailable"}
+		if enabled, known := effective(platform); known && enabled {
+			p = Probe{"channel:" + platform, Healthy, "default has the kanban tool on this channel (effective native tools; no saved selection)"}
+		} else if known {
+			p = Probe{"channel:" + platform, Degraded, "default lacks the kanban tool here; run: hermes-<repo> -p default tools enable kanban --platform " + platform}
+		}
+		result = append(result, p)
+	}
 	for platform, raw := range selections {
 		if nonInteractive[platform] || !platformName.MatchString(platform) {
 			continue
@@ -95,15 +148,15 @@ func channelTools(selections map[string]any) []Probe {
 		result = append(result, p)
 	}
 	if len(result) == 0 {
-		return []Probe{{"channels", Unknown, "no saved per-channel selections for default; channels configured only by environment are not observed"}}
+		return []Probe{{"channels", Unknown, "no saved per-channel selections and no configured messaging platform observed for default"}}
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Component < result[j].Component })
 	return result
 }
 
-// ReviewEvidence searches recent completed cards for the native same-card
-// acceptance chain: an implementation run requested review, a later tester run
-// forwarded it, and reviewer completed the card, with three distinct actors.
+// ReviewEvidence searches recent reviewer-completed cards for the native
+// same-card acceptance chain: an executor run requested review, a later tester
+// run forwarded it, and reviewer completed the card.
 // Read-only public Kanban output.
 func ReviewEvidence(ctx context.Context, id target.Identity, r Runner) Probe {
 	probe := Probe{"review:evidence", Unknown, "Kanban history unavailable"}
@@ -111,15 +164,18 @@ func ReviewEvidence(ctx context.Context, id target.Identity, r Runner) Probe {
 	if err != nil {
 		return probe
 	}
-	out, ok := hermesCLI(ctx, r, dc, container, "kanban", "list", "--status", "done", "--sort", "completed-desc", "--json")
+	// Reviewer completes every accepted implementation card, so only cards it
+	// finished are candidates; research, planning and admin work cannot push
+	// the evidence out of view. The newest reviewEvidenceWindow are read.
+	out, ok := hermesCLI(ctx, r, dc, container, "kanban", "list", "--status", "done", "--assignee", "reviewer", "--sort", "completed-desc", "--json")
 	var tasks []struct {
 		ID string `json:"id"`
 	}
 	if !ok || json.Unmarshal([]byte(out), &tasks) != nil {
 		return probe
 	}
-	if len(tasks) > 5 {
-		tasks = tasks[:5]
+	if len(tasks) > reviewEvidenceWindow {
+		tasks = tasks[:reviewEvidenceWindow]
 	}
 	for _, task := range tasks {
 		out, ok := hermesCLI(ctx, r, dc, container, "kanban", "show", task.ID, "--json")
@@ -133,13 +189,18 @@ func ReviewEvidence(ctx context.Context, id target.Identity, r Runner) Probe {
 			return Probe{"review:evidence", Healthy, "card " + task.ID + ": " + chain + " on the same card"}
 		}
 	}
-	return Probe{"review:evidence", Unqualified, "no same-card executor→tester→reviewer completion among recent done cards; run real work or verify --dispatch-check"}
+	return Probe{"review:evidence", Unqualified, "no same-card executor→tester→reviewer completion among recent reviewer-completed cards; run real reviewed work"}
 }
 
+// reviewEvidenceWindow bounds how many reviewer-completed cards verify reads
+// (one native `kanban show` each).
+const reviewEvidenceWindow = 20
+
 // acceptanceChain describes a run history whose final run is reviewer's
-// completion and whose latest implementation run is followed by a tester
-// hand-off. A tester relay of reviewer-requested changes precedes the fix, so
-// it never counts as verification of that fix.
+// completion and whose latest executor run requesting review is followed by a
+// tester hand-off. Only executor implements: another profile requesting review
+// never qualifies. A tester relay of reviewer-requested changes precedes the
+// fix, so it never counts as verification of that fix.
 func acceptanceChain(runs []struct{ Profile, Outcome string }) string {
 	if len(runs) == 0 || runs[len(runs)-1].Profile != "reviewer" || runs[len(runs)-1].Outcome != "completed" {
 		return ""
@@ -151,7 +212,7 @@ func acceptanceChain(runs []struct{ Profile, Outcome string }) string {
 			if run.Profile == "tester" && run.Outcome == "review_requested" && implementer != "" {
 				verified = true
 			}
-		case run.Outcome == "review_requested":
+		case run.Profile == "executor" && run.Outcome == "review_requested":
 			implementer, verified = run.Profile, false
 		}
 	}

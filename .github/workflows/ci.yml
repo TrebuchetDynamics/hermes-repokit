@@ -1,0 +1,50 @@
+name: CI
+
+# Fast checks on every push and pull request. The Docker acceptance suites
+# (-tags=docker, REPOKIT_DOCKER_TESTS=1) need a real daemon and model-free
+# fixtures that take minutes; they stay opt-in and run locally.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Not gofmt-formatted:"; echo "$unformatted"; exit 1
+          fi
+
+      - name: whitespace
+        if: github.event_name == 'pull_request'
+        run: git diff --check "origin/${{ github.base_ref }}...HEAD"
+
+      - name: install.sh syntax
+        run: sh -n install.sh
+
+      - name: vet
+        run: |
+          go vet ./...
+          go vet -tags=docker ./...
+
+      - name: test
+        run: go test -count=1 ./...
+
+      - name: race
+        run: go test -race -count=1 ./...
