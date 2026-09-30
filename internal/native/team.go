@@ -158,27 +158,53 @@ func holdsTeamValue(got, want any) bool {
 	return reflect.DeepEqual(got, want)
 }
 
-// classifyRole compares one existing roster profile with its managed role.
-// customized means the owner changed its identity: a SOUL outside RepoKit's
-// compiled history, or a different description. compatible means every
-// managed configuration value the team depends on still holds.
-func classifyRole(run teamCLI, root *os.Root, role team.Role) (soul string, customized, compatible bool, err error) {
-	soul, err = readSoul(root, role.Name)
+// roleCheck compares one existing roster profile with its managed role.
+// Config names the managed configuration keys that no longer hold; values are
+// never recorded because native configuration may contain private state.
+type roleCheck struct {
+	soul        string
+	soulManaged bool
+	descManaged bool
+	config      []string
+}
+
+// customized reports an owner-changed identity: a SOUL outside RepoKit's
+// compiled history, or a different description.
+func (c roleCheck) customized() bool { return !c.soulManaged || !c.descManaged }
+
+// compatible reports that every managed configuration value the team depends
+// on still holds.
+func (c roleCheck) compatible() bool { return len(c.config) == 0 }
+
+// differs names what separates the profile from RepoKit's current baseline.
+func (c roleCheck) differs(role team.Role) []string {
+	out := []string{}
+	if c.soul != role.Soul {
+		out = append(out, "SOUL")
+	}
+	if !c.descManaged {
+		out = append(out, "description")
+	}
+	return append(out, c.config...)
+}
+
+func classifyRole(run teamCLI, root *os.Root, role team.Role) (roleCheck, error) {
+	soul, err := readSoul(root, role.Name)
 	if err != nil {
-		return "", false, false, err
+		return roleCheck{}, err
 	}
 	desc, err := profileDescription(run, role.Name)
 	if err != nil {
-		return "", false, false, err
+		return roleCheck{}, err
 	}
-	customized = !matchingSoul(soul, role) || desc != role.Description
+	check := roleCheck{soul: soul, soulManaged: matchingSoul(soul, role), descManaged: desc == role.Description}
 	fields := expectedTeamFields(role)
 	if role.Name == "default" {
 		// After activation default carries the complete managed dispatch
 		// policy; anything between off and that policy is owner drift.
 		value, err := configValue(run, role.Name, "kanban")
 		if err != nil {
-			return "", false, false, err
+			return roleCheck{}, err
 		}
 		if kanban, ok := value.(map[string]any); ok && OperationalPolicy(kanban) {
 			for _, field := range DispatchPolicy() {
@@ -190,25 +216,30 @@ func classifyRole(run teamCLI, root *os.Root, role team.Role) (soul string, cust
 			}
 		}
 	}
-	for key, want := range fields {
+	keys := make([]string, 0, len(fields))
+	for key := range fields {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
 		got, err := configValue(run, role.Name, key)
 		if err != nil {
-			return "", false, false, err
+			return roleCheck{}, err
 		}
 		if key == "terminal.backend" && got == nil {
 			got = "local"
 		}
-		if !holdsTeamValue(got, want) {
-			return soul, customized, false, nil
+		if !holdsTeamValue(got, fields[key]) {
+			check.config = append(check.config, key)
 		}
 	}
-	return soul, customized, true, nil
+	return check, nil
 }
 
 // inspectRole reports whether a profile is RepoKit-managed and compatible.
 func inspectRole(run teamCLI, root *os.Root, role team.Role) (string, bool, error) {
-	soul, customized, compatible, err := classifyRole(run, root, role)
-	return soul, err == nil && !customized && compatible, err
+	check, err := classifyRole(run, root, role)
+	return check.soul, err == nil && !check.customized() && check.compatible(), err
 }
 func soulWrite(name, soul string) string {
 	path := "/opt/data/SOUL.md"
@@ -227,13 +258,77 @@ func soulWrite(name, soul string) string {
 type teamPlan struct {
 	Script     string
 	Status     string
+	Roles      []RoleStatus
 	Drift      []string
 	Customized []string
 	Deferred   []string
 }
 
-func teamScript(id target.Identity, afterSetup bool, run teamCLI, root *os.Root) (teamPlan, error) {
+// RoleStatus is one plan row: a roster profile, its convergence state and the
+// action install takes. Differs names what separates the profile from
+// RepoKit's current baseline (SOUL, description or managed configuration
+// keys); values are never reported because they may be private.
+type RoleStatus struct {
+	Profile string   `json:"profile"`
+	State   string   `json:"state"`
+	Action  string   `json:"action"`
+	Differs []string `json:"differs,omitempty"`
+}
+
+var roleActions = map[string]string{
+	"current":    "none",
+	"upgrade":    "rewrite untouched RepoKit SOUL",
+	"missing":    "create",
+	"adopt":      "claim stock default",
+	"customized": "preserve",
+	"drift":      "preserve; blocks this run",
+	"deferred":   "upgrade after running work finishes",
+	"held":       "preserve; dispatch policy is owner-controlled",
+	"reset":      "replace with RepoKit baseline; back up prior files",
+}
+
+func (p *teamPlan) role(name, state string, differs []string) {
+	p.Roles = append(p.Roles, RoleStatus{Profile: name, State: state, Action: roleActions[state], Differs: differs})
+	switch state {
+	case "drift":
+		p.Drift = append(p.Drift, name)
+	case "customized":
+		p.Customized = append(p.Customized, name)
+	case "deferred":
+		p.Deferred = append(p.Deferred, name)
+	}
+}
+
+// resetWrite backs up a profile's native files, then restores RepoKit's
+// baseline. default's configuration carries the dispatch policy that setup
+// activation owns, so a default reset restores identity only.
+func resetWrite(role team.Role) string {
+	dir := "/opt/data"
+	if role.Name != "default" {
+		dir += "/profiles/" + role.Name
+	}
+	script := "stamp=$(date -u +%Y%m%dT%H%M%SZ)\n"
+	for _, name := range []string{"SOUL.md", "config.yaml", "profile.yaml"} {
+		path := shellQuote(dir + "/" + name)
+		script += "if [ -f " + path + " ]; then cp -p " + path + " " + path + ".before-reset-\"$stamp\"; fi\n"
+	}
+	script += soulWrite(role.Name, role.Soul)
+	script += teamCommand("profile", "describe", role.Name, "--text", role.Description)
+	if role.Name != "default" {
+		for key, value := range expectedTeamFields(role) {
+			script += teamSet(role.Name, key, value)
+		}
+	}
+	return script
+}
+
+// teamScript plans convergence. reset, when set, names one roster profile the
+// owner explicitly asked to return to RepoKit's baseline.
+func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, root *os.Root) (teamPlan, error) {
 	roles := team.ForRepository(id)
+	if reset != "" && !knownRole(reset) {
+		return teamPlan{}, errors.New("reset target is not a roster profile")
+	}
 	guard, err := teamStateGuard(root, roles)
 	if err != nil {
 		return teamPlan{}, err
@@ -261,23 +356,35 @@ func teamScript(id target.Identity, afterSetup bool, run teamCLI, root *os.Root)
 			if busy && sixRole {
 				return teamPlan{}, errors.New("a card is running or Kanban is unreadable; the six-profile team upgrade waits for idle workers")
 			}
+			if busy && reset != "" {
+				return teamPlan{}, errors.New("a card is running or Kanban is unreadable; profile reset waits for idle workers")
+			}
 			guard += idleGuard
 		}
 		observe = busy || !sixRole && !OperationalPolicy(kanban)
+		if observe && reset != "" {
+			return teamPlan{}, errors.New("owner-changed dispatch policy is only observed; profile reset is unavailable")
+		}
 	}
 	if observe {
 		// Only default's own channel tools are completed so every channel can
 		// reach Kanban; untouched SOUL upgrades wait for idle workers.
 		plan := teamPlan{Status: "configured"}
 		for _, role := range roles {
-			soul, customized, compatible, e := classifyRole(run, root, role)
+			check, e := classifyRole(run, root, role)
 			switch {
-			case e != nil || !compatible:
-				plan.Drift = append(plan.Drift, role.Name)
-			case customized:
-				plan.Customized = append(plan.Customized, role.Name)
-			case busy && soul != role.Soul:
-				plan.Deferred = append(plan.Deferred, role.Name)
+			case e != nil:
+				plan.role(role.Name, "drift", nil)
+			case !check.compatible():
+				plan.role(role.Name, "drift", check.differs(role))
+			case check.customized():
+				plan.role(role.Name, "customized", check.differs(role))
+			case check.soul == role.Soul:
+				plan.role(role.Name, "current", nil)
+			case busy:
+				plan.role(role.Name, "deferred", check.differs(role))
+			default:
+				plan.role(role.Name, "held", check.differs(role))
 			}
 		}
 		channels, err := defaultChannelTools(run)
@@ -313,7 +420,9 @@ func teamScript(id target.Identity, afterSetup bool, run teamCLI, root *os.Root)
 	adoptDefault := descErr == nil && (defaultDesc == "" || defaultDesc == roles[0].Description) &&
 		(os.IsNotExist(soulErr) || soulErr == nil && stockSoul(defaultSoul))
 	if !adoptDefault && (soulErr != nil || !matchingSoul(defaultSoul, roles[0]) && !managed) {
-		return teamPlan{Status: "drift", Drift: []string{"default"}}, nil
+		plan := teamPlan{Status: "drift"}
+		plan.role("default", "drift", []string{"SOUL"})
+		return plan, nil
 	}
 	// Native CLI owns configuration semantics. The global fallback is the only
 	// publicly inspectable default tool boundary; channel discovery is separate.
@@ -378,6 +487,7 @@ func teamScript(id target.Identity, afterSetup bool, run teamCLI, root *os.Root)
 			return teamPlan{}, errors.New("native profile identity unavailable")
 		}
 		if role.Name == "default" && adoptDefault {
+			plan.role(role.Name, "adopt", nil)
 			for key, value := range expectedTeamFields(role) {
 				changes += teamSet(role.Name, key, value)
 			}
@@ -391,20 +501,27 @@ func teamScript(id target.Identity, afterSetup bool, run teamCLI, root *os.Root)
 		if exists {
 			// Exact historical SOUL alone is insufficient evidence of
 			// ownership: description and managed configuration must match too.
-			prior, customized, compatible, e := classifyRole(run, root, role)
+			check, e := classifyRole(run, root, role)
 			if e != nil {
 				return teamPlan{}, e
 			}
-			if !compatible {
-				plan.Drift = append(plan.Drift, role.Name)
+			resetConfig := role.Name == reset && role.Name != "default"
+			if !check.compatible() && !resetConfig {
+				plan.role(role.Name, "drift", check.differs(role))
 				continue
 			}
-			if customized {
-				plan.Customized = append(plan.Customized, role.Name)
+			switch {
+			case role.Name == reset:
+				plan.role(role.Name, "reset", check.differs(role))
+				changes += resetWrite(role)
+			case check.customized():
+				plan.role(role.Name, "customized", check.differs(role))
 				continue
-			}
-			if prior != role.Soul {
+			case check.soul != role.Soul:
+				plan.role(role.Name, "upgrade", check.differs(role))
 				changes += soulWrite(role.Name, role.Soul)
+			default:
+				plan.role(role.Name, "current", nil)
 			}
 			skillDiscovery, e := configValue(run, role.Name, "skills.project_discovery")
 			if e != nil {
@@ -416,9 +533,10 @@ func teamScript(id target.Identity, afterSetup bool, run teamCLI, root *os.Root)
 			continue
 		}
 		if role.Name == "default" {
-			plan.Drift = append(plan.Drift, role.Name)
+			plan.role(role.Name, "drift", []string{"SOUL"})
 			continue
 		}
+		plan.role(role.Name, "missing", nil)
 		changes += teamCommand("profile", "create", role.Name, "--clone", "--clone-from", "default", "--no-alias", "--description", role.Description)
 		changes += soulWrite(role.Name, role.Soul)
 		for _, rel := range []string{"memories/MEMORY.md", "memories/USER.md", "MEMORY.md", "USER.md"} {
@@ -485,6 +603,15 @@ func teamStateGuard(root *os.Root, roles []team.Role) (string, error) {
 	}
 	return script.String(), nil
 }
+func knownRole(name string) bool {
+	for _, role := range team.Roster() {
+		if role.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func teamResult(output string) (TeamReport, error) {
 	for _, line := range strings.Split(output, "\n") {
 		if !strings.HasPrefix(line, "REPOKIT_TEAM=") {
@@ -495,6 +622,7 @@ func teamResult(output string) (TeamReport, error) {
 			Drift      []string `json:"drift"`
 			Customized []string `json:"customized"`
 			Deferred   []string `json:"deferred"`
+			Reset      []string `json:"reset"`
 		}
 		if json.Unmarshal([]byte(strings.TrimPrefix(line, "REPOKIT_TEAM=")), &result) != nil {
 			return TeamReport{}, errors.New("invalid team provisioning result")
@@ -505,13 +633,9 @@ func teamResult(output string) (TeamReport, error) {
 		if result.Status != "configured" && result.Status != "drift" {
 			return TeamReport{}, errors.New("invalid team provisioning status")
 		}
-		known := map[string]bool{}
-		for _, role := range team.Roster() {
-			known[role.Name] = true
-		}
-		for _, names := range [][]string{result.Drift, result.Customized, result.Deferred} {
+		for _, names := range [][]string{result.Drift, result.Customized, result.Deferred, result.Reset} {
 			for _, name := range names {
-				if !known[name] {
+				if !knownRole(name) {
 					return TeamReport{}, errors.New("native team result names an unknown profile")
 				}
 			}
@@ -522,7 +646,7 @@ func teamResult(output string) (TeamReport, error) {
 		if result.Status == "drift" {
 			return TeamReport{}, errors.New("native team drift result incomplete")
 		}
-		return TeamReport{Customized: result.Customized, Deferred: result.Deferred}, nil
+		return TeamReport{Customized: result.Customized, Deferred: result.Deferred, Reset: result.Reset}, nil
 	}
 	return TeamReport{}, errors.New("native team provisioning result missing; inspect existing profiles before retrying")
 }

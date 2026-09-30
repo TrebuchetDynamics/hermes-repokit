@@ -58,7 +58,11 @@ are deferred and reported, and only `default`'s own Kanban tools on saved
 channels are completed. An unmodified six-profile release is upgraded the same
 way when idle: `setup --team` creates `tester`, upgrades the managed SOULs and
 then widens the allowlist with one gateway restart. Owner-customized profiles
-and an owner-changed dispatch policy are only reported.
+and an owner-changed dispatch policy are only reported. `repokit plan` shows the
+per-profile decision in its `team` section, and `repokit install
+--reset-profile <role>` deliberately returns one roster profile to RepoKit's
+baseline after backing up its files (preview it with `plan --reset-profile`);
+see the [team model](team-model.md).
 
 Fresh installation keeps `dispatch_in_gateway=false`. After the seven profiles
 reconcile without drift, setup writes the native Kanban policy on `default` with

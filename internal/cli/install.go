@@ -224,6 +224,10 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 	}
 	if !ready {
 		u.pending("Kanban", "initialization pending: the container is not running")
+		if a.resetProfile != "" {
+			u.fail("profile reset not applied: the container is not running")
+			return 1
+		}
 		if afterSetup {
 			return 1
 		}
@@ -239,9 +243,9 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 		u.fail("native initialization deferred: %v", err)
 		return 1
 	}
-	teamReport, err := native.Initialize(context.Background(), id, dockerContext, afterSetup, runner)
+	teamReport, err := native.Initialize(context.Background(), id, dockerContext, afterSetup, a.resetProfile, runner)
 	if err != nil {
-		if errors.Is(err, native.ErrTeamPending) && !afterSetup {
+		if errors.Is(err, native.ErrTeamPending) && !afterSetup && a.resetProfile == "" {
 			u.ok("Kanban", "native board ready")
 			u.pending("Team", "not set up yet")
 			return 0
@@ -253,6 +257,12 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 	u.ok("Team", "seven profiles reconciled")
 	if len(teamReport.Customized) > 0 {
 		u.note("owner-customized profiles preserved: " + strings.Join(teamReport.Customized, ", ") + " (RepoKit does not overwrite them or apply newer defaults)")
+	}
+	if len(teamReport.Reset) > 0 {
+		u.ok("Reset", strings.Join(teamReport.Reset, ", ")+" returned to RepoKit baseline")
+		u.note("prior SOUL.md, config.yaml and profile.yaml kept beside them as *.before-reset-<UTC time>; start a fresh conversation to use the new identity")
+	} else if a.resetProfile != "" {
+		u.ok("Reset", a.resetProfile+" had no existing profile to reset; it now starts from RepoKit's baseline")
 	}
 	if len(teamReport.Deferred) > 0 {
 		u.pending("Team", "SOUL upgrades deferred while a card is running: "+strings.Join(teamReport.Deferred, ", ")+"; rerun install when the board is idle")

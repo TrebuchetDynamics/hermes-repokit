@@ -41,6 +41,9 @@ type App struct {
 	Confirm func(prompt string) (string, error)
 	// ComposeExec replaces the streamed `docker compose` invocation in tests.
 	ComposeExec func(stdout, stderr io.Writer, args ...string) error
+	// resetProfile names one roster profile install returns to RepoKit's
+	// baseline, and plan previews.
+	resetProfile string
 }
 
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -71,6 +74,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	}
 	if args[0] == "plan" || args[0] == "install" {
 		flags.BoolVar(&a.DockerTests, "docker-tests", false, "publish opt-in privileged isolated Docker acceptance service; never the host socket")
+		flags.StringVar(&a.resetProfile, "reset-profile", "", "return one roster profile to RepoKit's baseline SOUL, description and managed configuration; prior files are backed up")
 	}
 	if args[0] != "setup" {
 		flags.BoolVar(&engineering, "engineering", false, "legacy alias; generic team is the default")
@@ -89,6 +93,10 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		if arg == "--" {
 			return usageError(stderr)
 		}
+	}
+	if a.resetProfile != "" && !rosterProfile(a.resetProfile) {
+		fmt.Fprintf(stderr, "--reset-profile takes a RepoKit roster profile (%s); owner-created profiles are never reset\n", strings.Join(rosterNames(), ", "))
+		return 2
 	}
 	if dispatchCheck {
 		return a.dispatchCheck(stdout)
@@ -186,6 +194,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	case "plan", "install":
 		report := a.plan(id, engineering)
 		if args[0] == "plan" {
+			report.Team = a.planTeam(id, report)
 			enc := json.NewEncoder(stdout)
 			enc.SetIndent("", "  ")
 			if e := enc.Encode(report); e != nil {
@@ -216,6 +225,67 @@ type Plan struct {
 	Profiles, Plugins            []string
 	Kanban                       map[string]any `json:"kanban"`
 	ProposedChanges, Unsupported []string
+	// Team previews per-profile convergence on an existing running deployment.
+	Team *TeamPlan `json:"team,omitempty"`
+}
+
+// TeamPlan is the plan's per-profile table. Detail explains a status that
+// prevents a preview or blocks the run.
+type TeamPlan struct {
+	native.TeamStatus
+	Detail string `json:"detail,omitempty"`
+}
+
+func rosterNames() []string {
+	names := []string{}
+	for _, role := range team.Roster() {
+		names = append(names, role.Name)
+	}
+	return names
+}
+
+func rosterProfile(name string) bool {
+	for _, n := range rosterNames() {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
+// planTeam reads the decision install would make, through the running
+// deployment's public native commands only. Nothing is written.
+func (a App) planTeam(id target.Identity, report Plan) *TeamPlan {
+	if !report.ExistingState {
+		return nil
+	}
+	unavailable := func(status, detail string) *TeamPlan {
+		return &TeamPlan{TeamStatus: native.TeamStatus{Status: status, Profiles: []native.RoleStatus{}}, Detail: detail}
+	}
+	if report.DockerContext == "" {
+		return unavailable("unavailable", "deployment routing cannot be verified")
+	}
+	if ready, err := a.nativeRuntimeReady(id, report.DockerContext); err != nil || !ready {
+		return unavailable("runtime-not-running", "start the existing Compose service to preview team convergence")
+	}
+	runner := a.Initializer
+	if runner == nil {
+		runner = process.Runner{Timeout: 30 * time.Second}
+	}
+	status, err := native.PlanTeam(context.Background(), id, report.DockerContext, a.resetProfile, runner)
+	if err != nil {
+		return unavailable("unavailable", err.Error())
+	}
+	plan := &TeamPlan{TeamStatus: status}
+	switch status.Status {
+	case "drift":
+		plan.Detail = "managed configuration drift blocks every write in this run; inspect the drift profiles or reset one with --reset-profile"
+	case "pending-setup":
+		plan.Detail = "configure the default model privately, then run setup --team"
+	default:
+		plan.Detail = "owner-customized profiles are preserved; none will be overwritten"
+	}
+	return plan
 }
 
 // selinuxState resolves the host SELinux state, allowing tests to override it.
@@ -315,7 +385,7 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "usage: hermes-repokit <plan|install|setup|verify|start|stop|remove> [--engineering] [--help]")
 	fmt.Fprintln(w, "       hermes-repokit setup [--team]")
 	fmt.Fprintln(w, "       hermes-repokit verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)")
-	fmt.Fprintln(w, "       hermes-repokit <plan|install> [--docker-tests]")
+	fmt.Fprintln(w, "       hermes-repokit <plan|install> [--docker-tests] [--reset-profile <role>]")
 	fmt.Fprintln(w, "       hermes-repokit start | stop (start or stop the deployment; state is kept)")
 	fmt.Fprintln(w, "       hermes-repokit remove (deletes the deployment and .hermes after typed confirmation)")
 }

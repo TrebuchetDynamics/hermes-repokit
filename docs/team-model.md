@@ -111,6 +111,30 @@ Models, providers, channels, plugins and memory are not managed fields. A rerun
 never replaces owner modifications, clears learned memories or deletes unknown
 profiles. Existing `builder` or domain profiles are left untouched.
 
+`repokit plan` previews this per profile in its `team` section when the
+deployment is running: each row names the profile, its state, the action
+install would take and which parts differ (`SOUL`, `description` or managed
+configuration keys; values are never printed). States beyond the table above
+are `adopt` (stock default claimed), `deferred` (upgrade waits for running
+work) and `held` (dispatch policy is owner-controlled, so nothing is changed).
+
+Returning a profile to RepoKit's baseline is always explicit:
+
+```sh
+repokit plan --reset-profile executor      # preview; writes nothing
+repokit install --reset-profile executor   # apply
+```
+
+Reset copies the profile's `SOUL.md`, `config.yaml` and `profile.yaml` beside
+themselves as `*.before-reset-<UTC time>`, then restores the current managed
+SOUL, description and managed configuration (role toolsets exactly). Resetting
+`default` restores its identity only; its dispatch policy belongs to setup
+activation. Only roster profiles can be reset, never owner-created ones.
+Models, providers, channels, memory and sessions are untouched. Reset refuses
+while a card is running or when the dispatch policy is owner-controlled, and a
+reset that could not be applied fails install. Resetting a missing profile
+creates it.
+
 Verification reports `kanban:default:<platform>`, `memory:default:<platform>` and
 the profile-wide Kanban fallback, plus a declared channel routing/core matrix.
 A missing saved-platform opt-in is degraded. Healthy configuration does not

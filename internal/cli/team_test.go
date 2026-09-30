@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -51,5 +52,49 @@ func TestTeamSetupReportsPreservedOwnerProfilesAndActivates(t *testing.T) {
 	}
 	if !strings.Contains(out, "owner-customized profiles preserved: executor (") || !strings.Contains(out, "deferred while a card is running: reviewer;") {
 		t.Fatalf("preserved profiles not reported:\n%s", out)
+	}
+}
+
+func TestPlanPreviewsTeamOnlyForRunningDeployment(t *testing.T) {
+	a, r := foundationApp(t)
+	if code, _, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatal(diag)
+	}
+	input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`}
+	a.Initializer = input
+	var report Plan
+	code, out, diag := invoke(t, a, "plan")
+	if code != 0 || json.Unmarshal([]byte(out), &report) != nil || report.Team == nil || report.Team.Status != "runtime-not-running" || input.calls != 0 {
+		t.Fatalf("stopped runtime preview: code=%d calls=%d out=%s diag=%s", code, input.calls, out, diag)
+	}
+	r.runtime = developmentRuntimeFixture(r.id)
+	code, out, diag = invoke(t, a, "plan", "--reset-profile", "executor")
+	if code != 0 || json.Unmarshal([]byte(out), &report) != nil || report.Team == nil || report.Team.Status != "pending-setup" || report.Team.Detail == "" {
+		t.Fatalf("running runtime preview: code=%d out=%s diag=%s", code, out, diag)
+	}
+	for _, s := range input.scripts {
+		t.Fatalf("plan wrote native state:\n%s", s)
+	}
+}
+
+func TestResetProfileFlag(t *testing.T) {
+	a, r := foundationApp(t)
+	for _, args := range [][]string{{"plan", "--reset-profile", "flutter-specialist"}, {"install", "--reset-profile", "../default"}, {"setup", "--reset-profile", "executor"}} {
+		if code, _, _ := invoke(t, a, args...); code != 2 {
+			t.Fatalf("%v accepted", args)
+		}
+	}
+	if code, _, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatal(diag)
+	}
+	// A stopped runtime cannot apply an explicit reset; that is a failure.
+	if code, _, diag := invoke(t, a, "install", "--reset-profile", "executor"); code == 0 || !strings.Contains(diag, "reset not applied") {
+		t.Fatalf("unapplied reset reported success: %s", diag)
+	}
+	r.runtime = developmentRuntimeFixture(r.id)
+	a.Initializer = &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, team: `REPOKIT_TEAM={"status":"configured","drift":[],"reset":["executor"]}`}
+	code, out, diag := invoke(t, a, "install", "--reset-profile", "executor")
+	if code != 0 || !strings.Contains(out, "executor returned to RepoKit baseline") || !strings.Contains(out, ".before-reset-") {
+		t.Fatalf("reset not reported: code=%d out=%s diag=%s", code, out, diag)
 	}
 }

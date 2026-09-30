@@ -29,19 +29,48 @@ type InputRunner interface {
 type TeamReport struct {
 	Customized []string
 	Deferred   []string
+	Reset      []string
+}
+
+// TeamStatus previews team convergence: the decision install would make, read
+// only through public native commands. Nothing is written.
+type TeamStatus struct {
+	Status   string       `json:"status"`
+	Profiles []RoleStatus `json:"profiles"`
+}
+
+// PlanTeam returns the per-profile plan install would apply. reset previews an
+// explicit `install --reset-profile`.
+func PlanTeam(ctx context.Context, id target.Identity, dockerContext, reset string, r InputRunner) (TeamStatus, error) {
+	root, err := os.OpenRoot(id.Root)
+	if err != nil {
+		return TeamStatus{}, fmt.Errorf("native team state unavailable")
+	}
+	defer root.Close()
+	plan, err := teamScript(id, false, reset, nativeTeamCLI(ctx, id, dockerContext, r), root)
+	if err != nil {
+		return TeamStatus{}, err
+	}
+	if plan.Roles == nil {
+		plan.Roles = []RoleStatus{}
+	}
+	return TeamStatus{Status: plan.Status, Profiles: plan.Roles}, nil
 }
 
 // Initialize uses the single existing, source-qualified Hermes runtime. Caller
 // must first verify its image, project, mounts and running state. The lock is
 // held INSIDE that container, so killing the Docker client cannot release it
 // while a daemon-owned native subprocess is still writing state.
-func Initialize(ctx context.Context, id target.Identity, dockerContext string, afterSetup bool, r InputRunner) (TeamReport, error) {
+//
+// reset names one roster profile the owner explicitly returns to RepoKit's
+// baseline; it is empty for ordinary convergence.
+func Initialize(ctx context.Context, id target.Identity, dockerContext string, afterSetup bool, reset string, r InputRunner) (TeamReport, error) {
 	root, err := os.OpenRoot(id.Root)
 	if err != nil {
 		return TeamReport{}, fmt.Errorf("native team state unavailable")
 	}
 	defer root.Close()
-	plan, err := teamScript(id, afterSetup, nativeTeamCLI(ctx, id, dockerContext, r), root)
+	plan, err := teamScript(id, afterSetup, reset, nativeTeamCLI(ctx, id, dockerContext, r), root)
 	if err != nil {
 		return TeamReport{}, err
 	}
@@ -58,7 +87,8 @@ func Initialize(ctx context.Context, id target.Identity, dockerContext string, a
 		Drift      []string `json:"drift"`
 		Customized []string `json:"customized"`
 		Deferred   []string `json:"deferred"`
-	}{status, plan.Drift, plan.Customized, plan.Deferred})
+		Reset      []string `json:"reset"`
+	}{status, plan.Drift, plan.Customized, plan.Deferred, resetRoles(plan)})
 	script += "printf '%s\\n' 'REPOKIT_TEAM=" + string(marker) + "'\n"
 	result, err := runBootstrap(ctx, id, dockerContext, afterSetup, script, r)
 	if err != nil {
@@ -92,4 +122,14 @@ func runBootstrap(ctx context.Context, id target.Identity, dockerContext string,
 		return process.Result{}, fmt.Errorf("native initialization failed or was interrupted; preserve state, inspect with native commands, then rerun install")
 	}
 	return result, nil
+}
+
+func resetRoles(plan teamPlan) []string {
+	out := []string{}
+	for _, role := range plan.Roles {
+		if role.State == "reset" {
+			out = append(out, role.Profile)
+		}
+	}
+	return out
 }

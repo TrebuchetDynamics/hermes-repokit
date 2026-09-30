@@ -43,7 +43,7 @@ func TestTeamPreservesUnknownDefaultSoulBeforeAnyNativeWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer root.Close()
-	plan, err := teamScript(target.Identity{Project: "repo-123", Name: "atlas"}, true, fakeTeamConfig, root)
+	plan, err := teamScript(target.Identity{Project: "repo-123", Name: "atlas"}, true, "", fakeTeamConfig, root)
 	if err != nil || plan.Script != "" || plan.Status != "drift" || strings.Join(plan.Drift, ",") != "default" {
 		t.Fatalf("unknown owner SOUL not preserved: script=%q status=%q drift=%v err=%v", plan.Script, plan.Status, plan.Drift, err)
 	}
@@ -55,7 +55,7 @@ func TestTeamNeedsExplicitSetupBeforeProvisioning(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer root.Close()
-	plan, err := teamScript(target.Identity{Project: "repo-123", Name: "atlas"}, false, fakeTeamConfig, root)
+	plan, err := teamScript(target.Identity{Project: "repo-123", Name: "atlas"}, false, "", fakeTeamConfig, root)
 	if err != nil || plan.Script != "" || plan.Status != "pending-setup" || len(plan.Drift) != 0 {
 		t.Fatalf("unexpected early provisioning: %q %q %v %v", plan.Script, plan.Status, plan.Drift, err)
 	}
@@ -112,7 +112,7 @@ func TestTeamPlansSevenPublicNativeProfilesFromExactManagedDefault(t *testing.T)
 		}
 		return json.Marshal(map[string]any{"value": value})
 	}
-	plan, err := teamScript(id, true, run, root)
+	plan, err := teamScript(id, true, "", run, root)
 	if err != nil || plan.Status != "configured" || len(plan.Drift) != 0 {
 		t.Fatalf("managed default not qualified: %q %v %v", plan.Status, plan.Drift, err)
 	}
@@ -178,7 +178,7 @@ func TestFreshDefaultWithoutSoulIsAdoptedNotDrift(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer root.Close()
-	plan, err := teamScript(target.Identity{Project: "repo-123", Name: "atlas"}, true, fakeTeamConfig, root)
+	plan, err := teamScript(target.Identity{Project: "repo-123", Name: "atlas"}, true, "", fakeTeamConfig, root)
 	if err != nil || plan.Status != "configured" || len(plan.Drift) != 0 {
 		t.Fatalf("fresh default not adopted: %q %v %v", plan.Status, plan.Drift, err)
 	}
@@ -304,11 +304,11 @@ func TestActivatedSixRoleTeamUpgradesInPlace(t *testing.T) {
 	roles := team.ForRepository(id)
 	six := []any{"default", "researcher", "planner", "executor", "reviewer", "steward"}
 	root, run := sixRoleDeployment(t, roles, six, `{"by_status":{"running":1}}`)
-	if plan, err := teamScript(id, false, run, root); err == nil || plan.Script != "" {
+	if plan, err := teamScript(id, false, "", run, root); err == nil || plan.Script != "" {
 		t.Fatal("upgrade rewrote SOULs under a running worker")
 	}
 	root, run = sixRoleDeployment(t, roles, six, `{"by_status":{"done":3}}`)
-	plan, err := teamScript(id, false, run, root)
+	plan, err := teamScript(id, false, "", run, root)
 	if err != nil || plan.Status != "configured" || len(plan.Drift) != 0 {
 		t.Fatalf("six-role team not upgradable: %q %v %v", plan.Status, plan.Drift, err)
 	}
@@ -329,7 +329,7 @@ func TestActivatedTeamWithOwnerAllowlistIsOnlyObserved(t *testing.T) {
 	id := target.Identity{Project: "repo-123", Name: "atlas"}
 	roles := team.ForRepository(id)
 	root, run := sixRoleDeployment(t, roles, []any{"default", "executor", "reviewer"}, `{"by_status":{"done":3}}`)
-	plan, err := teamScript(id, false, run, root)
+	plan, err := teamScript(id, false, "", run, root)
 	if err != nil || plan.Status != "configured" || strings.Contains(plan.Script, "SOUL.md") || strings.Contains(plan.Script, "'profile' 'create'") {
 		t.Fatalf("owner-changed team reprovisioned: %q %v %v\n%s", plan.Status, plan.Drift, err, plan.Script)
 	}
@@ -469,7 +469,7 @@ func TestCustomizedRoleDoesNotBlockRosterConvergence(t *testing.T) {
 	souls["steward"] = previousSoul(roleNamed(roles, "steward"))
 	delete(souls, "tester")
 	root, run := deployTeam(t, roles, teamFixture{souls: souls, desc: map[string]string{"steward": "Owner steward"}})
-	plan, err := teamScript(id, false, run, root)
+	plan, err := teamScript(id, false, "", run, root)
 	if err != nil || plan.Status != "configured" || len(plan.Drift) != 0 {
 		t.Fatalf("customization poisoned the roster: %q drift=%v err=%v", plan.Status, plan.Drift, err)
 	}
@@ -496,7 +496,7 @@ func TestCustomizedDefaultIsPreservedWhenTeamIsManaged(t *testing.T) {
 	souls["default"] = "Owner coordinator identity"
 	souls["reviewer"] = previousSoul(roleNamed(roles, "reviewer"))
 	root, run := deployTeam(t, roles, teamFixture{souls: souls})
-	plan, err := teamScript(id, false, run, root)
+	plan, err := teamScript(id, false, "", run, root)
 	if err != nil || plan.Status != "configured" || strings.Join(plan.Customized, ",") != "default" {
 		t.Fatalf("customized default blocked a managed team: %q %v %v %v", plan.Status, plan.Drift, plan.Customized, err)
 	}
@@ -511,7 +511,7 @@ func TestRequiredToolsetsAreASubset(t *testing.T) {
 	executor := roleNamed(roles, "executor")
 	added := append(append([]string{}, executor.Toolsets...), "owner-tool")
 	root, run := deployTeam(t, roles, teamFixture{souls: currentSouls(roles), config: map[string]map[string]any{"executor": {"toolsets": added, "platform_toolsets.cli": added}}})
-	plan, err := teamScript(id, false, run, root)
+	plan, err := teamScript(id, false, "", run, root)
 	if err != nil || plan.Status != "configured" || len(plan.Drift)+len(plan.Customized) != 0 {
 		t.Fatalf("owner tool addition treated as drift: %q %v %v %v", plan.Status, plan.Drift, plan.Customized, err)
 	}
@@ -520,7 +520,7 @@ func TestRequiredToolsetsAreASubset(t *testing.T) {
 	}
 	removed := executor.Toolsets[1:]
 	root, run = deployTeam(t, roles, teamFixture{souls: currentSouls(roles), config: map[string]map[string]any{"executor": {"toolsets": removed}}})
-	plan, err = teamScript(id, false, run, root)
+	plan, err = teamScript(id, false, "", run, root)
 	if err != nil || plan.Status != "drift" || strings.Join(plan.Drift, ",") != "executor" || plan.Script != "" {
 		t.Fatalf("missing required tool not reported before any write: %q %v %v", plan.Status, plan.Drift, err)
 	}
@@ -533,7 +533,7 @@ func TestConvergedTeamPlansNoIdentityOrConfigurationWrites(t *testing.T) {
 		souls := currentSouls(roles)
 		souls["planner"] = "Owner planner"
 		root, run := deployTeam(t, roles, teamFixture{souls: souls, kanban: kanban, stats: `{"by_status":{"done":2}}`})
-		plan, err := teamScript(id, false, run, root)
+		plan, err := teamScript(id, false, "", run, root)
 		if err != nil || plan.Status != "configured" || len(plan.Drift) != 0 || strings.Join(plan.Customized, ",") != "planner" {
 			t.Fatalf("converged team not stable: %q %v %v %v", plan.Status, plan.Drift, plan.Customized, err)
 		}
@@ -552,7 +552,7 @@ func TestOperationalTeamUpgradesUntouchedSoulsOnlyWhenIdle(t *testing.T) {
 	souls["reviewer"] = previousSoul(roleNamed(roles, "reviewer"))
 	souls["executor"] = "Owner executor"
 	root, run := deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: `{"by_status":{"done":3}}`})
-	plan, err := teamScript(id, false, run, root)
+	plan, err := teamScript(id, false, "", run, root)
 	if err != nil || plan.Status != "configured" || strings.Join(plan.Customized, ",") != "executor" || len(plan.Deferred) != 0 {
 		t.Fatalf("idle operational team not reconciled: %q %v %v %v %v", plan.Status, plan.Drift, plan.Customized, plan.Deferred, err)
 	}
@@ -563,7 +563,7 @@ func TestOperationalTeamUpgradesUntouchedSoulsOnlyWhenIdle(t *testing.T) {
 		t.Fatalf("operational reconciliation touched more than the upgrade:\n%s", plan.Script)
 	}
 	root, run = deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: `{"by_status":{"running":1}}`})
-	plan, err = teamScript(id, false, run, root)
+	plan, err = teamScript(id, false, "", run, root)
 	if err != nil || plan.Status != "configured" || strings.Contains(writes(plan.Script), "SOUL.md") {
 		t.Fatalf("SOUL rewritten under a running worker: %v\n%s", err, plan.Script)
 	}
@@ -573,11 +573,11 @@ func TestOperationalTeamUpgradesUntouchedSoulsOnlyWhenIdle(t *testing.T) {
 }
 
 func TestTeamResultReportsPreservedAndDeferredRoles(t *testing.T) {
-	report, err := teamResult(`REPOKIT_TEAM={"status":"configured","drift":[],"customized":["executor"],"deferred":["reviewer"]}` + "\n")
-	if err != nil || strings.Join(report.Customized, ",") != "executor" || strings.Join(report.Deferred, ",") != "reviewer" {
+	report, err := teamResult(`REPOKIT_TEAM={"status":"configured","drift":[],"customized":["executor"],"deferred":["reviewer"],"reset":["tester"]}` + "\n")
+	if err != nil || strings.Join(report.Customized, ",") != "executor" || strings.Join(report.Deferred, ",") != "reviewer" || strings.Join(report.Reset, ",") != "tester" {
 		t.Fatalf("team report lost: %+v %v", report, err)
 	}
-	for _, bad := range []string{`{"status":"configured","customized":["secret owner value"]}`, `{"status":"configured","deferred":["secret owner value"]}`} {
+	for _, bad := range []string{`{"status":"configured","customized":["secret owner value"]}`, `{"status":"configured","deferred":["secret owner value"]}`, `{"status":"configured","reset":["secret owner value"]}`} {
 		if _, err := teamResult("REPOKIT_TEAM=" + bad + "\n"); err == nil || strings.Contains(err.Error(), "secret") {
 			t.Fatalf("untrusted role name accepted: %v", err)
 		}
@@ -599,5 +599,121 @@ func TestIdleGuardRefusesOnlyRunningWork(t *testing.T) {
 		if (err == nil) != running {
 			t.Fatalf("idle guard on %s: refused=%v", stats, err == nil)
 		}
+	}
+}
+
+func rowStates(plan teamPlan) string {
+	rows := []string{}
+	for _, row := range plan.Roles {
+		rows = append(rows, row.Profile+"="+row.State+"["+strings.Join(row.Differs, ",")+"]")
+	}
+	return strings.Join(rows, " ")
+}
+
+func TestPlanRowsNameEveryProfileStateWithoutValues(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	souls := currentSouls(roles)
+	souls["executor"] = "Owner executor"
+	souls["reviewer"] = previousSoul(roleNamed(roles, "reviewer"))
+	souls["steward"] = previousSoul(roleNamed(roles, "steward"))
+	delete(souls, "tester")
+	root, run := deployTeam(t, roles, teamFixture{souls: souls, desc: map[string]string{"steward": "Owner steward"}, config: map[string]map[string]any{"planner": {"terminal.cwd": "/private/owner/path"}}})
+	plan, err := teamScript(id, false, "", run, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "default=current[] researcher=current[] planner=drift[terminal.cwd] executor=customized[SOUL] tester=missing[] reviewer=upgrade[SOUL] steward=customized[SOUL,description]"
+	if got := rowStates(plan); got != want || plan.Status != "drift" {
+		t.Fatalf("plan rows:\n got %s\nwant %s (status %s)", got, want, plan.Status)
+	}
+	encoded, _ := json.Marshal(plan.Roles)
+	if strings.Contains(string(encoded), "/private/owner/path") || strings.Contains(string(encoded), "Owner") {
+		t.Fatalf("plan rows expose owner values: %s", encoded)
+	}
+	for _, row := range plan.Roles {
+		if row.Action == "" {
+			t.Fatalf("%s has no action", row.Profile)
+		}
+	}
+}
+
+func TestResetProfileRestoresBaselineWithBackup(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	executor := roleNamed(roles, "executor")
+	souls := currentSouls(roles)
+	souls["executor"] = "Owner executor"
+	souls["steward"] = "Owner steward"
+	root, run := deployTeam(t, roles, teamFixture{souls: souls, config: map[string]map[string]any{"executor": {"toolsets": executor.Toolsets[1:]}}})
+	// Without reset, executor's missing required tool blocks the run.
+	if plan, err := teamScript(id, false, "", run, root); err != nil || plan.Status != "drift" {
+		t.Fatalf("drift not reported before reset: %q %v", plan.Status, err)
+	}
+	plan, err := teamScript(id, false, "executor", run, root)
+	if err != nil || plan.Status != "configured" {
+		t.Fatalf("reset not planned: %q %v %v", plan.Status, plan.Drift, err)
+	}
+	if !strings.Contains(rowStates(plan), "executor=reset[SOUL,toolsets]") || !strings.Contains(rowStates(plan), "steward=customized[SOUL]") {
+		t.Fatalf("reset rows: %s", rowStates(plan))
+	}
+	script := writes(plan.Script)
+	for _, want := range []string{
+		"cp -p '/opt/data/profiles/executor/SOUL.md' '/opt/data/profiles/executor/SOUL.md'.before-reset-",
+		"cp -p '/opt/data/profiles/executor/config.yaml'",
+		soulWrite("executor", executor.Soul),
+		"'profile' 'describe' 'executor' '--text'",
+		"'-p' 'executor' 'config' 'set' 'toolsets'",
+	} {
+		if !strings.Contains(script, want) {
+			t.Fatalf("reset missing %q:\n%s", want, script)
+		}
+	}
+	if strings.Index(script, "before-reset-") > strings.Index(script, soulWrite("executor", executor.Soul)) {
+		t.Fatal("backup must precede the SOUL rewrite")
+	}
+	if strings.Contains(script, "/profiles/steward/") || strings.Contains(script, "'model") || strings.Contains(script, "provider") {
+		t.Fatalf("reset touched another profile or owner model state:\n%s", script)
+	}
+}
+
+func TestResetDefaultRestoresIdentityOnly(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	souls := currentSouls(roles)
+	souls["default"] = "Owner coordinator"
+	root, run := deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: `{"by_status":{}}`})
+	plan, err := teamScript(id, false, "default", run, root)
+	if err != nil || !strings.Contains(rowStates(plan), "default=reset[SOUL]") {
+		t.Fatalf("default reset not planned: %s %v", rowStates(plan), err)
+	}
+	script := writes(plan.Script)
+	if !strings.Contains(script, soulWrite("default", roles[0].Soul)) || strings.Contains(script, "'-p' 'default' 'config' 'set'") {
+		t.Fatalf("default reset must restore identity only:\n%s", script)
+	}
+}
+
+func TestResetRefusesUnsafeOrUnknownTargets(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	root, run := deployTeam(t, roles, teamFixture{souls: currentSouls(roles), kanban: operationalKanban(), stats: `{"by_status":{"running":1}}`})
+	if _, err := teamScript(id, false, "executor", run, root); err == nil || !strings.Contains(err.Error(), "running") {
+		t.Fatalf("reset under a running worker: %v", err)
+	}
+	owner := operationalKanban()
+	owner["max_in_progress"] = float64(3)
+	root, run = deployTeam(t, roles, teamFixture{souls: currentSouls(roles), kanban: owner, stats: `{"by_status":{}}`})
+	if _, err := teamScript(id, false, "executor", run, root); err == nil {
+		t.Fatal("reset under an owner-changed dispatch policy")
+	}
+	root, run = deployTeam(t, roles, teamFixture{souls: currentSouls(roles)})
+	if _, err := teamScript(id, false, "flutter-specialist", run, root); err == nil {
+		t.Fatal("reset accepted an owner-created profile")
+	}
+	souls := currentSouls(roles)
+	delete(souls, "tester")
+	root, run = deployTeam(t, roles, teamFixture{souls: souls})
+	if plan, err := teamScript(id, false, "tester", run, root); err != nil || !strings.Contains(rowStates(plan), "tester=missing[]") {
+		t.Fatalf("reset of a missing role must create it: %s %v", rowStates(plan), err)
 	}
 }
