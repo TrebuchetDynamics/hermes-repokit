@@ -3,10 +3,17 @@
 RepoKit configures a repository-specific Hermes team through public Hermes
 interfaces, proves what it can prove, then gets out of the way.
 
-**Released:** [v0.1.0](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.1.0)
-(one Hermes container per repository, six profiles, automatic dispatch with
-same-card review, evidence-based `verify`). The core loop is proven; memory is
-optional and not fully qualified.
+**Released:** [v0.2.0](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.0)
+(seven profiles including `tester`, `install` + `setup` as the whole first-time
+path, per-profile convergence that preserves owner customization, memory left
+to the operator). Automatic dispatch is proven on upgraded deployments; the
+executor → tester → reviewer loop has not been observed yet.
+
+## Proven in v0.2.0
+
+- OpenViking-era deployments (dogfood and s3upload) upgraded in place: Compose
+  and recipe backed up, six SOULs upgraded, `tester` created, dispatch check
+  passed on both ([record](docs/qualification/openviking-era-upgrade-2026-09-30.md)).
 
 ## Proven in v0.1.0
 
@@ -45,9 +52,8 @@ against a fresh clone.
       configured only through `.env` gets no `channel:telegram` row. Use the
       public `hermes -p default tools list --platform <p>`.
       *Test:* env-only Telegram → row reports Kanban from effective tools.
-- [ ] **Install output noise.** `install` always prints "Start Hermes with
-      ordinary Compose" (even when running) and "Created …" on upgrades.
-      Print only what applies.
+- [x] **Install output noise.** `install` starts the deployment itself and
+      reports an in-place upgrade as an upgrade, not "Created …".
 - [ ] **Monorepo toolchains.** Detection reads root manifests only, so PMB's
       Python/Rust subprojects were missed. Defer unless real projects need it.
 
@@ -97,6 +103,8 @@ against a fresh clone.
 
 Live and Docker proof that has not been exercised yet.
 
+- [ ] **Tester loop:** a real task completes executor → tester → reviewer on the
+      same card (qualifies `CORE_READY`; not yet observed since `tester` joined).
 - [ ] **Reviewer correction cycle:** reviewer requests changes → executor
       revises on the same card → reviewer approves → result in the same chat.
 - [ ] **Vague requests:** "Improve readme" produced a reply but no card; qualify
