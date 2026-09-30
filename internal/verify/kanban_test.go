@@ -65,7 +65,7 @@ func TestKanbanDistinguishesOffOwnerChangedAndUnreadable(t *testing.T) {
 		`{}`:                            Inactive,
 		strings.Replace(operationalKanban, `"max_in_progress":1`, `"max_in_progress":4`, 1): Degraded,
 		`not json`: Unknown,
-		strings.Replace(operationalKanban, `"tester",`, "", 1): PendingSetup,
+		strings.Replace(operationalKanban, `"tester",`, "", 1): Degraded,
 	} {
 		r := &hermesRunner{integrationRunner: base, replies: map[string]string{"config get kanban --json": reply}}
 		if got := status(DefaultKanban(context.Background(), id, r), "kanban:dispatch"); got != want {

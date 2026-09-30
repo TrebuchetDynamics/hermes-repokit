@@ -9,17 +9,15 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
 
-func TestManagedSoulsPreserveExactRepositoryMigrationSources(t *testing.T) {
+func TestManagedSoulIsExactlyTheCurrentGeneration(t *testing.T) {
 	id := target.Identity{Name: "atlas", Project: "repokit-123"}
 	roles := team.ForRepository(id)
 	if len(roles) != 7 {
 		t.Fatalf("roles=%d", len(roles))
 	}
 	for _, role := range roles {
-		// tester postdates every historical generation and has none to match.
-		historical := role.Name == "tester" || matchingSoul(role.LegacySoul, role) && matchingSoul(role.PreviousRepositorySoul, role)
-		if !strings.Contains(role.Soul, "repokit-123") || !historical {
-			t.Fatalf("%s lost exact migration source", role.Name)
+		if !strings.Contains(role.Soul, "repokit-123") || !matchingSoul(role.Soul, role) {
+			t.Fatalf("%s current SOUL not recognized", role.Name)
 		}
 		if matchingSoul(role.Soul+"\nowner change", role) {
 			t.Fatalf("%s accepted altered SOUL", role.Name)

@@ -1,13 +1,8 @@
 package team
 
 import (
-	"crypto/sha256"
-	"fmt"
-	"os"
 	"strings"
 	"testing"
-
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
 func TestStableGenericRoster(t *testing.T) {
@@ -68,37 +63,5 @@ func TestTesterCannotEditRepositoryFiles(t *testing.T) {
 	role := Roster()[4]
 	if role.Name != "tester" || strings.Join(role.Toolsets, ",") != "terminal,memory" {
 		t.Fatalf("tester tools: %+v", role)
-	}
-}
-
-func TestArchiveFilesAreNamedByTheirDigest(t *testing.T) {
-	if bad := archiveDigestsMatch(); len(bad) > 0 {
-		t.Fatalf("archived generations must never change; edited: %v", bad)
-	}
-	if len(archivedSouls(target.Identity{Name: "atlas", Project: "repokit-x"}, "executor")) == 0 {
-		t.Fatal("archive not embedded")
-	}
-}
-
-// Every SOUL a released RepoKit revision could write for this identity (current
-// and history, dumped from each revision that changed internal/team) must stay
-// recognized. Editing a historical generation turns deployed RepoKit output
-// into apparent owner customization, which is then never upgraded.
-func TestEveryShippedSoulStaysRecognized(t *testing.T) {
-	id := target.Identity{Name: "atlas", Project: "repokit-0123456789abcdef01234567", Container: "hermes-atlas"}
-	known := map[string]bool{}
-	for _, role := range ForRepository(id) {
-		for _, soul := range append([]string{role.Soul}, role.History()...) {
-			known[fmt.Sprintf("%s %x", role.Name, sha256.Sum256([]byte(soul)))] = true
-		}
-	}
-	data, err := os.ReadFile("testdata/shipped-souls.sha256")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
-		if !known[line] {
-			t.Errorf("shipped SOUL no longer recognized: %s", line)
-		}
 	}
 }

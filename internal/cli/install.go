@@ -320,12 +320,6 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 	} else if a.resetProfile != "" {
 		u.ok("Reset", a.resetProfile+" had no existing profile to reset; it now starts from RepoKit's baseline")
 	}
-	if len(teamReport.Deferred) > 0 {
-		if !perRole {
-			u.pending("Team", "SOUL upgrades deferred while a card is running: "+strings.Join(teamReport.Deferred, ", "))
-		}
-		u.note("rerun " + self() + " install when the board is idle to apply deferred upgrades")
-	}
 	return 0
 }
 

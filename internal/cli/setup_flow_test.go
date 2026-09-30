@@ -115,19 +115,18 @@ func TestSetupCanaryFailureIsNotReady(t *testing.T) {
 func TestTeamReportPrintsOneLinePerProfile(t *testing.T) {
 	var out strings.Builder
 	report := native.TeamReport{Roles: []native.RoleStatus{
-		{Profile: "default", State: "current"}, {Profile: "researcher", State: "upgrade"},
-		{Profile: "executor", State: "customized"}, {Profile: "tester", State: "missing"},
-		{Profile: "reviewer", State: "deferred"},
+		{Profile: "default", State: "current"}, {Profile: "executor", State: "customized"},
+		{Profile: "tester", State: "missing"}, {Profile: "reviewer", State: "reset"},
 	}}
 	newUI(&out, io.Discard).team(report)
-	want := []string{"default", "current", "researcher", "upgraded", "executor", "owner-customized; preserved", "tester", "created", "reviewer", "waits for the running card"}
+	want := []string{"default", "current", "executor", "owner-customized; preserved", "tester", "created", "reviewer", "reset to RepoKit's baseline"}
 	text := out.String()
 	for _, w := range want {
 		if !strings.Contains(text, w) {
 			t.Fatalf("missing %q in:\n%s", w, text)
 		}
 	}
-	if strings.Count(text, "\n") != len(report.Roles) || !strings.Contains(text, "• reviewer") {
-		t.Fatalf("expected one line per profile, deferred as pending:\n%s", text)
+	if strings.Count(text, "\n") != len(report.Roles) {
+		t.Fatalf("expected one line per profile:\n%s", text)
 	}
 }

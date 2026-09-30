@@ -24,12 +24,10 @@ type InputRunner interface {
 	RunInput(context.Context, io.Reader, string, ...string) process.Result
 }
 
-// TeamReport names roster profiles whose owner identity was preserved, and
-// untouched earlier RepoKit SOULs whose upgrade waits for idle workers. Roles
+// TeamReport names roster profiles whose owner identity was preserved. Roles
 // is the per-profile plan that was applied, in roster order.
 type TeamReport struct {
 	Customized []string
-	Deferred   []string
 	Reset      []string
 	Roles      []RoleStatus
 }
@@ -88,9 +86,8 @@ func Initialize(ctx context.Context, id target.Identity, dockerContext string, a
 		Status     string   `json:"status"`
 		Drift      []string `json:"drift"`
 		Customized []string `json:"customized"`
-		Deferred   []string `json:"deferred"`
 		Reset      []string `json:"reset"`
-	}{status, plan.Drift, plan.Customized, plan.Deferred, resetRoles(plan)})
+	}{status, plan.Drift, plan.Customized, resetRoles(plan)})
 	script += "printf '%s\\n' 'REPOKIT_TEAM=" + string(marker) + "'\n"
 	result, err := runBootstrap(ctx, id, dockerContext, afterSetup, script, r)
 	if err != nil {

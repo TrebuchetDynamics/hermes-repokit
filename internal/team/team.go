@@ -8,49 +8,20 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
-//go:embed souls/*.md souls/v6/*.md souls/v7/*.md
+//go:embed souls/*.md
 var souls embed.FS
 
+// Role is one permanent profile's current managed identity. RepoKit recognizes
+// only its current generation: a SOUL that differs from Soul is owner state.
 type Role struct {
-	Name                           string   `json:"name"`
-	Description                    string   `json:"description"`
-	Soul                           string   `json:"soul"`
-	PreviousManagedSouls           []string `json:"previous_managed_souls,omitempty"`
-	PreviousSoul                   string   `json:"previous_soul,omitempty"`
-	PreviousRepositoryOriginalSoul string   `json:"previous_repository_original_soul,omitempty"`
-	PreviousRepositorySoul         string   `json:"previous_repository_soul,omitempty"`
-	LegacySoul                     string   `json:"legacy_soul,omitempty"`
-	// ArchivedSouls are exact earlier generations from the archive; they are
-	// recognized as RepoKit's own output and upgraded, never installed.
-	ArchivedSouls  []string `json:"archived_souls,omitempty"`
-	Toolsets       []string `json:"toolsets"`
-	LegacyToolsets []string `json:"legacy_toolsets,omitempty"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	Soul        string   `json:"soul"`
+	Toolsets    []string `json:"toolsets"`
 }
 
-// History lists every earlier RepoKit generation of the role's SOUL. A SOUL
-// in this list is RepoKit's own untouched output, which convergence upgrades.
-func (r Role) History() []string {
-	out := []string{}
-	for _, s := range [][]string{{r.LegacySoul, r.PreviousSoul, r.PreviousRepositorySoul, r.PreviousRepositoryOriginalSoul}, r.PreviousManagedSouls, r.ArchivedSouls} {
-		for _, soul := range s {
-			if soul != "" {
-				out = append(out, soul)
-			}
-		}
-	}
-	return out
-}
-
-// ForRepository binds each permanent role to the selected repository. Prior
-// managed generations are matched by role name, never by roster position, so
-// adding a role cannot remap an existing profile's history. A role absent from
-// earlier generations has no managed history.
+// ForRepository binds each permanent role to the selected repository.
 func ForRepository(id target.Identity) []Role {
-	seven := sevenRoleGeneration(id)
-	prior := map[string]Role{}
-	for _, role := range sixRoleGeneration(id) {
-		prior[role.Name] = role
-	}
 	roles := Roster()
 	for i := range roles {
 		role := &roles[i]
@@ -59,22 +30,6 @@ func ForRepository(id target.Identity) []Role {
 			soul += defaultMaintenance
 		}
 		role.Soul = soul + role.Soul
-		if p, ok := prior[role.Name]; ok {
-			role.LegacySoul = p.LegacySoul
-			role.PreviousSoul = p.PreviousSoul
-			role.PreviousRepositorySoul = p.PreviousRepositorySoul
-			role.PreviousRepositoryOriginalSoul = p.PreviousRepositoryOriginalSoul
-			role.PreviousManagedSouls = append(append([]string{}, p.PreviousManagedSouls...), p.Soul)
-			role.LegacyToolsets = p.LegacyToolsets
-		}
-		if s := seven[role.Name]; s != "" && s != role.Soul {
-			role.PreviousManagedSouls = append(role.PreviousManagedSouls, s)
-		}
-		for _, s := range archivedSouls(id, role.Name) {
-			if s != role.Soul {
-				role.ArchivedSouls = append(role.ArchivedSouls, s)
-			}
-		}
 	}
 	return roles
 }
@@ -190,7 +145,7 @@ func Roster() []Role {
 		{Name: "default", Description: "Primary human-facing repository coordinator and orchestrator. Understands user goals, answers lightweight questions directly, designs bounded Kanban workflows, assigns the appropriate team roles, establishes shared decisions, follows progress, and verifies that completed work has passed required review.", Toolsets: []string{"kanban", "memory"}},
 		{Name: "researcher", Description: "Investigates repository context, external sources and prior project knowledge. Resolves unknowns, compares alternatives and produces source-backed findings without changing the target artifact.", Toolsets: []string{"file", "web", "memory"}},
 		{Name: "planner", Description: "Turns goals, constraints and research into a bounded execution contract with scope, decisions, dependencies, acceptance criteria, verification requirements and known risks. Does not perform the planned work.", Toolsets: []string{"file", "memory"}},
-		{Name: "executor", Description: "Produces one bounded repository artifact or change from an approved task contract, preserves unrelated state, performs appropriate verification and hands work to independent review when required.", Toolsets: []string{"file", "terminal", "code_execution", "skills", "memory"}, LegacyToolsets: []string{"file", "terminal", "memory"}},
+		{Name: "executor", Description: "Produces one bounded repository artifact or change from an approved task contract, preserves unrelated state, performs appropriate verification and hands work to independent review when required.", Toolsets: []string{"file", "terminal", "code_execution", "skills", "memory"}},
 		{Name: "tester", Description: "Independently verifies an implementation's behavior on the same Kanban card before final review. Runs tests, builds and checks, reproduces failures and probes edge cases. Requests changes or forwards passing work to reviewer; never modifies the repository.", Toolsets: []string{"terminal", "memory"}},
 		{Name: "reviewer", Description: "Independently evaluates completed work against its task contract, underlying artifacts and verification evidence. Approves or requests changes on the same Kanban card and does not implement the requested work.", Toolsets: []string{"file", "terminal", "memory"}},
 		{Name: "steward", Description: "Maintains the repository's Hermes profile roster and agent capabilities. Creates, updates, configures, retires, backs up and, with explicit authorization, deletes profiles. Manages profile descriptions, SOUL contracts, skills, toolsets and profile distributions. Does not coordinate project work or modify project artifacts.", Toolsets: []string{"terminal", "file", "memory"}},

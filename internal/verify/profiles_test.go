@@ -10,7 +10,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
 
-func TestProfilesReportEarlierManagedGenerationAsUpgradePending(t *testing.T) {
+func TestProfilesReportCurrentOrCustomizedSoul(t *testing.T) {
 	id := target.Identity{Name: "atlas", Project: "repokit-123", Root: t.TempDir()}
 	executor := team.ForRepository(id)[3]
 	dir := filepath.Join(id.Root, ".hermes", "profiles", "executor")
@@ -18,9 +18,8 @@ func TestProfilesReportEarlierManagedGenerationAsUpgradePending(t *testing.T) {
 		t.Fatal(err)
 	}
 	for soul, want := range map[string]Status{
-		executor.Soul: Healthy,
-		executor.PreviousManagedSouls[len(executor.PreviousManagedSouls)-1]: PendingSetup,
-		executor.Soul + "\nowner edit":                                      Customized,
+		executor.Soul:                  Healthy,
+		executor.Soul + "\nowner edit": Customized,
 	} {
 		for name, data := range map[string]string{"config.yaml": "x", "profile.yaml": "x", "SOUL.md": soul} {
 			if err := os.WriteFile(filepath.Join(dir, name), []byte(data), 0600); err != nil {

@@ -82,13 +82,10 @@ var roleLines = map[string]struct {
 	detail  string
 }{
 	"current":    {false, "current"},
-	"upgrade":    {false, "upgraded to the current RepoKit SOUL"},
 	"missing":    {false, "created"},
 	"adopt":      {false, "created from the stock default profile"},
 	"customized": {false, "owner-customized; preserved as is"},
 	"reset":      {false, "reset to RepoKit's baseline"},
-	"deferred":   {true, "upgrade waits for the running card"},
-	"held":       {true, "preserved; dispatch policy is owner-controlled"},
 }
 
 // team prints one line per roster profile from the applied plan.

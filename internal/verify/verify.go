@@ -186,10 +186,7 @@ func Profiles(id target.Identity) []Probe {
 			} else {
 				soul, e := io.ReadAll(io.LimitReader(f, 65537))
 				f.Close()
-				if e == nil && string(soul) != role.Soul && managedHistory(role, string(soul)) {
-					probe.Status = PendingSetup
-					probe.Detail = "historical managed SOUL needs repository identity upgrade; run repokit setup"
-				} else if e != nil {
+				if e != nil {
 					probe.Status = Degraded
 					probe.Detail = "role SOUL unreadable"
 				} else if string(soul) != role.Soul {
@@ -259,15 +256,4 @@ func Readiness(probes []Probe) []Probe {
 // even if the loop has not yet been exercised.
 func CoreUsable(readiness []Probe) bool {
 	return len(readiness) > 0 && readiness[0].Component == "CORE_READY" && readiness[0].Status != Degraded
-}
-
-// managedHistory reports whether soul is an earlier RepoKit-managed generation
-// of role, which setup upgrades in place.
-func managedHistory(role team.Role, soul string) bool {
-	for _, s := range role.History() {
-		if s == soul {
-			return true
-		}
-	}
-	return false
 }

@@ -46,14 +46,14 @@ func TestTeamSetupReportsPreservedOwnerProfilesAndActivates(t *testing.T) {
 		t.Fatal(diag)
 	}
 	r.runtime = developmentRuntimeFixture(r.id)
-	input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10, team: `REPOKIT_TEAM={"status":"configured","drift":[],"customized":["executor"],"deferred":["reviewer"]}`}
+	input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10, team: `REPOKIT_TEAM={"status":"configured","drift":[],"customized":["executor"]}`}
 	a.Initializer = input
 	a.Stdin = strings.NewReader("")
 	code, out, diag := invoke(t, a, "setup", "--team")
 	if code != 0 || input.pid != 11 {
 		t.Fatalf("owner customization blocked activation: code=%d out=%s diag=%s", code, out, diag)
 	}
-	if !strings.Contains(out, "owner-customized, preserved as is: executor") || !strings.Contains(out, "deferred while a card is running: reviewer") {
+	if !strings.Contains(out, "owner-customized, preserved as is: executor") {
 		t.Fatalf("preserved profiles not reported:\n%s", out)
 	}
 }

@@ -84,9 +84,6 @@ func teamSet(name, key string, value any) string {
 	}
 	return teamCommand("-p", name, "config", "set", key, encoded)
 }
-func managedSouls(role team.Role) []string {
-	return append([]string{role.Soul}, role.History()...)
-}
 func readSoul(root *os.Root, name string) (string, error) {
 	path := ".hermes/SOUL.md"
 	if name != "default" {
@@ -98,14 +95,10 @@ func readSoul(root *os.Root, name string) (string, error) {
 	}
 	return string(b), nil
 }
-func matchingSoul(soul string, role team.Role) bool {
-	for _, s := range managedSouls(role) {
-		if s != "" && s == soul {
-			return true
-		}
-	}
-	return false
-}
+
+// matchingSoul reports RepoKit's current managed SOUL; RepoKit recognizes no
+// earlier generation, so any other SOUL is owner state.
+func matchingSoul(soul string, role team.Role) bool { return soul == role.Soul }
 
 // profileDescription reads the exact native description through the public
 // CLI; native YAML folds long descriptions across lines.
@@ -210,10 +203,6 @@ func classifyRole(run teamCLI, root *os.Root, role team.Role) (roleCheck, error)
 			for _, field := range DispatchPolicy() {
 				fields["kanban."+field.Key] = field.Value
 			}
-		} else if ok && UpgradablePolicy(kanban) {
-			for _, field := range sixRoleDispatchPolicy() {
-				fields["kanban."+field.Key] = field.Value
-			}
 		}
 	}
 	keys := make([]string, 0, len(fields))
@@ -250,18 +239,16 @@ func soulWrite(name, soul string) string {
 }
 
 // teamPlan is one convergence decision. Each roster profile is classified on
-// its own: current, an untouched earlier RepoKit generation (upgraded), missing
-// (created) or owner-customized (preserved and reported, never a failure).
-// Drift names profiles lacking managed configuration the team depends on; it
-// blocks every write because the roster can no longer be proved. Deferred names
-// untouched earlier generations that wait for idle workers.
+// its own: current, missing (created) or owner-customized (preserved and
+// reported, never a failure). Drift names profiles lacking managed
+// configuration the team depends on; it blocks every write because the roster
+// can no longer be proved.
 type teamPlan struct {
 	Script     string
 	Status     string
 	Roles      []RoleStatus
 	Drift      []string
 	Customized []string
-	Deferred   []string
 }
 
 // RoleStatus is one plan row: a roster profile, its convergence state and the
@@ -277,13 +264,10 @@ type RoleStatus struct {
 
 var roleActions = map[string]string{
 	"current":    "none",
-	"upgrade":    "rewrite untouched RepoKit SOUL",
 	"missing":    "create",
 	"adopt":      "claim stock default",
 	"customized": "preserve",
 	"drift":      "preserve; blocks this run",
-	"deferred":   "upgrade after running work finishes",
-	"held":       "preserve; dispatch policy is owner-controlled",
 	"reset":      "replace with RepoKit baseline; back up prior files",
 }
 
@@ -294,8 +278,6 @@ func (p *teamPlan) role(name, state string, differs []string) {
 		p.Drift = append(p.Drift, name)
 	case "customized":
 		p.Customized = append(p.Customized, name)
-	case "deferred":
-		p.Deferred = append(p.Deferred, name)
 	}
 }
 
@@ -344,31 +326,25 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 			return teamPlan{}, err
 		}
 		kanban, _ := value.(map[string]any)
-		// An operational team, or the six-profile release's exact policy, is
-		// reconciled while no card runs: untouched SOULs upgrade and the
-		// six-profile team gains tester; activation then widens dispatch.
-		// An owner-changed policy is only observed.
-		sixRole := UpgradablePolicy(kanban)
-		if sixRole || OperationalPolicy(kanban) {
-			// Rewriting SOULs never happens under a live worker.
+		// An operational team is reconciled while no card runs: missing roles
+		// are created and a requested reset applies. An owner-changed policy,
+		// or a busy board, is only observed.
+		if OperationalPolicy(kanban) {
 			running, err := runningWork(run)
 			busy = err != nil || running
-			if busy && sixRole {
-				return teamPlan{}, errors.New("a card is running or Kanban is unreadable; the six-profile team upgrade waits for idle workers")
-			}
 			if busy && reset != "" {
 				return teamPlan{}, errors.New("a card is running or Kanban is unreadable; profile reset waits for idle workers")
 			}
 			guard += idleGuard
 		}
-		observe = busy || !sixRole && !OperationalPolicy(kanban)
+		observe = busy || !OperationalPolicy(kanban)
 		if observe && reset != "" {
 			return teamPlan{}, errors.New("owner-changed dispatch policy is only observed; profile reset is unavailable")
 		}
 	}
 	if observe {
 		// Only default's own channel tools are completed so every channel can
-		// reach Kanban; untouched SOUL upgrades wait for idle workers.
+		// reach Kanban.
 		plan := teamPlan{Status: "configured"}
 		for _, role := range roles {
 			check, e := classifyRole(run, root, role)
@@ -379,12 +355,8 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 				plan.role(role.Name, "drift", check.differs(role))
 			case check.customized():
 				plan.role(role.Name, "customized", check.differs(role))
-			case check.soul == role.Soul:
-				plan.role(role.Name, "current", nil)
-			case busy:
-				plan.role(role.Name, "deferred", check.differs(role))
 			default:
-				plan.role(role.Name, "held", check.differs(role))
+				plan.role(role.Name, "current", nil)
 			}
 		}
 		channels, err := defaultChannelTools(run)
@@ -514,9 +486,6 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 			case check.customized():
 				plan.role(role.Name, "customized", check.differs(role))
 				continue
-			case check.soul != role.Soul:
-				plan.role(role.Name, "upgrade", check.differs(role))
-				changes += soulWrite(role.Name, role.Soul)
 			default:
 				plan.role(role.Name, "current", nil)
 			}
@@ -618,7 +587,6 @@ func teamResult(output string) (TeamReport, error) {
 			Status     string   `json:"status"`
 			Drift      []string `json:"drift"`
 			Customized []string `json:"customized"`
-			Deferred   []string `json:"deferred"`
 			Reset      []string `json:"reset"`
 		}
 		if json.Unmarshal([]byte(strings.TrimPrefix(line, "REPOKIT_TEAM=")), &result) != nil {
@@ -630,7 +598,7 @@ func teamResult(output string) (TeamReport, error) {
 		if result.Status != "configured" && result.Status != "drift" {
 			return TeamReport{}, errors.New("invalid team provisioning status")
 		}
-		for _, names := range [][]string{result.Drift, result.Customized, result.Deferred, result.Reset} {
+		for _, names := range [][]string{result.Drift, result.Customized, result.Reset} {
 			for _, name := range names {
 				if !knownRole(name) {
 					return TeamReport{}, errors.New("native team result names an unknown profile")
@@ -643,7 +611,7 @@ func teamResult(output string) (TeamReport, error) {
 		if result.Status == "drift" {
 			return TeamReport{}, errors.New("native team drift result incomplete")
 		}
-		return TeamReport{Customized: result.Customized, Deferred: result.Deferred, Reset: result.Reset}, nil
+		return TeamReport{Customized: result.Customized, Reset: result.Reset}, nil
 	}
 	return TeamReport{}, errors.New("native team provisioning result missing; inspect existing profiles before retrying")
 }
