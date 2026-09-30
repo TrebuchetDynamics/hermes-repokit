@@ -10,11 +10,24 @@ import (
 	"testing"
 )
 
+// quietGo switches Go telemetry off in a throwaway HOME. Otherwise the go
+// command install.sh runs writes telemetry there from a background process
+// that can outlive the script and race the test's directory cleanup.
+func quietGo(t *testing.T, home string) {
+	t.Helper()
+	cmd := exec.Command("go", "telemetry", "off")
+	cmd.Env = append(os.Environ(), "HOME="+home)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("go telemetry off: %v\n%s", err, out)
+	}
+}
+
 func installScript(t *testing.T, home, path string, extraEnv ...string) (string, error) {
 	t.Helper()
 	if err := os.Chmod(home, 0700); err != nil {
 		t.Fatal(err)
 	}
+	quietGo(t, home)
 	_, here, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("cannot locate install script test")
@@ -34,6 +47,7 @@ func pipedInstallScript(t *testing.T, home, path, sourceURL string) (string, err
 	if err := os.Chmod(home, 0700); err != nil {
 		t.Fatal(err)
 	}
+	quietGo(t, home)
 	_, here, _, ok := runtime.Caller(0)
 	if !ok {
 		t.Fatal("cannot locate install script test")
@@ -310,6 +324,7 @@ func TestInstallScriptFetchesTagsAndCommitsByRef(t *testing.T) {
 		if err := os.Chmod(home, 0700); err != nil {
 			t.Fatal(err)
 		}
+		quietGo(t, home)
 		fake := t.TempDir()
 		record := filepath.Join(fake, "url")
 		curl := "#!/bin/sh\nfor a; do last=$a; done\nprintf '%s' \"$last\" > " + record + "\nexit 1\n"
@@ -326,5 +341,35 @@ func TestInstallScriptFetchesTagsAndCommitsByRef(t *testing.T) {
 		if string(got) != want {
 			t.Fatalf("REPOKIT_REF=%s fetched %q, want %q", ref, got, want)
 		}
+	}
+}
+
+// A failed download or unpack must not leave the source directory in TMPDIR.
+func TestInstallScriptCleansUpAfterFailedDownload(t *testing.T) {
+	_, here, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate install script test")
+	}
+	script, err := os.ReadFile(filepath.Join(filepath.Dir(here), "../../install.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	home, temp, fake := t.TempDir(), t.TempDir(), t.TempDir()
+	if err := os.Chmod(home, 0700); err != nil {
+		t.Fatal(err)
+	}
+	quietGo(t, home)
+	if err := os.WriteFile(filepath.Join(fake, "curl"), []byte("#!/bin/sh\nexit 22\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("sh")
+	cmd.Dir = home
+	cmd.Stdin = bytes.NewReader(script)
+	cmd.Env = append(os.Environ(), "HOME="+home, "TMPDIR="+temp, "PATH="+fake+string(os.PathListSeparator)+os.Getenv("PATH"))
+	if out, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(out), "cannot download") {
+		t.Fatalf("failed download not reported: %v\n%s", err, out)
+	}
+	if left, _ := filepath.Glob(filepath.Join(temp, "repokit-*")); len(left) != 0 {
+		t.Fatalf("temporary source left behind: %v", left)
 	}
 }

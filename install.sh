@@ -46,6 +46,11 @@ step 'Resolving the RepoKit source'
 # fetched with `curl ... | sh`, where $0 is the shell rather than a readable file,
 # and download the source tree to build from.
 source_dir=
+build_dir=
+tmp=
+# Clean every temporary path from the first one on, so a failed download or
+# unpack leaves nothing behind in TMPDIR.
+trap 'if [ -n "$tmp" ]; then rm -f -- "$tmp"; fi; if [ -n "$source_dir" ]; then rm -rf -- "$source_dir"; fi; if [ -n "$build_dir" ]; then rm -rf -- "$build_dir"; fi' 0
 root=
 if [ -f "$0" ]; then
     root=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P) || fail 'cannot locate source checkout'
@@ -104,8 +109,6 @@ ok "Install target $bin"
 
 step 'Building RepoKit bootstrap'
 build_dir=$(mktemp -d "$temp_root/repokit-install.XXXXXXXX") || fail 'cannot create build directory'
-tmp=
-trap 'if [ -n "$tmp" ]; then rm -f -- "$tmp"; fi; if [ -n "$source_dir" ]; then rm -rf -- "$source_dir"; fi; rm -rf -- "$build_dir"' 0
 (cd "$root" && TMPDIR="$temp_root" CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$build_dir/hermes-repokit" ./cmd/hermes-repokit) || fail 'Go build failed'
 ok "Built static binary with ${go_version}"
 
