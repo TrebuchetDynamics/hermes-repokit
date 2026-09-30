@@ -1,0 +1,32 @@
+# Native state is authoritative. Ordinary Docker Compose owns this deployment.
+name: "repokit-0123456789abcdef01234567"
+services:
+  hermes:
+    image: "repokit/hermes-atlas:6341646efb2340d19e3453bb"
+    build:
+      context: ./development-image
+    platform: linux/amd64
+    pull_policy: build
+    container_name: "hermes-atlas"
+    restart: unless-stopped
+    working_dir: /workspace
+    # Keep the native exec endpoint available before interactive provider setup.
+    command: ["sleep", "infinity"]
+    environment:
+      HERMES_HOME: /opt/data
+      HERMES_WRITE_SAFE_ROOT: /opt/data:/workspace
+      HERMES_UID: "1000"
+      HERMES_GID: "1000"
+    volumes:
+      - type: bind
+        source: ".."
+        target: /workspace
+        bind:
+          create_host_path: false
+          selinux: Z
+      - type: bind
+        source: "."
+        target: /opt/data
+        bind:
+          create_host_path: false
+          selinux: Z

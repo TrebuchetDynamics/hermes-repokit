@@ -14,7 +14,7 @@ requires Go, not a host C compiler. Race tests are contributor validation.
 Install the bootstrap with Go 1.26+ from the latest release:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.1/install.sh | REPOKIT_REF=v0.2.1 sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.2/install.sh | REPOKIT_REF=v0.2.2 sh
 ```
 
 To build unreleased `main` instead, drop `REPOKIT_REF` and fetch the script from
@@ -150,9 +150,11 @@ native Hermes commands. The installer publishes both `hermes-repokit` and
 blocked name. RepoKit likewise preserves an unrelated existing host executable
 and reports the collision.
 
-RepoKit recognizes only its current generation and keeps no legacy support. A
-deployment from an earlier release, like an edited or foreign one, is refused
-and never migrated. To start over, stop it with
+RepoKit recognizes only its current generation and keeps no legacy support. The
+one exception is the previous release: `install` upgrades a v0.2.0 deployment in
+place, adding the toolchain-cache volume to a Go deployment after backing up its
+Compose and recipe as `compose.before-toolchain-cache-*`. A deployment from any
+earlier release, like an edited or foreign one, is refused and never migrated. To start over, stop it with
 `docker compose -f .hermes/compose.yaml down`, move `.hermes` aside, and run
 `repokit install` again.
 

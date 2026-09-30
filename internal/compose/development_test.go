@@ -1,8 +1,11 @@
 package compose
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/selinux"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"os"
 	"path/filepath"
@@ -83,5 +86,35 @@ func TestToolchainCacheVolumeKeepsGoCachesOutOfTheRepository(t *testing.T) {
 		if err != nil || strings.Contains(string(body), "toolchain-cache") {
 			t.Fatalf("unexpected cache volume: %v\n%s", err, body)
 		}
+	}
+}
+
+// v0.2.0 generated Go deployments without the toolchain-cache volume. The
+// goldens are that release's exact output (rendered by the v0.2.0 source for
+// this identity), so install can keep recognizing and upgrading them.
+func TestBeforeToolchainCacheReproducesV020GoRender(t *testing.T) {
+	id := target.Identity{Root: "/srv/atlas", Name: "atlas", Container: "hermes-atlas", Project: "repokit-0123456789abcdef01234567", Compose: "/srv/atlas/.hermes/compose.yaml", Launcher: "/srv/atlas/.hermes/bin/hermes-atlas"}
+	const v020GoRecipe = "6341646efb2340d19e3453bb9abce1800b74f24137ad9b70fd71cb36cd2b8718"
+	req := development.Requirements{Go: true}
+	for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
+		for _, tests := range []bool{false, true} {
+			o := Options{HermesImage: qualification.FoundationImage, UID: 1000, GID: 1000, Development: &req, DockerTests: tests, SELinux: state}
+			want, err := os.ReadFile(filepath.Join("testdata", fmt.Sprintf("v020-go-tests%v-%s.yaml", tests, state)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := BeforeToolchainCache(id, o, v020GoRecipe)
+			if err != nil || !bytes.Equal(got, want) {
+				t.Fatalf("tests=%v selinux=%s: v0.2.0 render not reproduced (%v)\n%s", tests, state, err, got)
+			}
+			current, _ := Render(id, o)
+			if bytes.Contains(got, []byte(ToolchainCacheTarget)) || !bytes.Contains(current, []byte(ToolchainCacheTarget)) {
+				t.Fatal("only the current render mounts the toolchain cache")
+			}
+		}
+	}
+	plain := development.Requirements{}
+	if _, err := BeforeToolchainCache(id, Options{HermesImage: qualification.FoundationImage, UID: 1000, GID: 1000, Development: &plain}, v020GoRecipe); err == nil {
+		t.Fatal("pre-toolchain-cache render accepted for a non-Go deployment")
 	}
 }

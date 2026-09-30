@@ -20,6 +20,10 @@ type Options struct {
 	// SELinux selects private Docker bind relabeling for RepoKit-owned mounts.
 	// The zero value disables relabeling, preserving historical preimages.
 	SELinux selinux.State
+	// beforeToolchainCache reproduces v0.2.0's Go render, which had no
+	// toolchain-cache volume. Only BeforeToolchainCache sets it, so install
+	// can recognize and upgrade those deployments; RepoKit never installs it.
+	beforeToolchainCache bool
 }
 
 var identity = regexp.MustCompile(`^[a-z0-9][a-z0-9-]+$`)
@@ -34,7 +38,7 @@ const (
 // ToolchainCacheMounted reports whether a render mounts the toolchain cache:
 // Go's module and build caches stay out of the repository's .hermes.
 func ToolchainCacheMounted(o Options) bool {
-	return o.Development != nil && o.Development.Go
+	return o.Development != nil && o.Development.Go && !o.beforeToolchainCache
 }
 
 func Render(id target.Identity, o Options) ([]byte, error) {
