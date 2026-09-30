@@ -3,6 +3,7 @@ package target
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -105,11 +106,8 @@ func Inspect(id Identity, pathEnv string) []string {
 			if count > 100000 {
 				return fmt.Errorf("native state inspection limit exceeded")
 			}
-			if e != nil {
-				return e
-			}
-			info, e := d.Info()
-			if e != nil {
+			info, e := walkedInfo(p, state, d, e)
+			if e != nil || info == nil {
 				return e
 			}
 			rel, e := filepath.Rel(state, p)
@@ -147,6 +145,29 @@ func Inspect(id Identity, pathEnv string) []string {
 // Native tool managers use symlinks with container-only targets and writable
 // cache locks. Inspect metadata without following these links. Their roots and
 // all ancestor directories remain subject to the ordinary ownership/mode rules.
+// walkedInfo returns an entry's metadata during the native-state walk. A
+// running Hermes creates and deletes short-lived files (temporary config
+// writes, sockets, locks), so an entry listed by its directory can be gone
+// before it is examined; nothing that no longer exists can be unsafe, so it is
+// skipped (nil info, nil error). The state root itself must still exist, and
+// every other error still fails the inspection.
+func walkedInfo(p, state string, d fs.DirEntry, walkErr error) (fs.FileInfo, error) {
+	if walkErr == nil {
+		var info fs.FileInfo
+		info, walkErr = d.Info()
+		if walkErr == nil {
+			return info, nil
+		}
+	}
+	if p != state && errors.Is(walkErr, fs.ErrNotExist) {
+		if d != nil && d.IsDir() {
+			return nil, filepath.SkipDir
+		}
+		return nil, nil
+	}
+	return nil, walkErr
+}
+
 func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
 	if !owned(info) {
 		return false
