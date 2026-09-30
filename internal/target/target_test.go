@@ -511,3 +511,59 @@ func TestRepoKitBootstrapOnPathIsNotACollision(t *testing.T) {
 		}
 	}
 }
+
+// Ordinary granted-tool activity (npx package links, the browser harness's
+// private control socket) must not make RepoKit refuse its own deployment.
+func TestInspectAllowsNpmLinksAndPrivateBrowserSocket(t *testing.T) {
+	// Unix socket paths are limited to about 108 bytes, so use a short root.
+	root, err := os.MkdirTemp("/tmp", "rk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(root) })
+	if err := os.Chmod(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	id, err := Resolve(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := filepath.Join(root, ".hermes")
+	bin := filepath.Join(state, "home/.npm/_npx/abc/node_modules/.bin")
+	runtimeDir := filepath.Join(state, "home/.config/browser-harness/runtime")
+	for _, dir := range []string{bin, filepath.Join(state, "home/.npm/_npx/abc/node_modules/agent-browser/bin"), runtimeDir} {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chmod(state, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../agent-browser/bin/agent-browser.js", filepath.Join(bin, "agent-browser")); err != nil {
+		t.Fatal(err)
+	}
+	socket := filepath.Join(runtimeDir, "bu-default.sock")
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	if err := os.Chmod(socket, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, issue := range Inspect(id, "") {
+		if strings.Contains(issue, ".npm") || strings.Contains(issue, "browser-harness") {
+			t.Fatalf("ordinary tool state refused: %s", issue)
+		}
+	}
+	if err := os.Chmod(socket, 0777); err != nil {
+		t.Fatal(err)
+	}
+	flagged := false
+	for _, issue := range Inspect(id, "") {
+		flagged = flagged || strings.Contains(issue, "bu-default.sock")
+	}
+	if !flagged {
+		t.Fatal("world-writable browser socket accepted")
+	}
+}
