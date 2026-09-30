@@ -44,3 +44,15 @@ func TestCustomizedProfileIsNamedButNotACoreFailure(t *testing.T) {
 		t.Fatalf("degraded profile not a core failure: %+v", readiness[0])
 	}
 }
+
+func TestAbsentProfilesPointAtRepoKitSetup(t *testing.T) {
+	id := target.Identity{Name: "atlas", Project: "repokit-123", Root: t.TempDir()}
+	if err := os.MkdirAll(filepath.Join(id.Root, ".hermes"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range Profiles(id) {
+		if p.Status != PendingSetup || p.Detail != "profile files absent; run repokit setup" {
+			t.Fatalf("%s: %s %q", p.Component, p.Status, p.Detail)
+		}
+	}
+}

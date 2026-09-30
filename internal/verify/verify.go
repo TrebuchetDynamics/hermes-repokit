@@ -77,7 +77,7 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 				runtime.Status = Healthy
 				runtime.Detail = "container running with expected project and mounts; inference not probed"
 			} else {
-				runtime.Detail = "container is stopped; use ordinary Compose to start it"
+				runtime.Detail = "container is stopped; start it with repokit start"
 			}
 		}
 	}
@@ -175,7 +175,7 @@ func Profiles(id target.Identity) []Probe {
 			info, e := root.Lstat(path)
 			if e != nil || !info.Mode().IsRegular() || info.Size() == 0 {
 				probe.Status = PendingSetup
-				probe.Detail = "profile files absent; run native default setup through RepoKit"
+				probe.Detail = "profile files absent; run repokit setup"
 				break
 			}
 		}
