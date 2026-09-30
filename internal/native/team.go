@@ -125,30 +125,36 @@ func expectedTeamFields(role team.Role) map[string]any {
 	return fields
 }
 
-// grantedOnly names toolsets RepoKit grants when it creates or resets a
-// specialist but never requires afterwards. Hermes's native memory tool is part
-// of the team design, yet it is the owner's to remove: a profile without it is
-// not drift and RepoKit does not re-add it. Memory providers are never touched.
-var grantedOnly = map[string]bool{"memory": true}
-
-// requiredTeamFields is expectedTeamFields without granted-only toolsets:
-// what an existing profile must still hold to count as compatible.
+// requiredTeamFields is expectedTeamFields with each role's Required toolsets
+// instead of its granted baseline: what an existing profile must still hold
+// to count as compatible. The rest of the baseline (memory, broader tools) is
+// granted at creation or reset and is the owner's to remove.
 func requiredTeamFields(role team.Role) map[string]any {
 	fields := expectedTeamFields(role)
 	for _, key := range []string{"toolsets", "platform_toolsets.cli"} {
-		granted, ok := fields[key].([]string)
-		if !ok {
-			continue
+		if _, ok := fields[key]; ok {
+			fields[key] = role.Required
 		}
-		required := []string{}
-		for _, name := range granted {
-			if !grantedOnly[name] {
-				required = append(required, name)
-			}
-		}
-		fields[key] = required
 	}
 	return fields
+}
+
+// skillsWrite installs a role's granted official skills. The native install
+// exits 0 even when it installs nothing (unknown, blocked or offline), so the
+// installed SKILL.md is checked instead, and a missing one is reported without
+// failing the run: skills are granted extras, not readiness.
+func skillsWrite(role team.Role) string {
+	dir := "/opt/data"
+	if role.Name != "default" {
+		dir += "/profiles/" + role.Name
+	}
+	script := ""
+	for _, skill := range role.Skills {
+		script += "hermes -p " + shellQuote(role.Name) + " skills install " + shellQuote(skill) + " --yes >/dev/null 2>&1 || true\n"
+		installed := dir + "/skills/" + strings.TrimPrefix(skill, "official/") + "/SKILL.md"
+		script += "[ -f " + shellQuote(installed) + " ] || printf '%s\\n' " + shellQuote("REPOKIT_SKILL_MISSING="+role.Name+" "+skill) + "\n"
+	}
+	return script
 }
 
 // holdsTeamValue reports whether an observed native value satisfies a managed
@@ -327,7 +333,7 @@ func resetWrite(role team.Role) string {
 			script += teamSet(role.Name, key, value)
 		}
 	}
-	return script
+	return script + skillsWrite(role)
 }
 
 // teamScript plans convergence. reset, when set, names one roster profile the
@@ -491,6 +497,7 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 			if defaultSkillDiscovery != false {
 				changes += teamCommand("-p", role.Name, "skills", "trust", "/workspace")
 			}
+			changes += skillsWrite(role)
 			continue
 		}
 		if exists {
@@ -546,6 +553,7 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 		if defaultSkillDiscovery != false {
 			changes += teamCommand("-p", role.Name, "skills", "trust", "/workspace")
 		}
+		changes += skillsWrite(role)
 	}
 	if len(plan.Drift) > 0 {
 		// Missing managed configuration means the roster can no longer be
@@ -604,8 +612,30 @@ func knownRole(name string) bool {
 	return false
 }
 
+func grantedSkill(name, skill string) bool {
+	for _, role := range team.Roster() {
+		if role.Name == name {
+			for _, s := range role.Skills {
+				if s == skill {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func teamResult(output string) (TeamReport, error) {
+	var missing []string
 	for _, line := range strings.Split(output, "\n") {
+		if entry, ok := strings.CutPrefix(line, "REPOKIT_SKILL_MISSING="); ok {
+			// Output is untrusted: accept only a roster profile paired with
+			// one of that profile's own granted skills.
+			if name, skill, found := strings.Cut(entry, " "); found && grantedSkill(name, skill) {
+				missing = append(missing, name+" "+skill)
+			}
+			continue
+		}
 		if !strings.HasPrefix(line, "REPOKIT_TEAM=") {
 			continue
 		}
@@ -637,7 +667,7 @@ func teamResult(output string) (TeamReport, error) {
 		if result.Status == "drift" {
 			return TeamReport{}, errors.New("native team drift result incomplete")
 		}
-		return TeamReport{Customized: result.Customized, Reset: result.Reset}, nil
+		return TeamReport{Customized: result.Customized, Reset: result.Reset, MissingSkills: missing}, nil
 	}
 	return TeamReport{}, errors.New("native team provisioning result missing; inspect existing profiles before retrying")
 }

@@ -61,7 +61,37 @@ func TestExecutorHasNativeCodingToolsWithoutOrchestratorKanban(t *testing.T) {
 
 func TestTesterCannotEditRepositoryFiles(t *testing.T) {
 	role := Roster()[4]
-	if role.Name != "tester" || strings.Join(role.Toolsets, ",") != "terminal,memory" {
-		t.Fatalf("tester tools: %+v", role)
+	if role.Name != "tester" || strings.Join(role.Required, ",") != "terminal" {
+		t.Fatalf("tester required tools: %+v", role.Required)
+	}
+	// Hermes's file bundle cannot be read-only, so tester reads through terminal.
+	for _, tool := range role.Toolsets {
+		if tool == "file" {
+			t.Fatal("tester granted the file-editing toolset")
+		}
+	}
+}
+
+// Every role's required toolsets are part of its granted baseline, and every
+// granted skill is an official catalog identifier (category/name).
+func TestRoleBaselinesAreConsistent(t *testing.T) {
+	for _, role := range Roster() {
+		granted := map[string]bool{}
+		for _, tool := range role.Toolsets {
+			granted[tool] = true
+		}
+		for _, tool := range role.Required {
+			if !granted[tool] {
+				t.Errorf("%s requires %s without granting it", role.Name, tool)
+			}
+		}
+		for _, skill := range role.Skills {
+			if parts := strings.Split(skill, "/"); len(parts) != 3 || parts[0] != "official" {
+				t.Errorf("%s skill %q is not an official category/name identifier", role.Name, skill)
+			}
+		}
+	}
+	if len(Roster()[3].Skills) == 0 || Roster()[3].Name != "executor" {
+		t.Fatal("executor lost its granted skills")
 	}
 }

@@ -44,6 +44,12 @@ review assignment. Treat the relayed reason as your change request, make the
 fix, and call kanban_request_review with reviewer="tester". Never call
 kanban_complete or kanban_request_changes on your own implementation.
 
+Use delegated or sub-agent work only for bounded implementation assistance
+inside your own card. Kanban remains the repository team's authoritative
+workflow: never create a parallel project-management hierarchy, route work to
+other profiles, or treat a sub-agent's result as review. You own and verify
+everything a sub-agent produces before handing the card to tester.
+
 Do not commit, push, publish or deploy unless the card explicitly authorizes it.
 
 Preferred handoff metadata:

@@ -14,10 +14,17 @@ var souls embed.FS
 // Role is one permanent profile's current managed identity. RepoKit recognizes
 // only its current generation: a SOUL that differs from Soul is owner state.
 type Role struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Soul        string   `json:"soul"`
-	Toolsets    []string `json:"toolsets"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Soul        string `json:"soul"`
+	// Toolsets is the baseline RepoKit grants when it creates or resets the
+	// profile. Required is the subset the role needs to do its work; only
+	// Required is checked afterwards, so the owner may remove the rest.
+	Toolsets []string `json:"toolsets"`
+	Required []string `json:"required"`
+	// Skills are official Hermes skill identifiers granted at creation or
+	// reset. Like extra toolsets, the owner may remove them.
+	Skills []string `json:"skills,omitempty"`
 }
 
 // ForRepository binds each permanent role to the selected repository.
@@ -142,13 +149,13 @@ qualified runtime change. This capability must never invoke a RepoKit executable
 // qualified Hermes release; tester has no file-editing toolset at all.
 func Roster() []Role {
 	roles := []Role{
-		{Name: "default", Description: "Primary human-facing repository coordinator and orchestrator. Understands user goals, answers lightweight questions directly, designs bounded Kanban workflows, assigns the appropriate team roles, establishes shared decisions, follows progress, and verifies that completed work has passed required review.", Toolsets: []string{"kanban", "memory"}},
-		{Name: "researcher", Description: "Investigates repository context, external sources and prior project knowledge. Resolves unknowns, compares alternatives and produces source-backed findings without changing the target artifact.", Toolsets: []string{"file", "web", "memory"}},
-		{Name: "planner", Description: "Turns goals, constraints and research into a bounded execution contract with scope, decisions, dependencies, acceptance criteria, verification requirements and known risks. Does not perform the planned work.", Toolsets: []string{"file", "memory"}},
-		{Name: "executor", Description: "Produces one bounded repository artifact or change from an approved task contract, preserves unrelated state, performs appropriate verification and hands work to independent review when required.", Toolsets: []string{"file", "terminal", "code_execution", "skills", "memory"}},
-		{Name: "tester", Description: "Independently verifies an implementation's behavior on the same Kanban card before final review. Runs tests, builds and checks, reproduces failures and probes edge cases. Requests changes or forwards passing work to reviewer; never modifies the repository.", Toolsets: []string{"terminal", "memory"}},
-		{Name: "reviewer", Description: "Independently evaluates completed work against its task contract, underlying artifacts and verification evidence. Approves or requests changes on the same Kanban card and does not implement the requested work.", Toolsets: []string{"file", "terminal", "memory"}},
-		{Name: "steward", Description: "Maintains the repository's Hermes profile roster and agent capabilities. Creates, updates, configures, retires, backs up and, with explicit authorization, deletes profiles. Manages profile descriptions, SOUL contracts, skills, toolsets and profile distributions. Does not coordinate project work or modify project artifacts.", Toolsets: []string{"terminal", "file", "memory"}},
+		{Name: "default", Description: "Primary human-facing repository coordinator and orchestrator. Understands user goals, answers lightweight questions directly, designs bounded Kanban workflows, assigns the appropriate team roles, establishes shared decisions, follows progress, and verifies that completed work has passed required review.", Toolsets: []string{"kanban", "memory"}, Required: []string{"kanban"}, Skills: []string{"official/productivity/decision-questionnaire", "official/autonomous-ai-agents/dynamic-workflow"}},
+		{Name: "researcher", Description: "Investigates repository context, external sources and prior project knowledge. Resolves unknowns, compares alternatives and produces source-backed findings without changing the target artifact.", Toolsets: []string{"file", "web", "browser", "terminal", "skills", "memory"}, Required: []string{"file", "web"}, Skills: []string{"official/research/domain-intel", "official/software-development/code-wiki", "official/research/duckduckgo-search"}},
+		{Name: "planner", Description: "Turns goals, constraints and research into a bounded execution contract with scope, decisions, dependencies, acceptance criteria, verification requirements and known risks. Does not perform the planned work.", Toolsets: []string{"file", "web", "skills", "memory"}, Required: []string{"file"}, Skills: []string{"official/software-development/grill-me", "official/productivity/decision-questionnaire"}},
+		{Name: "executor", Description: "Produces one bounded repository artifact or change from an approved task contract, preserves unrelated state, performs appropriate verification and hands work to independent review when required.", Toolsets: []string{"file", "terminal", "code_execution", "web", "browser", "skills", "delegation", "memory"}, Required: []string{"file", "terminal", "code_execution", "skills"}, Skills: []string{"official/software-development/ast-grep", "official/software-development/rest-graphql-debug", "official/software-development/subagent-driven-development", "official/autonomous-ai-agents/agent-merge-conflict-arbiter"}},
+		{Name: "tester", Description: "Independently verifies an implementation's behavior on the same Kanban card before final review. Runs tests, builds and checks, reproduces failures and probes edge cases. Requests changes or forwards passing work to reviewer; never modifies the repository.", Toolsets: []string{"terminal", "code_execution", "web", "browser", "skills", "memory"}, Required: []string{"terminal"}, Skills: []string{"official/dogfood/adversarial-ux-test", "official/software-development/rest-graphql-debug"}},
+		{Name: "reviewer", Description: "Independently evaluates completed work against its task contract, underlying artifacts and verification evidence. Approves or requests changes on the same Kanban card and does not implement the requested work.", Toolsets: []string{"file", "terminal", "code_execution", "web", "skills", "memory"}, Required: []string{"file", "terminal"}, Skills: []string{"official/security/oss-forensics", "official/software-development/grill-me"}},
+		{Name: "steward", Description: "Maintains the repository's Hermes profile roster and agent capabilities. Creates, updates, configures, retires, backs up and, with explicit authorization, deletes profiles. Manages profile descriptions, SOUL contracts, skills, toolsets and profile distributions. Does not coordinate project work or modify project artifacts.", Toolsets: []string{"terminal", "file", "skills", "memory"}, Required: []string{"terminal", "file"}},
 	}
 	common, _ := souls.ReadFile("souls/common.md")
 	for i := range roles {

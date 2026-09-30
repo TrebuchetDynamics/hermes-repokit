@@ -172,10 +172,30 @@ func TestRecipePinsInputsAndChangesForGo(t *testing.T) {
 			t.Fatalf("missing %s", want)
 		}
 	}
-	for _, forbidden := range []string{"apt-get", ":latest", "docker.sock", "npm install", "pip install"} {
+	for _, forbidden := range []string{"apt-get", ":latest", "docker.sock", "npm install"} {
 		if strings.Contains(string(goRecipe["Dockerfile"]), forbidden) {
 			t.Fatalf("unexpected %s", forbidden)
 		}
+	}
+	// A Python install is admitted only when every file is hash-verified.
+	for _, line := range strings.Split(string(goRecipe["Dockerfile"]), "\n") {
+		if strings.Contains(line, "pip install") && !strings.Contains(line, "--require-hashes") {
+			t.Fatalf("unpinned pip install: %s", line)
+		}
+	}
+	for _, want := range []string{"ast-grep/releases/download/0.45.3/", "ast-grep --version | grep -F 0.45.3", "ddgs --help"} {
+		if !strings.Contains(string(goRecipe["Dockerfile"]), want) {
+			t.Fatalf("missing %s", want)
+		}
+	}
+	requirements := string(goRecipe["repokit-ddgs-requirements.txt"])
+	for _, line := range strings.Split(requirements, "\n") {
+		if strings.Contains(line, "==") && !strings.HasSuffix(strings.TrimSpace(line), "\\") {
+			t.Fatalf("ddgs requirement without hashes: %s", line)
+		}
+	}
+	if !strings.Contains(requirements, "ddgs==") || !strings.Contains(requirements, "--hash=sha256:") {
+		t.Fatal("ddgs requirements not pinned by hash")
 	}
 	if ImageName("repo", Requirements{}) == ImageName("repo", Requirements{Go: true}) {
 		t.Fatal("recipe identity did not change")

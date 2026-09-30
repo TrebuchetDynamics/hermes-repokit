@@ -29,7 +29,10 @@ type InputRunner interface {
 type TeamReport struct {
 	Customized []string
 	Reset      []string
-	Roles      []RoleStatus
+	// MissingSkills names granted skills that did not install, as
+	// "<profile> <identifier>"; the team is usable without them.
+	MissingSkills []string
+	Roles         []RoleStatus
 }
 
 // TeamStatus previews team convergence: the decision install would make, read

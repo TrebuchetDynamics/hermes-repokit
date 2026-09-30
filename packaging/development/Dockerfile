@@ -38,6 +38,30 @@ RUN set -eu; \
     rm /tmp/repokit-compose /tmp/repokit-buildx; \
     test "$(docker compose version --short)" = 5.5.1; \
     docker buildx version | grep -F ' v0.37.1 '
+# Tools the team's granted skills rely on: ast-grep (structural code search)
+# and ddgs (keyless web search). Pinned by checksum like the tools above.
+RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) sg_arch=x86_64; sg_sha=f8ac830881339d1edee6b2652f54798c0f4da5a827f2db38a08ee31117783ce8 ;; \
+      arm64) sg_arch=aarch64; sg_sha=b39cfbc58da4b869a88b8a4bc57bd5deb0d24541e704cf7c257da7b53ec81c8f ;; \
+      *) echo 'Unqualified ast-grep architecture' >&2; exit 1 ;; \
+    esac; \
+    curl --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 300 \
+      "https://github.com/ast-grep/ast-grep/releases/download/0.45.3/app-${sg_arch}-unknown-linux-gnu.zip" -o /tmp/repokit-ast-grep.zip; \
+    printf '%s  %s\n' "$sg_sha" /tmp/repokit-ast-grep.zip | sha256sum -c -; \
+    /usr/bin/python3 -c 'import zipfile; zipfile.ZipFile("/tmp/repokit-ast-grep.zip").extractall("/tmp/repokit-ast-grep")'; \
+    install -m 0555 /tmp/repokit-ast-grep/ast-grep /usr/local/bin/ast-grep; \
+    install -m 0555 /tmp/repokit-ast-grep/sg /usr/local/bin/sg; \
+    rm -rf /tmp/repokit-ast-grep /tmp/repokit-ast-grep.zip; \
+    ast-grep --version | grep -F 0.45.3
+COPY repokit-ddgs-requirements.txt /tmp/repokit-ddgs-requirements.txt
+# --no-config and /tmp keep uv from applying Hermes's own project settings.
+RUN set -eu; cd /tmp; \
+    uv venv --no-config --python /usr/bin/python3 /opt/repokit-ddgs; \
+    uv pip install --no-config --python /opt/repokit-ddgs/bin/python --require-hashes --no-deps -r /tmp/repokit-ddgs-requirements.txt; \
+    ln -s /opt/repokit-ddgs/bin/ddgs /usr/local/bin/ddgs; \
+    rm /tmp/repokit-ddgs-requirements.txt; \
+    ddgs --help >/dev/null
 {{GO_INSTALL}}
 # Login shells reset the inherited PATH; retain the native privilege-drop shim.
 RUN ln -s /opt/hermes/bin/hermes /usr/local/bin/hermes

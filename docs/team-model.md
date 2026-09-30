@@ -192,19 +192,30 @@ model-driven dispatch, artifact correctness or adversarial actor isolation.
 
 ## Capabilities and limitations
 
-| Profile | Selected CLI toolsets | Boundary |
-| --- | --- | --- |
-| default | Native CLI preset + kanban (owner tools preserved) | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
-| researcher | file, web; memory granted | Artifact writes prohibited by SOUL |
-| planner | file; memory granted | Implementation prohibited by SOUL |
-| executor | file, terminal, code_execution, skills; memory granted | Work limited to the card |
-| tester | terminal; memory granted | No file-editing toolset; repository writes prohibited by SOUL |
-| reviewer | file, terminal; memory granted | Artifact writes prohibited by SOUL; terminal permits verification |
-| steward | terminal, file; memory granted | Profile administration only; project writes prohibited by SOUL |
+| Profile | Required toolsets | Also granted | Official skills granted | Boundary |
+| --- | --- | --- | --- | --- |
+| default | kanban | native CLI preset (owner tools preserved), memory | decision-questionnaire, dynamic-workflow | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
+| researcher | file, web | browser, terminal, skills, memory | domain-intel, code-wiki, duckduckgo-search | Artifact writes prohibited by SOUL |
+| planner | file | web, skills, memory | grill-me, decision-questionnaire | Implementation prohibited by SOUL |
+| executor | file, terminal, code_execution, skills | web, browser, delegation, memory | ast-grep, rest-graphql-debug, subagent-driven-development, agent-merge-conflict-arbiter | Work limited to the card; sub-agents only for bounded help inside it |
+| tester | terminal | code_execution, web, browser, skills, memory | adversarial-ux-test, rest-graphql-debug | No file-editing toolset; repository writes prohibited by SOUL |
+| reviewer | file, terminal | code_execution, web, skills, memory | oss-forensics, grill-me | Artifact writes prohibited by SOUL; terminal permits verification |
+| steward | terminal, file | skills, memory | — | Profile administration only; project writes prohibited by SOUL |
 
-Specialists' memory is granted, not required: RepoKit selects the native memory
-tool when it creates or resets a specialist, but an owner who removes it causes
-no drift and RepoKit never adds it back.
+Each profile is powerful within its responsibility rather than identical:
+together the team can research, plan, implement, test and review, while each
+role keeps a meaningful boundary. Required toolsets are what a role needs and
+are checked on every run; missing one is drift. Everything else is granted when
+RepoKit creates or resets the profile and is the owner's afterwards: removing a
+granted toolset or skill is not drift and RepoKit never re-adds it.
+
+Skills come from the official Nous Research catalog only (`official/<category>/<name>`),
+chosen because they need no API key or paid service. The development image
+ships the binaries two of them rely on (`ast-grep`/`sg` and `ddgs`), pinned by
+checksum. A skill that does not install (offline, or blocked by Hermes's
+security scan) is reported and never fails the run. Community plugins are
+never installed; authentication-dependent ones such as the official `snyk`
+plugin stay optional Hermes configuration for the owner.
 
 The pinned Hermes `file` bundle includes reads and writes; terminal execution
 also permits writes. These specialist boundaries are **advisory**, not an OS
@@ -218,6 +229,13 @@ share repository SOUL, roster and board. Memory is user-managed and is not part
 of RepoKit's team identity model.
 Routing to another profile is reported separately. Saved core selections do not
 prove credentials, connected adapters or a fresh session's loaded tools.
+
+Hermes keeps a conversation's system prompt from when it started, so a chat
+begun before an install or reset still acts on the earlier SOUL (for example an
+older roster). `verify` compares each messaging platform's newest session with
+default's current `SOUL.md` and reports `sessions` degraded, naming only the
+platform, until the owner sends `/new` there. Chat titles, previews and targets
+are never read.
 
 Default can use native commands to maintain its own non-secret preferences and
 repair required capabilities. Credentials, authentication, destructive changes,

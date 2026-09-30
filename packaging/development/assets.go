@@ -3,5 +3,5 @@ package development
 
 import "embed"
 
-//go:embed Dockerfile
+//go:embed Dockerfile repokit-ddgs-requirements.txt
 var Assets embed.FS

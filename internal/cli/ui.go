@@ -90,6 +90,7 @@ var roleLines = map[string]struct {
 
 // team prints one line per roster profile from the applied plan.
 func (u ui) team(report native.TeamReport) {
+	defer u.missingSkills(report.MissingSkills)
 	if len(report.Roles) == 0 {
 		u.ok("Team", "seven profiles reconciled")
 		if len(report.Customized) > 0 {
@@ -130,4 +131,14 @@ func tildePath(path string) string {
 		return "~/" + rel
 	}
 	return path
+}
+
+// missingSkills reports granted skills that did not install. The team works
+// without them; they are retried by resetting the profile or installed natively.
+func (u ui) missingSkills(missing []string) {
+	if len(missing) == 0 {
+		return
+	}
+	u.warn("granted skills not installed (offline, or blocked by Hermes's security scan): %s", strings.Join(missing, ", "))
+	u.note("the team works without them; retry with " + self() + " install --reset-profile <profile>, or install one natively with -p <profile> skills install <identifier> --yes")
 }

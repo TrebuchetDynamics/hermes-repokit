@@ -650,3 +650,58 @@ func TestMemoryToolIsGrantedNotRequired(t *testing.T) {
 		t.Fatalf("new tester not granted its role toolsets with memory: %v\n%s", err, plan.Script)
 	}
 }
+
+// A profile keeping only its Required toolsets is compatible: the rest of the
+// granted baseline (memory, broader tools) is the owner's to remove.
+func TestOnlyRequiredToolsetsAreChecked(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	researcher := roleNamed(roles, "researcher")
+	root, run := deployTeam(t, roles, teamFixture{souls: currentSouls(roles), config: map[string]map[string]any{"researcher": {"toolsets": researcher.Required, "platform_toolsets.cli": researcher.Required}}})
+	plan, err := teamScript(id, false, "", run, root)
+	if err != nil || plan.Status != "configured" || len(plan.Drift) != 0 {
+		t.Fatalf("owner-trimmed granted tools treated as drift: %q %v %v", plan.Status, plan.Drift, err)
+	}
+	if strings.Contains(plan.Script, "'-p' 'researcher' 'config' 'set' 'toolsets'") {
+		t.Fatal("granted tools re-added to an existing profile")
+	}
+}
+
+func TestCreateAndResetInstallAndCheckGrantedSkills(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	souls := currentSouls(roles)
+	delete(souls, "tester")
+	root, run := deployTeam(t, roles, teamFixture{souls: souls})
+	plan, err := teamScript(id, false, "executor", run, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	script := writes(plan.Script)
+	for _, want := range []string{
+		"hermes -p 'tester' skills install 'official/dogfood/adversarial-ux-test' --yes",
+		"hermes -p 'executor' skills install 'official/software-development/ast-grep' --yes",
+	} {
+		if !strings.Contains(script, want) {
+			t.Fatalf("missing %q:\n%s", want, script)
+		}
+	}
+	// The check line starts with "[", which writes() drops with the guard.
+	if !strings.Contains(plan.Script, "[ -f '/opt/data/profiles/tester/skills/dogfood/adversarial-ux-test/SKILL.md' ] || printf") || !strings.Contains(plan.Script, "REPOKIT_SKILL_MISSING=executor official/software-development/ast-grep") {
+		t.Fatal("installed skill not checked")
+	}
+	if strings.Contains(script, "hermes -p 'reviewer' skills install") {
+		t.Fatal("skills installed into an existing, unreset profile")
+	}
+}
+
+func TestMissingSkillReportsAreValidated(t *testing.T) {
+	out := "REPOKIT_SKILL_MISSING=executor official/software-development/ast-grep\n" +
+		"REPOKIT_SKILL_MISSING=executor official/finance/dcf-model\n" +
+		"REPOKIT_SKILL_MISSING=owner secret\n" +
+		`REPOKIT_TEAM={"status":"configured","drift":[]}` + "\n"
+	report, err := teamResult(out)
+	if err != nil || strings.Join(report.MissingSkills, ",") != "executor official/software-development/ast-grep" {
+		t.Fatalf("missing skills: %v %v", report.MissingSkills, err)
+	}
+}

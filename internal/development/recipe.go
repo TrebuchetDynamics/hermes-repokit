@@ -70,7 +70,11 @@ func recipeInputs(req Requirements) map[string][]byte {
 		goSteps = goInstall
 	}
 	content := strings.NewReplacer("{{HERMES_IMAGE}}", qualification.FoundationImage, "{{GO_INSTALL}}", goSteps).Replace(string(template))
-	files := map[string][]byte{"Dockerfile": []byte(content), "repokit-docker-test": helper, ".dockerignore": []byte("*\n!Dockerfile\n!repokit-docker-test\n")}
+	requirements, err := assets.Assets.ReadFile("repokit-ddgs-requirements.txt")
+	if err != nil {
+		panic("missing embedded ddgs requirements")
+	}
+	files := map[string][]byte{"Dockerfile": []byte(content), "repokit-docker-test": helper, "repokit-ddgs-requirements.txt": requirements, ".dockerignore": []byte("*\n!Dockerfile\n!repokit-docker-test\n!repokit-ddgs-requirements.txt\n")}
 	return files
 }
 
