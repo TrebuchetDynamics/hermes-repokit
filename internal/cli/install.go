@@ -62,7 +62,8 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 	// Reconfiguring a current deployment republishes it in place: a changed
 	// recipe (such as a repository gaining a go.mod), opting into the Docker
 	// test daemon, or a host that enabled SELinux. Each exact preimage is
-	// backed up first. RepoKit recognizes no earlier release's files.
+	// backed up first. The only earlier release recognized is v0.2.0's Go
+	// render, which predates the toolchain-cache volume.
 	var previous []install.StackUpgrade
 	// A generated recipe self-certifies through its fingerprint label; an
 	// owner-edited recipe does not and is never replaced. An interrupted change
@@ -93,6 +94,14 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 					return 1
 				}
 				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-recipe-" + older.fingerprint[:12] + ".yaml", PreviousRecipe: older.files})
+				if report.Development.Go {
+					v020, err := compose.BeforeToolchainCache(id, opts, older.fingerprint)
+					if err != nil {
+						fmt.Fprintln(stderr, err)
+						return 1
+					}
+					previous = append(previous, install.StackUpgrade{Compose: v020, BackupName: "compose.before-toolchain-cache-" + older.fingerprint[:12] + ".yaml", PreviousRecipe: older.files})
+				}
 			}
 		}
 	}

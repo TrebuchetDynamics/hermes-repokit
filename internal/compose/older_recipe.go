@@ -29,6 +29,18 @@ func OlderRecipe(id target.Identity, o Options, fingerprint string) ([]byte, err
 	return bytes.Replace(data, current, prior, 1), nil
 }
 
+// BeforeToolchainCache renders the Compose v0.2.0 generated for a Go
+// repository: the older recipe's image tag and no toolchain-cache volume. It
+// lets install upgrade the previous release's Go deployments in place; every
+// earlier layout stays unrecognized.
+func BeforeToolchainCache(id target.Identity, o Options, fingerprint string) ([]byte, error) {
+	if o.Development == nil || !o.Development.Go {
+		return nil, fmt.Errorf("the pre-toolchain-cache render exists only for Go deployments")
+	}
+	o.beforeToolchainCache = true
+	return OlderRecipe(id, o, fingerprint)
+}
+
 // DevelopmentInstallSelected recovers the installation options of a current
 // generated Compose, including one awaiting a recipe change. Runtime
 // qualification continues to recognize the current generated recipe alone.
@@ -48,6 +60,9 @@ func DevelopmentInstallSelected(id target.Identity) (Options, bool) {
 				}
 				if generated && goTool == recipeGo {
 					if expected, err := OlderRecipe(id, o, fingerprint); err == nil && bytes.Equal(data, expected) {
+						return o, true
+					}
+					if expected, err := BeforeToolchainCache(id, o, fingerprint); err == nil && bytes.Equal(data, expected) {
 						return o, true
 					}
 				}
