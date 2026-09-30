@@ -16,6 +16,7 @@ type removeRunner struct {
 	*foundationRunner
 	absent    bool
 	mutations []string
+	volumes   map[string]bool // existing Docker volumes
 }
 
 func (r *removeRunner) Run(ctx context.Context, p string, args ...string) process.Result {
@@ -27,6 +28,11 @@ func (r *removeRunner) Run(ctx context.Context, p string, args ...string) proces
 	case strings.Contains(call, " image rm "):
 		r.mutations = append(r.mutations, "rmi "+args[len(args)-1])
 		return process.Result{}
+	case strings.Contains(call, " volume inspect "):
+		if r.volumes[args[len(args)-1]] {
+			return process.Result{Output: "[{}]"}
+		}
+		return process.Result{Err: errors.New("no such volume")}
 	case strings.Contains(call, "container inspect") && r.absent:
 		return process.Result{Err: errors.New("No such container")}
 	}
@@ -181,5 +187,26 @@ func TestRemoveDeletesReadOnlyToolchainCache(t *testing.T) {
 	}
 	if info, err := os.Stat(outside); err != nil || info.Mode().Perm() != 0555 {
 		t.Fatalf("remove changed a directory outside .hermes: %v %v", info, err)
+	}
+}
+
+func TestRemovePreviewNamesTheVolumesItDeletes(t *testing.T) {
+	for _, exists := range []bool{true, false} {
+		a, base := foundationApp(t)
+		if err := os.WriteFile(filepath.Join(a.Directory, "go.mod"), []byte("module example.test/demo\n\ngo 1.26.0\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if code, _, diag := invoke(t, a, "install"); code != 0 {
+			t.Fatal(diag)
+		}
+		base.runtime = developmentRuntimeFixture(base.id)
+		volume := base.id.Project + "_toolchain-cache"
+		r := &removeRunner{foundationRunner: base, volumes: map[string]bool{volume: exists}}
+		a.Runner = r
+		a.Confirm = func(string) (string, error) { return "no", nil }
+		_, out, _ := invoke(t, a, "remove")
+		if listed := strings.Contains(out, "volumes "+volume+" "); listed != exists {
+			t.Fatalf("volume exists=%v but listed=%v:\n%s", exists, listed, out)
+		}
 	}
 }

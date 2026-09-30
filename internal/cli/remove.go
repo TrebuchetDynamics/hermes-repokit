@@ -30,6 +30,7 @@ type removal struct {
 	hostCommand   string // ~/.local/bin/hermes-<repo> symlink to this launcher
 	stateBytes    int64
 	stateFiles    int
+	volumes       []string // existing project volumes the Compose file declares
 }
 
 // remove deletes a RepoKit deployment: its Compose project (container,
@@ -46,6 +47,9 @@ func (a App) remove(id target.Identity, stdout, stderr io.Writer) int {
 	fmt.Fprintf(stdout, "This permanently deletes the RepoKit deployment of %s:\n", id.Root)
 	if plan.container {
 		fmt.Fprintf(stdout, "  - container %s and its Compose network (running work stops immediately)\n", id.Container)
+	}
+	if len(plan.volumes) > 0 {
+		fmt.Fprintf(stdout, "  - volumes %s (toolchain caches and Docker test data)\n", strings.Join(plan.volumes, ", "))
 	}
 	if plan.image != "" {
 		fmt.Fprintf(stdout, "  - image %s\n", plan.image)
@@ -136,6 +140,14 @@ func (a App) planRemoval(id target.Identity) (removal, error) {
 		}
 	}
 	ctx := context.Background()
+	// `down --volumes` deletes the volumes the generated Compose declares;
+	// list those that exist so the confirmation names everything deleted.
+	for _, name := range declaredVolumes(data) {
+		volume := id.Project + "_" + name
+		if inspected := a.Runner.Run(ctx, "docker", "--context", dc, "volume", "inspect", volume); inspected.Err == nil {
+			plan.volumes = append(plan.volumes, volume)
+		}
+	}
 	observed := a.Runner.Run(ctx, "docker", "--context", dc, "container", "inspect", "--format", verify.InspectFormat, id.Container)
 	if observed.Err == nil && !observed.Truncated {
 		var state verify.Runtime
@@ -249,4 +261,22 @@ func removeState(dir string) error {
 		return nil
 	})
 	return os.RemoveAll(dir)
+}
+
+// declaredVolumes reads the top-level volumes block of a generated Compose
+// file: two-space-indented names under "volumes:" until the next key.
+func declaredVolumes(compose []byte) []string {
+	var names []string
+	in := false
+	for _, line := range strings.Split(string(compose), "\n") {
+		switch {
+		case line == "volumes:":
+			in = true
+		case in && strings.HasPrefix(line, "  ") && !strings.HasPrefix(line, "   ") && strings.HasSuffix(line, ":"):
+			names = append(names, strings.TrimSuffix(strings.TrimSpace(line), ":"))
+		case in:
+			in = false
+		}
+	}
+	return names
 }
