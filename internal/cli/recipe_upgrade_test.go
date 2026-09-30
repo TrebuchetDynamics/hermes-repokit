@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,5 +62,58 @@ func TestContainerFromBeforeGoWasSelectedAwaitsRecreation(t *testing.T) {
 	r.runtime = runtime(image)
 	if ready, err := a.nativeRuntimeReady(r.id, r.context); ready || err == nil {
 		t.Fatalf("current image without the toolchain volume accepted: ready=%v err=%v", ready, err)
+	}
+}
+
+// The previous release left .hermes visible inside /workspace; install
+// upgrades that exact layout in place and backs it up.
+func TestInstallUpgradesThePreMaskLayout(t *testing.T) {
+	a, r := foundationApp(t)
+	if code, _, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatal(diag)
+	}
+	state := filepath.Join(r.id.Root, ".hermes")
+	current, _ := os.ReadFile(r.id.Compose)
+	// A self-certified older recipe on disk, as a previous release left it.
+	recipeDir := filepath.Join(state, "development-image")
+	if err := os.RemoveAll(recipeDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(recipeDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	old := map[string][]byte{}
+	for _, name := range []string{"Dockerfile-base", ".dockerignore", "repokit-docker-test", "repokit-openviking", "openviking-run", "openviking-finish", "patch-openviking-entrypoint.py"} {
+		data, err := os.ReadFile(filepath.Join("../development/testdata/e0246ef", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		old[strings.TrimSuffix(name, "-base")] = data
+	}
+	fingerprint, ok := development.GeneratedRecipe(old)
+	if !ok {
+		t.Fatal("fixture recipe does not self-certify")
+	}
+	for name, data := range old {
+		if err := os.WriteFile(filepath.Join(recipeDir, name), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	req := development.Requirements{}
+	previous, err := compose.BeforeStateMask(r.id, compose.Options{HermesImage: qualification.FoundationImage, Development: &req, UID: os.Getuid(), GID: os.Getgid(), SELinux: a.selinuxState()}, fingerprint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(r.id.Compose, previous, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if code, out, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatalf("pre-mask deployment not upgraded: out=%s diag=%s", out, diag)
+	}
+	if got, _ := os.ReadFile(r.id.Compose); !bytes.Equal(got, current) {
+		t.Fatalf("Compose not upgraded to the masked render:\n%s", got)
+	}
+	if saved, err := os.ReadFile(filepath.Join(state, "compose.before-state-mask-"+fingerprint[:12]+".yaml")); err != nil || !bytes.Equal(saved, previous) {
+		t.Fatalf("pre-mask Compose not backed up: %v", err)
 	}
 }

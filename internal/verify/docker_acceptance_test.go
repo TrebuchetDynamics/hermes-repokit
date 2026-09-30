@@ -70,6 +70,7 @@ func isolatedDockerAcceptanceFixture(t *testing.T) (target.Identity, *dockerAcce
 			{Type: "volume", Name: id.Project + "_docker-test-run", Destination: "/docker-test/run", RW: false},
 			{Type: "volume", Name: id.Project + "_docker-test-work", Destination: "/docker-tests", RW: true},
 			{Type: "volume", Name: id.Project + "_toolchain-cache", Destination: "/var/cache/repokit", RW: true},
+			{Type: "tmpfs", Destination: "/workspace/.hermes", RW: true},
 		},
 	}
 	daemon := map[string]any{

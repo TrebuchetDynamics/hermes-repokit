@@ -153,8 +153,10 @@ and reports the collision.
 RepoKit recognizes only its current generation and keeps no legacy support. The
 exception is the previous release: `install` upgrades a v0.2.0 deployment in
 place, adding the toolchain-cache volume to a Go deployment after backing up its
-Compose and recipe as `compose.before-toolchain-cache-*`, and rewrites untouched
-v0.2.2 SOULs to the current ones while no card is running. A deployment from any
+Compose and recipe as `compose.before-toolchain-cache-*`, upgrades a v0.2.3
+deployment to hide `.hermes` inside `/workspace` (old Compose kept as
+`compose.before-state-mask-*`), and rewrites untouched v0.2.3 SOULs to the
+current ones while no card is running. A deployment from any
 earlier release, like an edited or foreign one, is refused and never migrated. To start over, stop it with
 `docker compose -f .hermes/compose.yaml down`, move `.hermes` aside, and run
 `repokit install` again.
@@ -264,6 +266,13 @@ a `go.mod`) is republished in place with a retained backup; edited recipes are
 preserved and refused.
 `verify` reports actual development tool versions and profile workdirs separately
 from memory and model-driven acceptance.
+
+Inside the container, the repository's own `.hermes` is hidden under
+`/workspace` by an empty read-only mount; private state is reached only through
+`/opt/data`. Agents' whole-tree commands in the repository (`grep -r`, linters)
+never walk sessions, logs or credentials, and Hermes never mistakes default's
+skills folder for repository skills. Skills every profile should share belong in
+the repository's own `.agents/skills/`.
 
 Go's module and build caches live on a project-scoped `toolchain-cache` volume
 mounted at `/var/cache/repokit`, not in the repository, so whole-tree commands

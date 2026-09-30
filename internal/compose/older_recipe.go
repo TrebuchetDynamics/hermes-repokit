@@ -38,6 +38,15 @@ func BeforeToolchainCache(id target.Identity, o Options, fingerprint string) ([]
 		return nil, fmt.Errorf("the pre-toolchain-cache render exists only for Go deployments")
 	}
 	o.beforeToolchainCache = true
+	o.beforeStateMask = true
+	return OlderRecipe(id, o, fingerprint)
+}
+
+// BeforeStateMask renders the Compose the previous release generated: an
+// older recipe's image tag and .hermes still visible inside /workspace. It lets
+// install upgrade those deployments in place.
+func BeforeStateMask(id target.Identity, o Options, fingerprint string) ([]byte, error) {
+	o.beforeStateMask = true
 	return OlderRecipe(id, o, fingerprint)
 }
 
@@ -63,6 +72,9 @@ func DevelopmentInstallSelected(id target.Identity) (Options, bool) {
 						return o, true
 					}
 					if expected, err := BeforeToolchainCache(id, o, fingerprint); err == nil && bytes.Equal(data, expected) {
+						return o, true
+					}
+					if expected, err := BeforeStateMask(id, o, fingerprint); err == nil && bytes.Equal(data, expected) {
 						return o, true
 					}
 				}

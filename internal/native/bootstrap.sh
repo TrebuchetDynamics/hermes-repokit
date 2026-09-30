@@ -4,7 +4,10 @@ workspace=$1
 state=$2
 [ "$(stat -c '%d:%i' "$workspace")" = "$3" ]
 [ "$(stat -c '%d:%i' "$state")" = "$4" ]
-[ "$(stat -c '%d:%i' "$workspace/.hermes")" = "$4" ]
+# .hermes inside /workspace is either the state itself (a container created
+# before the mask) or the empty read-only mask that hides it; the workspace,
+# state and repository lock identities above and below prove the rest.
+[ "$(stat -c '%d:%i' "$workspace/.hermes")" = "$4" ] || [ -z "$(ls -A "$workspace/.hermes")" ]
 [ ! -L "$workspace/.hermes-repokit.lock" ]
 [ "$(stat -c '%d:%i' "$workspace/.hermes-repokit.lock")" = "$5" ]
 [ -f "$state/config.yaml" ] && [ ! -L "$state/config.yaml" ]

@@ -81,15 +81,20 @@ func PriorRuntimeMountsMatch(id target.Identity, unexpected string, mounts []Run
 	}
 	for _, withoutGo := range []bool{false, olderImage} {
 		for _, withoutTests := range []bool{false, true} {
-			prior := o
-			if withoutGo {
-				prior.Development = &development.Requirements{}
-			}
-			if withoutTests {
-				prior.DockerTests = false
-			}
-			if (withoutGo || withoutTests) && mountsMatch(id, prior, mounts) {
-				return true
+			for _, withoutMask := range []bool{false, true} {
+				prior := o
+				if withoutGo {
+					prior.Development = &development.Requirements{}
+				}
+				if withoutTests {
+					prior.DockerTests = false
+				}
+				if withoutMask {
+					prior = compose.WithoutStateMask(prior)
+				}
+				if (withoutGo || withoutTests || withoutMask) && mountsMatch(id, prior, mounts) {
+					return true
+				}
 			}
 		}
 	}
@@ -98,6 +103,9 @@ func PriorRuntimeMountsMatch(id target.Identity, unexpected string, mounts []Run
 
 func mountsMatch(id target.Identity, o compose.Options, mounts []RuntimeMount) bool {
 	need := 2
+	if compose.StateMasked(o) {
+		need++
+	}
 	if o.DockerTests {
 		need += 2
 	}
@@ -109,13 +117,17 @@ func mountsMatch(id target.Identity, o compose.Options, mounts []RuntimeMount) b
 	}
 	seen := map[string]bool{}
 	for _, m := range mounts {
-		if seen[m.Destination] || (m.Destination != "/docker-test/run" && !m.RW) {
+		if seen[m.Destination] || (m.Destination != "/docker-test/run" && m.Destination != compose.StateMaskTarget && !m.RW) {
 			return false
 		}
 		seen[m.Destination] = true
 		switch m.Destination {
 		case "/workspace":
 			if m.Type != "bind" || m.Source != id.Root {
+				return false
+			}
+		case compose.StateMaskTarget:
+			if !compose.StateMasked(o) || m.Type != "tmpfs" {
 				return false
 			}
 		case "/opt/data":

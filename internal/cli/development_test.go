@@ -17,6 +17,8 @@ func developmentRuntimeFixture(id target.Identity) string {
 		panic("fixture requires generated development Compose")
 	}
 	mounts := []map[string]any{{"Type": "bind", "Source": id.Root, "Destination": "/workspace", "RW": true}, {"Type": "bind", "Source": filepath.Join(id.Root, ".hermes"), "Destination": "/opt/data", "RW": true}}
+	// Current renders hide .hermes inside /workspace behind an empty tmpfs.
+	mounts = append(mounts, map[string]any{"Type": "tmpfs", "Destination": "/workspace/.hermes", "RW": true})
 	if o.DockerTests {
 		mounts = append(mounts, map[string]any{"Type": "volume", "Name": id.Project + "_docker-test-run", "Destination": "/docker-test/run", "RW": false}, map[string]any{"Type": "volume", "Name": id.Project + "_docker-test-work", "Destination": "/docker-tests", "RW": true})
 	}

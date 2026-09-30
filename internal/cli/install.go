@@ -94,6 +94,13 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 					return 1
 				}
 				previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-recipe-" + older.fingerprint[:12] + ".yaml", PreviousRecipe: older.files})
+				// The previous release, before .hermes was hidden inside /workspace.
+				v023, err := compose.BeforeStateMask(id, opts, older.fingerprint)
+				if err != nil {
+					fmt.Fprintln(stderr, err)
+					return 1
+				}
+				previous = append(previous, install.StackUpgrade{Compose: v023, BackupName: "compose.before-state-mask-" + older.fingerprint[:12] + ".yaml", PreviousRecipe: older.files})
 				if report.Development.Go {
 					v020, err := compose.BeforeToolchainCache(id, opts, older.fingerprint)
 					if err != nil {

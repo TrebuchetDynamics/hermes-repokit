@@ -118,3 +118,18 @@ func TestBeforeToolchainCacheReproducesV020GoRender(t *testing.T) {
 		t.Fatal("pre-toolchain-cache render accepted for a non-Go deployment")
 	}
 }
+
+func TestCurrentRenderHidesStateInsideWorkspace(t *testing.T) {
+	id, _ := target.Resolve(t.TempDir())
+	req := development.Requirements{}
+	o := Options{HermesImage: qualification.FoundationImage, Development: &req, UID: 1000, GID: 1000}
+	mask := "      - type: tmpfs\n        target: /workspace/.hermes\n        tmpfs:\n          size: 4096\n          mode: 0555\n"
+	current, err := Render(id, o)
+	if err != nil || !strings.Contains(string(current), mask) {
+		t.Fatalf("current render does not hide .hermes in /workspace: %v\n%s", err, current)
+	}
+	previous, err := BeforeStateMask(id, o, strings.Repeat("ab", 32))
+	if err != nil || strings.Contains(string(previous), "/workspace/.hermes") {
+		t.Fatalf("previous-release render gained the mask: %v", err)
+	}
+}

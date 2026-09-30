@@ -24,6 +24,9 @@ type Options struct {
 	// toolchain-cache volume. Only BeforeToolchainCache sets it, so install
 	// can recognize and upgrade those deployments; RepoKit never installs it.
 	beforeToolchainCache bool
+	// beforeStateMask reproduces renders from before .hermes was hidden inside
+	// /workspace (v0.2.3 and earlier). Only the previous-layout renders set it.
+	beforeStateMask bool
 }
 
 var identity = regexp.MustCompile(`^[a-z0-9][a-z0-9-]+$`)
@@ -39,6 +42,22 @@ const (
 // Go's module and build caches stay out of the repository's .hermes.
 func ToolchainCacheMounted(o Options) bool {
 	return o.Development != nil && o.Development.Go && !o.beforeToolchainCache
+}
+
+// StateMaskTarget is where the repository's own .hermes appears inside
+// /workspace. An empty read-only tmpfs covers it, so private state is reached
+// only through /opt/data: whole-tree commands in the repository never walk it,
+// and Hermes never mistakes default's skills folder for repository skills.
+const StateMaskTarget = "/workspace/.hermes"
+
+// StateMasked reports whether a render hides .hermes inside /workspace.
+func StateMasked(o Options) bool { return !o.beforeStateMask }
+
+// WithoutStateMask returns o as rendered before the mask, for recognizing a
+// container that awaits recreation.
+func WithoutStateMask(o Options) Options {
+	o.beforeStateMask = true
+	return o
 }
 
 func Render(id target.Identity, o Options) ([]byte, error) {
@@ -84,6 +103,14 @@ services:
         bind:
           create_host_path: false
 %s`, relabel)
+	if StateMasked(o) {
+		fmt.Fprintf(&s, `      - type: tmpfs
+        target: %s
+        tmpfs:
+          size: 4096
+          mode: 0555
+`, StateMaskTarget)
+	}
 	fmt.Fprintf(&s, `      - type: bind
         source: "."
         target: /opt/data

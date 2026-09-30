@@ -94,6 +94,7 @@ func TestRuntimeMountsRequireTheExactToolchainVolume(t *testing.T) {
 	base := []RuntimeMount{
 		{Type: "bind", Source: id.Root, Destination: "/workspace", RW: true},
 		{Type: "bind", Source: id.Root + "/.hermes", Destination: "/opt/data", RW: true},
+		{Type: "tmpfs", Destination: "/workspace/.hermes", RW: true},
 	}
 	cache := RuntimeMount{Type: "volume", Name: id.Project + "_toolchain-cache", Destination: "/var/cache/repokit", RW: true}
 	if !RuntimeMountsMatch(id, "x", append(append([]RuntimeMount{}, base...), cache)) {
