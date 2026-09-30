@@ -62,12 +62,12 @@ func (a App) nativeRuntimeReady(id target.Identity, dockerContext string) (bool,
 	if observed.Err != nil || observed.Truncated || json.Unmarshal([]byte(observed.Output), &runtime) != nil || runtime.Status != "running" {
 		return false, nil
 	}
-	if runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && verify.RuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) && verify.PreviousNamedImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) {
+	if runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && verify.PriorRuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) && verify.PreviousNamedImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) {
 		return false, nil // Exact previous image name: recreate via printed Compose command.
 	}
 	// Same deployment running an older generated image (recipe upgraded on
 	// disk): recreation through the printed Compose command is pending.
-	if runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && verify.RuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) && olderGeneratedImage(id, runtime.Image) {
+	if runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && verify.PriorRuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) && olderGeneratedImage(id, runtime.Image) {
 		return false, nil
 	}
 	if _, selected := compose.DevelopmentSelected(id); selected && runtime.Image == qualification.FoundationImage && runtime.Service == "hermes" && runtime.Project == id.Project && runtime.Workspace == id.Root && runtime.Home == filepath.Join(id.Root, ".hermes") && runtime.UnexpectedMounts == "" {

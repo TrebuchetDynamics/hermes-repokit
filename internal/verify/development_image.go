@@ -70,6 +70,25 @@ func RuntimeMountsMatch(id target.Identity, unexpected string, mounts []RuntimeM
 	if !selected {
 		return unexpected == ""
 	}
+	return mountsMatch(id, o, mounts)
+}
+
+// PriorRuntimeMountsMatch also accepts a container created before the
+// toolchain cache volume existed. It qualifies only a pending recreation of
+// an older generated image, never a current runtime.
+func PriorRuntimeMountsMatch(id target.Identity, unexpected string, mounts []RuntimeMount) bool {
+	if RuntimeMountsMatch(id, unexpected, mounts) {
+		return true
+	}
+	o, selected := compose.DevelopmentSelected(id)
+	if !selected || !compose.ToolchainCacheMounted(o) {
+		return false
+	}
+	o.ToolchainCache = false
+	return mountsMatch(id, o, mounts)
+}
+
+func mountsMatch(id target.Identity, o compose.Options, mounts []RuntimeMount) bool {
 	need := 2
 	if o.DockerTests {
 		need += 2
