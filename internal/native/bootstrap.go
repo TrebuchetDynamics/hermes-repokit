@@ -4,9 +4,11 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -124,10 +126,25 @@ func runBootstrap(ctx context.Context, id target.Identity, dockerContext string,
 	args = append(args, identities...)
 	args = append(args, strconv.FormatBool(afterSetup))
 	result := r.RunInput(ctx, strings.NewReader(script), "docker", args...)
-	if result.Err != nil || result.Truncated {
-		return process.Result{}, fmt.Errorf("native initialization failed or was interrupted; preserve state, inspect with native commands, then rerun install")
+	if err := bootstrapError(result); err != nil {
+		return process.Result{}, err
 	}
 	return result, nil
+}
+
+// ErrWorkStarted means idleGuard stopped the script before any change: a card
+// began running after Go observed an idle board.
+var ErrWorkStarted = errors.New("a card started running during this run; nothing was changed so active work is not interrupted; rerun when the board is idle")
+
+func bootstrapError(result process.Result) error {
+	var exit *exec.ExitError
+	if !result.Truncated && errors.As(result.Err, &exit) && exit.ExitCode() == 3 {
+		return ErrWorkStarted
+	}
+	if result.Err != nil || result.Truncated {
+		return fmt.Errorf("native initialization failed or was interrupted; preserve state, inspect with native commands, then rerun install")
+	}
+	return nil
 }
 
 func resetRoles(plan teamPlan) []string {

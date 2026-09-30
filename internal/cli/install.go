@@ -274,6 +274,11 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 			u.pending("Team", "not set up yet")
 			return 0
 		}
+		if errors.Is(err, native.ErrWorkStarted) && !afterSetup && a.resetProfile == "" {
+			u.pending("Team", "a card started running during install; nothing was changed")
+			u.note("rerun install when the board is idle")
+			return 0
+		}
 		u.fail("%v", err)
 		return 1
 	}

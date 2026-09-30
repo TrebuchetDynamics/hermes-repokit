@@ -179,7 +179,9 @@ func convergeGateway(ctx context.Context, id target.Identity, dc string, r Input
 	if before != 0 {
 		script += teamCommand("-p", "default", "gateway", "restart")
 	}
-	if _, err := runBootstrap(ctx, id, dc, false, script, r); err != nil {
+	if _, err := runBootstrap(ctx, id, dc, false, script, r); errors.Is(err, ErrWorkStarted) {
+		return "", err
+	} else if err != nil {
 		return "", errors.New("native dispatch configuration or gateway restart failed; inspect `kanban` configuration and gateway status")
 	}
 	if before == 0 {
