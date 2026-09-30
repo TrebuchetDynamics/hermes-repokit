@@ -21,6 +21,7 @@ type gatewayInput struct {
 	scripts []string
 	starts  int
 	err     error
+	model   string // default's configured model; empty means private setup has not run
 }
 
 func (r *gatewayInput) RunInput(_ context.Context, input io.Reader, program string, args ...string) process.Result {
@@ -52,6 +53,8 @@ func (r *gatewayInput) RunInput(_ context.Context, input io.Reader, program stri
 			return process.Result{Output: "✗ Gateway is not running"}
 		}
 		return process.Result{Output: fmt.Sprintf("✓ Gateway is running (PID: %d)", r.pid)}
+	case strings.Contains(joined, "config get model.default") && r.model != "":
+		return process.Result{Output: `{"value":"` + r.model + `"}`}
 	case strings.HasSuffix(joined, "kanban stats --json"):
 		return process.Result{Output: `{"by_status":{}}`}
 	case strings.Contains(joined, " config get "):
@@ -68,18 +71,19 @@ func TestGatewayFinalizationNeverRunsAfterFailedStage(t *testing.T) {
 	input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10}
 	app.Initializer = input
 	var out, diag bytes.Buffer
-	if got := app.finishSetup(r.id, r.context, 7, &out, &diag); got != 7 || input.calls != 0 {
+	if got, _ := app.finishSetup(r.id, r.context, 7, &out, &diag); got != 7 || input.calls != 0 {
 		t.Fatal("failed stage finalized")
 	}
-	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got != 0 || !strings.Contains(out.String(), "native automatic dispatch configured") {
+	if got, _ := app.finishSetup(r.id, r.context, 0, &out, &diag); got != 0 || !strings.Contains(out.String(), "native automatic dispatch configured") {
 		t.Fatalf("finish: %d %s %s", got, &out, &diag)
 	}
-	if strings.Contains(out.String(), "canary completed") || !strings.Contains(out.String(), "no worker has run yet") {
-		t.Fatalf("setup claimed unexercised work: %s", &out)
+	// Activation alone proves nothing; only setup's canary may claim a run.
+	if strings.Contains(out.String(), "Canary") || strings.Contains(out.String(), "ready") {
+		t.Fatalf("activation claimed unexercised work: %s", &out)
 	}
 	input.kanban, input.err = `{"dispatch_in_gateway":false}`, fmt.Errorf("private-native-error")
 	diag.Reset()
-	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got == 0 {
+	if got, _ := app.finishSetup(r.id, r.context, 0, &out, &diag); got == 0 {
 		t.Fatal("failed gateway restart certified")
 	}
 	if strings.Contains(diag.String(), "secret") || strings.Contains(diag.String(), "private-native-error") {
@@ -95,7 +99,7 @@ func TestSetupPreservesOwnerChangedDispatchPolicy(t *testing.T) {
 	input := &gatewayInput{kanban: `{"dispatch_in_gateway":true,"max_in_progress":5}`, pid: 10}
 	app.Initializer = input
 	var out, diag bytes.Buffer
-	if got := app.finishSetup(r.id, r.context, 0, &out, &diag); got == 0 || len(input.scripts) != 0 {
+	if got, _ := app.finishSetup(r.id, r.context, 0, &out, &diag); got == 0 || len(input.scripts) != 0 {
 		t.Fatal("owner dispatch policy overwritten")
 	}
 }
@@ -115,7 +119,7 @@ func TestSetupStartsStoppedGatewayButInstallOnlyPrintsCommand(t *testing.T) {
 	}
 	var buf, errs bytes.Buffer
 	input.pid, input.starts = 0, 0
-	if got := a.finishSetup(r.id, r.context, 0, &buf, &errs); got != 0 || input.starts != 0 ||
+	if got, _ := a.finishSetup(r.id, r.context, 0, &buf, &errs); got != 0 || input.starts != 0 ||
 		!strings.Contains(buf.String(), r.id.Container+" -p default gateway start") {
 		t.Fatalf("install path must not start an owner-stopped gateway and must print the command: code=%d starts=%d out=%s", got, input.starts, &buf)
 	}

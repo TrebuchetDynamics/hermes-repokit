@@ -58,9 +58,10 @@ private setup. Noninteractive setup cannot authorize team provisioning. After
 interactive setup returns successfully and a saved model exists, RepoKit
 provisions missing specialists through native config cloning. Plain `setup` then
 runs operational activation;
-`setup --team` provisions missing specialists after a saved default model is
-available, without reopening private setup. This also supports users who completed
-native setup through the standalone launcher. Memory setup is user-managed and is
+when a saved default model already exists (including native setup completed
+through the standalone launcher), `setup` skips the private wizard and goes
+straight to provisioning; `setup --team` is the recovery form that never opens it.
+Plain `setup` ends with a canary card through automatic dispatch. Memory setup is user-managed and is
 not part of RepoKit's setup stages.
 
 The initial native config trusts `/workspace` for repository-local skills. New
@@ -266,7 +267,7 @@ shipped is compiled in, so provenance cannot be lost or edited.
 Historical SOULs are matched by profile name, never by roster position, so tester
 starts with no managed history and no existing profile is remapped to it.
 An activated six-profile team whose default still holds the exact six-profile
-policy is upgraded by `setup --team`: tester is created, the six SOULs are
+policy is upgraded by `setup`: tester is created, the six SOULs are
 rewritten and activation widens the allowlist, restarting the gateway once when
 no card is running. An operational seven-profile team is reconciled the same way
 whenever no card is running: untouched SOULs upgrade and missing roles are

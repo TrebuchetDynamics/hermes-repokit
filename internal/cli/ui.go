@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
 // ui prints aligned status lines in the same style as install.sh: color only
@@ -65,6 +66,59 @@ func (u ui) next(steps ...[2]string) {
 	for _, s := range steps {
 		fmt.Fprintf(u.out, "  %s%-*s%s  %s\n", u.bold, width, s[0], u.reset, s[1])
 	}
+}
+
+// headline prints a standalone sentence, with optional plain lines under it,
+// between status lines and next steps.
+func (u ui) headline(text string, lines ...string) {
+	fmt.Fprintf(u.out, "\n%s%s%s\n", u.bold, text, u.reset)
+	for _, line := range lines {
+		fmt.Fprintf(u.out, "%s\n", line)
+	}
+}
+
+// roleLines maps a native convergence state to its status line.
+var roleLines = map[string]struct {
+	pending bool
+	detail  string
+}{
+	"current":    {false, "current"},
+	"upgrade":    {false, "upgraded to the current RepoKit SOUL"},
+	"missing":    {false, "created"},
+	"adopt":      {false, "created from the stock default profile"},
+	"customized": {false, "owner-customized; preserved as is"},
+	"reset":      {false, "reset to RepoKit's baseline"},
+	"deferred":   {true, "upgrade waits for the running card"},
+	"held":       {true, "preserved; dispatch policy is owner-controlled"},
+}
+
+// team prints one line per roster profile from the applied plan.
+func (u ui) team(report native.TeamReport) {
+	if len(report.Roles) == 0 {
+		u.ok("Team", "seven profiles reconciled")
+		if len(report.Customized) > 0 {
+			u.note("owner-customized, preserved as is: " + strings.Join(report.Customized, ", "))
+		}
+		return
+	}
+	for _, role := range report.Roles {
+		line, known := roleLines[role.State]
+		switch {
+		case !known:
+			u.pending(role.Profile, role.State)
+		case line.pending:
+			u.pending(role.Profile, line.detail)
+		default:
+			u.ok(role.Profile, line.detail)
+		}
+	}
+}
+
+// ready closes a successful run: the team is set up and the owner's next
+// step is simply to talk to it.
+func (u ui) ready(id target.Identity) {
+	fmt.Fprintf(u.out, "\n%sRepoKit ready.%s\n", u.bold+u.green, u.reset)
+	u.next([2]string{id.Container, "open the project team"})
 }
 
 // tildePath shortens paths under the user's home for display only.

@@ -59,17 +59,32 @@ these commands from the target repository:
 
 ```sh
 cd my-project
-repokit plan              # inspect; writes nothing
-repokit install           # publish private state, build and start the container, init Kanban
-repokit setup             # private provider and team activation
-repokit verify            # observational CORE_READY report
-hermes-my-project        # native Hermes CLI as default, when ~/.local/bin is on PATH
-repokit stop              # stop the deployment; all state is kept
-repokit start             # start it again; Hermes restarts a gateway that was running
+repokit install           # build and start the container, prepare Kanban
+repokit setup             # Hermes's private provider setup, then team, dispatch and canary
+hermes-my-project         # talk to your team
 ```
 
-`setup` runs in your private terminal and never captures credentials; `--team`
-resumes an interrupted stage. The launcher forwards native arguments
+That is the whole first-time path. `install` builds the development image,
+starts the container, installs the host command and prepares everything that
+needs no secrets. `setup` hands your terminal to Hermes's own private setup
+(RepoKit never sees credentials), then creates the seven profiles, turns on
+automatic dispatch and proves it with one canary card before printing
+`RepoKit ready.` Running `setup` again skips the private wizard once default
+has a model.
+
+Everyday commands:
+
+```sh
+repokit install           # converge to the current baseline; owner customizations are kept
+repokit verify            # observational CORE_READY report
+repokit stop              # stop the deployment; all state is kept
+repokit start             # start it again; Hermes restarts a gateway that was running
+repokit plan              # preview what install would change; writes nothing
+```
+
+Recovery only: `repokit setup --team` reconciles the team without the private
+wizard, and `setup --no-canary` skips the canary card (no model call).
+The launcher forwards native arguments
 unchanged (`.hermes/bin/hermes-my-project kanban list`). After install, ordinary
 Docker Compose owns the runtime using the context recorded in the launcher — see
 [runtime management](docs/bootstrap-quickstart.md#ordinary-runtime-management).
@@ -218,8 +233,11 @@ me what is not ready."*
 
 ## Troubleshooting and deeper guides
 
-- Setup needs the generated Hermes service running; use the exact Compose command
-  printed by `install` and rerun `install` for native Kanban initialization.
+- `setup` starts the deployment itself. If Docker cannot build or start it,
+  the failure line names the Compose command to retry; fix Docker, then rerun
+  `setup`.
+- `setup` ended without `RepoKit ready.`? The last line says why (for example a
+  failed canary); `repokit verify` reports what is not ready.
 - Missing `hermes-<repo>` on `PATH`? Use `.hermes/bin/hermes-<repo>` directly;
   RepoKit does not edit shell startup files. See [host command and recovery](docs/bootstrap-quickstart.md#host-command).
 - Memory is user-managed and separate from core team readiness; RepoKit does

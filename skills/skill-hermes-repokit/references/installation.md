@@ -105,22 +105,26 @@ Hand the owner one concrete command with real, quoted absolute paths:
 cd '/abs/path/to/target' && repokit setup
 ```
 
-Ask only for a completion signal — never transcripts, screenshots, tokens or
-keys. Plain `setup` needs a real interactive terminal. It configures the default
-provider/model, reconciles the seven profiles, writes the native dispatch policy
-(`review_dispatch=true`, `max_in_progress=1`, `auto_decompose=false`, the
-seven-profile allowlist, `dispatch_in_gateway=true` last) and restarts the gateway
-once.
+Ask only for a completion signal (`RepoKit ready.`) — never transcripts,
+screenshots, tokens or keys. `setup` is the last step of the first-time path. It
+starts a stopped deployment, hands the terminal to Hermes's own private setup
+while default has no model (skipped once one is saved, including setup done
+natively through `hermes-<repo> setup`), reconciles the seven profiles, writes
+the native dispatch policy (`review_dispatch=true`, `max_in_progress=1`,
+`auto_decompose=false`, the seven-profile allowlist, `dispatch_in_gateway=true`
+last), restarts or starts the gateway, and runs the canary: one no-write
+researcher card the gateway must complete by itself (a small model call).
+A failed canary exits nonzero without claiming readiness.
 
-If native setup was already done through `hermes-<repo> setup`, or setup was
-interrupted, `repokit setup --team` reconciles the team from the saved default
-model without rerunning the wizard. Every rerun preserves profiles, credentials,
-sessions and owner choices; profile edits are reported as drift, not overwritten.
+Every rerun preserves profiles, credentials, sessions and owner choices;
+owner-customized profiles are preserved and reported, never overwritten.
+`setup --team` is the recovery form that never opens the wizard, and
+`--no-canary` skips the paid proof.
 
-Setup refuses while a card is running, never starts a stopped gateway, and leaves
-an already-matching or owner-changed policy untouched. An unmodified six-profile
-release is upgraded in place by `setup --team`: it adds `tester`, updates the
-managed SOULs and widens the allowlist with one restart.
+Setup defers profile rewrites while a card is running and leaves an owner-changed
+dispatch policy untouched. An unmodified six-profile release is upgraded in place
+by `setup`: it adds `tester`, updates the managed SOULs and widens the allowlist
+with one restart.
 
 ## 6. Verify
 
@@ -171,8 +175,8 @@ or hand-edit the Compose file.
 
 `install` recognizes exact earlier generated deployments and upgrades them in
 place, keeping backups such as `compose.before-names.yaml` or
-`compose.before-core.yaml`, and recreates the service itself (run `setup --team`
-when the team changed). Edited launchers,
+`compose.before-core.yaml`, and recreates the service itself (run `setup` when
+the team changed). Edited launchers,
 recipes, backups and conflicting names are preserved and refused.
 
 The historical Hermes/Laya local-build stack is recognized too. Take a native

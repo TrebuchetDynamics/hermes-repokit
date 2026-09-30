@@ -77,7 +77,7 @@ func (a App) startDeployment(id target.Identity, dc string, stdout, stderr io.Wr
 		}
 		if busy, err := native.RunningWork(context.Background(), id, dc, runner); err == nil && busy {
 			u.pending("Container", "upgraded image ready; not recreated while a Kanban card is running")
-			u.note("recreate it when the work finishes: repokit start")
+			u.note("recreate it when the work finishes: " + self() + " start")
 			return 0
 		}
 	}
@@ -133,7 +133,7 @@ func (a App) stop(id target.Identity, stdout, stderr io.Writer) int {
 		return 1
 	}
 	u.ok("Container", id.Container+" stopped; state is preserved")
-	u.next([2]string{"repokit start", "resume"})
+	u.next([2]string{self() + " start", "resume"})
 	return 0
 }
 
