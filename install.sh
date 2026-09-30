@@ -80,6 +80,10 @@ if [ -z "$root" ] || [ ! -f "$root/go.mod" ] || [ ! -d "$root/cmd/hermes-repokit
         done
     fi
     [ -f "$root/go.mod" ] && [ -d "$root/cmd/hermes-repokit" ] || fail 'downloaded source is not a RepoKit checkout'
+    # A custom source URL is named by what was downloaded, not the default ref.
+    if [ -n "${REPOKIT_SOURCE_URL:-}" ] && [ -z "${REPOKIT_REF:-}" ]; then
+        repokit_ref=$repokit_url
+    fi
     ok "Downloaded and unpacked $repokit_ref"
 else
     ok "Using checkout at $root"

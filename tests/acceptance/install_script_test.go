@@ -298,6 +298,10 @@ func TestInstallScriptBootstrapsFromRemoteSource(t *testing.T) {
 	if !strings.Contains(out, "Downloading RepoKit source") || !strings.Contains(out, "Installed RepoKit bootstrap") {
 		t.Fatalf("remote install output: %s", out)
 	}
+	// A custom source URL is reported as what was downloaded, not as "main".
+	if !strings.Contains(out, "Downloaded and unpacked file://") || strings.Contains(out, "unpacked main") {
+		t.Fatalf("custom source mislabeled: %s", out)
+	}
 	command := filepath.Join(bin, "hermes-repokit")
 	info, err := os.Lstat(command)
 	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0100 == 0 {

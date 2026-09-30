@@ -39,15 +39,24 @@ a RepoKit daemon.
 
 ## Quickstart
 
-Install the bootstrap CLI with Go 1.26+:
+Install the bootstrap CLI from the latest release, [v0.2.0](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.0), with Go 1.26+:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.0/install.sh \
+  | REPOKIT_REF=v0.2.0 REPOKIT_SOURCE_URL=https://github.com/TrebuchetDynamics/hermes-repokit/archive/refs/tags/v0.2.0.tar.gz sh
+```
+
+The script builds that release's source; it downloads no release binary. This
+README describes `main`, which can be ahead of the release; the release's own
+[README](https://github.com/TrebuchetDynamics/hermes-repokit/blob/v0.2.0/README.md)
+matches what it installs. To try unreleased changes, build `main` instead:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/main/install.sh | sh
 ```
 
-The script builds from the current source; it downloads no release binary. To
-build a release tag or a commit instead of `main`, set `REPOKIT_REF`, for example
-`… | REPOKIT_REF=v0.2.0 sh`. It
+With the `main` script, `REPOKIT_REF` selects any branch, tag or commit to build,
+for example `… | REPOKIT_REF=v0.2.0 sh`. The script
 publishes one binary under `hermes-repokit` and the short `repokit` alias,
 updates a command it previously installed, and preserves any other existing
 command. A generated `hermes-<repo>` host launcher can already own the
