@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 	"os"
 	"path/filepath"
@@ -192,5 +193,15 @@ func TestInstallRefusesAnEarlierDeploymentWithStartOverSteps(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(r.id.Compose); string(got) != earlier {
 		t.Fatal("refused install changed the Compose file")
+	}
+}
+
+func TestPlanDetailNamesARequestedReset(t *testing.T) {
+	rows := []native.RoleStatus{{Profile: "default", State: "current"}, {Profile: "executor", State: "reset"}}
+	if got := teamDetail(native.TeamStatus{Status: "configured", Profiles: rows}); !strings.Contains(got, "executor will be replaced") || strings.Contains(got, "none will be overwritten") {
+		t.Fatalf("reset preview summarized as no change: %s", got)
+	}
+	if got := teamDetail(native.TeamStatus{Status: "configured", Profiles: rows[:1]}); !strings.Contains(got, "none will be overwritten") {
+		t.Fatalf("plain preview: %s", got)
 	}
 }

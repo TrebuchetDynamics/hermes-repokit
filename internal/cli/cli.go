@@ -235,14 +235,7 @@ func (a App) planTeam(id target.Identity, report Plan) *TeamPlan {
 		return unavailable("unavailable", err.Error())
 	}
 	plan := &TeamPlan{TeamStatus: status}
-	switch status.Status {
-	case "drift":
-		plan.Detail = "managed configuration drift blocks every write in this run; inspect the drift profiles or reset one with --reset-profile"
-	case "pending-setup":
-		plan.Detail = "Hermes private setup has not chosen a default model yet; run repokit setup"
-	default:
-		plan.Detail = "owner-customized profiles are preserved; none will be overwritten"
-	}
+	plan.Detail = teamDetail(status)
 	return plan
 }
 
@@ -346,3 +339,19 @@ func usage(w io.Writer) {
 	fmt.Fprintln(w, "       hermes-repokit remove (deletes the deployment and .hermes after typed confirmation)")
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }
+
+// teamDetail summarizes a team preview in one line for the plan output.
+func teamDetail(status native.TeamStatus) string {
+	switch status.Status {
+	case "drift":
+		return "managed configuration drift blocks every write in this run; inspect the drift profiles or reset one with --reset-profile"
+	case "pending-setup":
+		return "Hermes private setup has not chosen a default model yet; run repokit setup"
+	}
+	for _, row := range status.Profiles {
+		if row.State == "reset" {
+			return row.Profile + " will be replaced with RepoKit's baseline after its files are backed up; every other profile is preserved"
+		}
+	}
+	return "owner-customized profiles are preserved; none will be overwritten"
+}
