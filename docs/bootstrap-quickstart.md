@@ -11,13 +11,14 @@ and explicit routing; it neither merges nor manages the application's stack.
 `repokit stop` and `repokit start` stop and restart it later.
 Building the pure-Go bootstrap with `CGO_ENABLED=0 go build ./cmd/hermes-repokit`
 requires Go, not a host C compiler. Race tests are contributor validation.
-Install the bootstrap with Go 1.26+ from the published script:
+Install the bootstrap with Go 1.26+ from the latest release:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.1/install.sh | REPOKIT_REF=v0.2.1 sh
 ```
 
-It downloads and builds the current source, then installs the bootstrap as
+To build unreleased `main` instead, drop `REPOKIT_REF` and fetch the script from
+`main`. It downloads and builds the selected source, then installs the bootstrap as
 `~/.local/bin/hermes-repokit` plus the `repokit` alias. Running `./install.sh`
 from a source checkout builds that checkout instead. The commands below use
 `repokit`, which is always the bootstrap. Where a generated `hermes-<repo>`

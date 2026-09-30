@@ -1,12 +1,13 @@
 # Development binaries and release qualification
 
-On Linux with Go 1.26+, install the bootstrap CLI with:
+On Linux with Go 1.26+, install the bootstrap CLI from the latest release:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.1/install.sh | REPOKIT_REF=v0.2.1 sh
 ```
 
-The script downloads the current source, builds it, and installs
+To build unreleased `main`, use `curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/main/install.sh | sh`.
+The script downloads the selected source, builds it, and installs
 `~/.local/bin/hermes-repokit` plus the short
 `repokit` alias. Running `./install.sh` from a source checkout builds that
 checkout instead. It replaces a command it previously installed (recognized by an

@@ -30,10 +30,12 @@ Reuse an installed `repokit` if `command -v repokit` resolves and `repokit --hel
 lists `plan|install|setup|verify`. Otherwise install it (Linux, Go 1.26+, curl):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.1/install.sh | REPOKIT_REF=v0.2.1 sh
 ```
 
-The script downloads and builds the current `main` source with `CGO_ENABLED=0`
+Install the latest release shown above unless the owner asks for unreleased
+`main` (the same command with `main` in the URL and no `REPOKIT_REF`). The
+script downloads and builds that source with `CGO_ENABLED=0`
 (no C compiler needed) and publishes `~/.local/bin/hermes-repokit` plus the
 `repokit` alias. It updates a bootstrap it installed earlier and preserves any
 other existing command, including a generated `hermes-repokit` launcher. Read its

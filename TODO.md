@@ -3,11 +3,20 @@
 RepoKit configures a repository-specific Hermes team through public Hermes
 interfaces, proves what it can prove, then gets out of the way.
 
-**Released:** [v0.2.0](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.0)
-(seven profiles including `tester`, `install` + `setup` as the whole first-time
-path, per-profile convergence that preserves owner customization, memory left
-to the operator). Automatic dispatch is proven on upgraded deployments; the
-executor → tester → reviewer loop has not been observed yet.
+**Released:** [v0.2.1](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.1)
+(current generation only, no legacy support; Go toolchain caches on a project
+volume; CI). The same-card executor → tester → reviewer loop is proven live; a
+reviewer request-changes correction cycle is not yet.
+
+## Proven in v0.2.1
+
+- s3upload: a real task (`t_9b06fdfa`, shortener tests) ran executor → tester →
+  reviewer on the same card with independent re-verification; `CORE_READY`
+  healthy.
+- Dogfood and s3upload moved to the toolchain-cache volume in place; a Go build
+  in the container writes its caches to the volume, not the repository.
+- Fresh Node, Python and Go trial repositories: `plan`, `install`, `verify`,
+  `stop`/`start` and `remove` (Node, Go) behaved as documented.
 
 ## Proven in v0.2.0
 
