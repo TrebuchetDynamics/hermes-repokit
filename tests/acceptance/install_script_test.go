@@ -293,3 +293,38 @@ func TestInstallScriptBootstrapsFromRemoteSource(t *testing.T) {
 		t.Fatalf("remote alias missing: %v", err)
 	}
 }
+
+// REPOKIT_REF may name a branch, a release tag or a commit. GitHub serves all
+// three at archive/<ref>.tar.gz; archive/refs/heads/<ref> serves branches only.
+func TestInstallScriptFetchesTagsAndCommitsByRef(t *testing.T) {
+	_, here, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("cannot locate install script test")
+	}
+	script, err := os.ReadFile(filepath.Join(filepath.Dir(here), "../../install.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ref := range []string{"main", "v0.2.0", "5a6daf296677af55c6a462e795e29b614cd50309"} {
+		home := t.TempDir()
+		if err := os.Chmod(home, 0700); err != nil {
+			t.Fatal(err)
+		}
+		fake := t.TempDir()
+		record := filepath.Join(fake, "url")
+		curl := "#!/bin/sh\nfor a; do last=$a; done\nprintf '%s' \"$last\" > " + record + "\nexit 1\n"
+		if err := os.WriteFile(filepath.Join(fake, "curl"), []byte(curl), 0700); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("sh")
+		cmd.Dir = home
+		cmd.Stdin = bytes.NewReader(script)
+		cmd.Env = append(os.Environ(), "HOME="+home, "PATH="+fake+string(os.PathListSeparator)+os.Getenv("PATH"), "REPOKIT_REF="+ref)
+		cmd.CombinedOutput()
+		got, _ := os.ReadFile(record)
+		want := "https://github.com/TrebuchetDynamics/hermes-repokit/archive/" + ref + ".tar.gz"
+		if string(got) != want {
+			t.Fatalf("REPOKIT_REF=%s fetched %q, want %q", ref, got, want)
+		}
+	}
+}

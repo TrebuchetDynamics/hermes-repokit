@@ -45,7 +45,9 @@ Install the bootstrap CLI with Go 1.26+:
 curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/main/install.sh | sh
 ```
 
-The script builds from the current source; it downloads no release binary. It
+The script builds from the current source; it downloads no release binary. To
+build a release tag or a commit instead of `main`, set `REPOKIT_REF`, for example
+`… | REPOKIT_REF=v0.2.0 sh`. It
 publishes one binary under `hermes-repokit` and the short `repokit` alias,
 updates a command it previously installed, and preserves any other existing
 command. A generated `hermes-<repo>` host launcher can already own the

@@ -57,7 +57,8 @@ if [ -z "$root" ] || [ ! -f "$root/go.mod" ] || [ ! -d "$root/cmd/hermes-repokit
     command -v curl >/dev/null 2>&1 || fail 'curl is required to download the RepoKit source'
     command -v tar >/dev/null 2>&1 || fail 'tar is required to unpack the RepoKit source'
     repokit_ref=${REPOKIT_REF:-main}
-    repokit_url=${REPOKIT_SOURCE_URL:-https://github.com/TrebuchetDynamics/hermes-repokit/archive/refs/heads/$repokit_ref.tar.gz}
+    # archive/<ref> serves a branch, a release tag or a commit alike.
+    repokit_url=${REPOKIT_SOURCE_URL:-https://github.com/TrebuchetDynamics/hermes-repokit/archive/$repokit_ref.tar.gz}
     source_dir=$(mktemp -d "$temp_root/repokit-source.XXXXXXXX") || fail 'cannot create source directory'
     archive=$source_dir/source.tar.gz
     note "Downloading RepoKit source from $repokit_url"
