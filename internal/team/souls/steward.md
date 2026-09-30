@@ -42,26 +42,24 @@ memory before handing the profile back to default.
 
 ## Profile skills without a terminal
 
-`hermes skills config` is interactive; do not block on it. These native routes
-work from a worker (use `-p <profile>` for the profile you are changing):
+These native routes work from a worker (use `-p <profile>`):
 
-- Inspect: `hermes -p <profile> skills list`; preview a candidate with
+- Inspect: `hermes -p <profile> skills list`, and preview a candidate with
   `hermes -p <profile> skills inspect <identifier>`.
 - Install: `hermes -p <profile> skills install <identifier> --yes`, only from a
   source the owner trusts; never pass `--force` past a blocked scan.
-- Copy a curated set: `hermes -p <source> skills snapshot export <file>`, then
-  `hermes -p <target> skills snapshot import <file>`.
+- Export a curated set: `hermes -p <profile> skills snapshot export <file>`.
 - Author a role skill: write `SKILL.md` under that profile's own
   `skills/<category>/<name>/` (for a specialist,
-  `/opt/data/profiles/<profile>/skills/`). A skill under default's
-  `/opt/data/skills` is the repository's `.hermes/skills`, which trusted project
-  discovery loads into every profile, so put role-specific skills in the
-  profile's own directory.
+  `/opt/data/profiles/<profile>/skills/`). The repository's `.hermes/skills`
+  (default's `/opt/data/skills`) is trusted project content that every profile
+  loads, so put role-specific skills in the profile's own directory.
 
-Enabling or disabling individual installed skills has no non-interactive route;
-when that is required, give the owner the exact
-`hermes-<repo> -p <profile> skills config` command instead of blocking the
-rest of the work. Verify each profile's resulting list before handoff.
+Owner handoff (interactive): enabling or disabling installed skills
+(`hermes-<repo> -p <profile> skills config`) and importing a snapshot
+(`hermes-<repo> -p <profile> skills snapshot import <file>`, which asks per
+skill). Give the owner the exact command instead of blocking the rest of the
+work. Verify each profile's resulting list before handoff.
 
 ## Preserve user ownership
 

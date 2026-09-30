@@ -705,3 +705,39 @@ func TestMissingSkillReportsAreValidated(t *testing.T) {
 		t.Fatalf("missing skills: %v %v", report.MissingSkills, err)
 	}
 }
+
+// An untouched SOUL from the previous release is RepoKit's: it upgrades in
+// place while no card runs and waits while one does. Any other SOUL stays the
+// owner's.
+func TestPreviousReleaseSoulUpgradesOnlyWhenIdle(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	steward := roleNamed(roles, "steward")
+	if steward.PreviousSoul == "" || steward.PreviousSoul == steward.Soul {
+		t.Fatal("fixture needs a steward SOUL that changed since the previous release")
+	}
+	souls := currentSouls(roles)
+	souls["steward"] = steward.PreviousSoul
+	for _, c := range []struct {
+		stats, want string
+		writes      bool
+	}{
+		{`{"by_status":{}}`, "steward=upgrade[SOUL]", true},
+		{`{"by_status":{"running":1}}`, "steward=deferred[SOUL]", false},
+	} {
+		root, run := deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: c.stats})
+		plan, err := teamScript(id, false, "", run, root)
+		if err != nil || !strings.Contains(rowStates(plan), c.want) || len(plan.Customized)+len(plan.Drift) != 0 {
+			t.Fatalf("%s: %s %v", c.stats, rowStates(plan), err)
+		}
+		if got := strings.Contains(writes(plan.Script), soulWrite("steward", steward.Soul)); got != c.writes {
+			t.Fatalf("%s: current steward SOUL written=%v:\n%s", c.stats, got, plan.Script)
+		}
+	}
+	souls["steward"] = steward.PreviousSoul + "\nowner edit"
+	root, run := deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: `{"by_status":{}}`})
+	plan, err := teamScript(id, false, "", run, root)
+	if err != nil || strings.Join(plan.Customized, ",") != "steward" || strings.Contains(writes(plan.Script), "profiles/steward/SOUL.md") {
+		t.Fatalf("edited previous SOUL must stay the owner's: %s %v", rowStates(plan), err)
+	}
+}

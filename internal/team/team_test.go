@@ -1,8 +1,12 @@
 package team
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
 func TestStableGenericRoster(t *testing.T) {
@@ -93,5 +97,30 @@ func TestRoleBaselinesAreConsistent(t *testing.T) {
 	}
 	if len(Roster()[3].Skills) == 0 || Roster()[3].Name != "executor" {
 		t.Fatal("executor lost its granted skills")
+	}
+}
+
+// The previous release's SOULs are pinned: these are the exact SOULs v0.2.2
+// installed for this identity (hashes computed from the v0.2.2 source).
+func TestPreviousReleaseSoulsAreFrozen(t *testing.T) {
+	want := map[string]string{
+		"default":    "a0e888b68ba09421634bfe220e8f278366e8c788a56d36498ac070b0bfb46f56",
+		"researcher": "92af343d24bed01aa7099c64a0a724aa659766807c5b65c2339a0682da569521",
+		"planner":    "7b5c202af506368a3f6412951b43e562b47ac51b7aa2b33572d69b7d86ae1269",
+		"executor":   "818ec48f5ebbb5cc3c0c593be8018d80ac3edb0ceddd5020cfe12c83492c67bf",
+		"tester":     "05f2f5b73811dadff4463ac564a07c0efc55040f4d3c399d1f051d52f6637b17",
+		"reviewer":   "799ff9d795d6f8a9b6e7b9f1f2118371fab642252c1ae2eb3a3dba7844ef82f2",
+		"steward":    "93d4849cea6ccde6e9909605929b249801f073aab28dd5bc528241e35e3f703f",
+	}
+	if PreviousRelease != "v0.2.2" {
+		t.Fatalf("PreviousRelease is %s; regenerate souls/previous from that release and update these hashes", PreviousRelease)
+	}
+	for _, r := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {
+		if got := fmt.Sprintf("%x", sha256.Sum256([]byte(r.PreviousSoul))); got != want[r.Name] {
+			t.Errorf("%s previous SOUL changed: %s", r.Name, got)
+		}
+		if strings.Contains(r.PreviousSoul, "{{") {
+			t.Errorf("%s previous SOUL has an unfilled placeholder", r.Name)
+		}
 	}
 }
