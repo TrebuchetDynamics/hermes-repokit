@@ -151,9 +151,10 @@ blocked name. RepoKit likewise preserves an unrelated existing host executable
 and reports the collision.
 
 RepoKit recognizes only its current generation and keeps no legacy support. The
-one exception is the previous release: `install` upgrades a v0.2.0 deployment in
+exception is the previous release: `install` upgrades a v0.2.0 deployment in
 place, adding the toolchain-cache volume to a Go deployment after backing up its
-Compose and recipe as `compose.before-toolchain-cache-*`. A deployment from any
+Compose and recipe as `compose.before-toolchain-cache-*`, and rewrites untouched
+v0.2.2 SOULs to the current ones while no card is running. A deployment from any
 earlier release, like an edited or foreign one, is refused and never migrated. To start over, stop it with
 `docker compose -f .hermes/compose.yaml down`, move `.hermes` aside, and run
 `repokit install` again.

@@ -37,9 +37,9 @@ usage, that state is owner-controlled: later installs may report it or offer
 newer defaults, but never silently overwrite it.
 
 RepoKit keeps no legacy support: it recognizes only its current generation and
-the previous release, v0.2.0, which `install` upgrades in place (a Go
-deployment gains the toolchain-cache volume; the old Compose and recipe are
-backed up). Files from any earlier release, like edited or foreign ones, are
+the previous release. An untouched previous-release SOUL (v0.2.2) is upgraded
+in place while no card runs, and a v0.2.0 Go deployment gains the
+toolchain-cache volume after its old Compose and recipe are backed up. Files from any earlier release, like edited or foreign ones, are
 preserved and refused, never migrated; the owner starts over by stopping that deployment,
 moving `.hermes` aside and installing again.
 RepoKit does not hand-patch generated Compose or private `.hermes` state and
