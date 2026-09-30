@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -208,5 +209,82 @@ func TestRemovePreviewNamesTheVolumesItDeletes(t *testing.T) {
 		if listed := strings.Contains(out, "volumes "+volume+" "); listed != exists {
 			t.Fatalf("volume exists=%v but listed=%v:\n%s", exists, listed, out)
 		}
+	}
+}
+
+// leftoverRunner answers the label-scoped listing and removal calls that
+// `remove` uses once .hermes is gone.
+type leftoverRunner struct {
+	*removeRunner
+}
+
+func (r *leftoverRunner) Run(ctx context.Context, p string, args ...string) process.Result {
+	call := strings.Join(args, " ")
+	label := "label=com.docker.compose.project=" + r.id.Project
+	switch {
+	case strings.Contains(call, "{{.Config.Image}}"):
+		return process.Result{Output: "repokit/" + r.id.Container + ":abc\n"}
+	case strings.Contains(call, " volume ls ") && strings.HasSuffix(call, label):
+		return process.Result{Output: r.id.Project + "_toolchain-cache\n"}
+	case strings.Contains(call, " network ls ") && strings.HasSuffix(call, label):
+		return process.Result{Output: "n1\n"}
+	case strings.Contains(call, " container rm "), strings.Contains(call, " network rm "), strings.Contains(call, " volume rm "):
+		r.mutations = append(r.mutations, call[strings.Index(call, " ")+1:])
+		return process.Result{}
+	}
+	return r.removeRunner.Run(ctx, p, args...)
+}
+
+// An install whose .hermes is gone leaves its container, volumes, network,
+// image and host link; remove clears exactly those after confirmation so the
+// next install starts cleanly.
+func TestRemoveClearsLeftoversWhenStateIsGone(t *testing.T) {
+	a, base := installedForRemoval(t)
+	r := &leftoverRunner{base}
+	a.Runner = r
+	state := filepath.Join(a.Directory, ".hermes")
+	filepath.WalkDir(state, func(p string, d fs.DirEntry, err error) error {
+		if err == nil && d.IsDir() {
+			os.Chmod(p, 0700)
+		}
+		return nil
+	})
+	if err := os.RemoveAll(state); err != nil {
+		t.Fatal(err)
+	}
+	base.names = r.id.Container
+	_, out, diag := invoke(t, a, "plan")
+	if report := out + diag; !strings.Contains(report, "left from an earlier install") || strings.Contains(report, "PATH collision") {
+		t.Fatalf("plan did not explain the leftover: %s", report)
+	}
+	a.Confirm = func(string) (string, error) { return r.id.Name, nil }
+	code, out, diag := invoke(t, a, "remove")
+	if code != 0 {
+		t.Fatalf("remove: %s %s", out, diag)
+	}
+	got := strings.Join(r.mutations, "\n")
+	for _, want := range []string{"container rm --force " + r.id.Container, "volume rm " + r.id.Project + "_toolchain-cache", "network rm n1", "rmi repokit/" + r.id.Container + ":abc"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in:\n%s", want, got)
+		}
+	}
+	home, _ := os.UserHomeDir()
+	if _, err := os.Lstat(filepath.Join(home, ".local", "bin", r.id.Container)); !os.IsNotExist(err) {
+		t.Fatal("host link survived")
+	}
+	if _, err := os.Lstat(filepath.Join(a.Directory, ".hermes-repokit.lock")); !os.IsNotExist(err) {
+		t.Fatal("lock survived")
+	}
+}
+
+func TestRemoveLeftoversRefusesAForeignContainer(t *testing.T) {
+	a, base := installedForRemoval(t)
+	base.runtime = `{"status":"running","project":"someone-else","workspace":"/elsewhere","home":"/elsewhere/.hermes"}`
+	r := &leftoverRunner{base}
+	a.Runner = r
+	os.RemoveAll(filepath.Join(a.Directory, ".hermes"))
+	a.Confirm = func(string) (string, error) { return r.id.Name, nil }
+	if code, _, diag := invoke(t, a, "remove"); code == 0 || !strings.Contains(diag, "does not belong") || len(r.mutations) != 0 {
+		t.Fatalf("foreign container touched: %d %s %v", code, diag, r.mutations)
 	}
 }

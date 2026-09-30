@@ -162,7 +162,9 @@ project (container, network, docker-test volumes), the generated image, the
 `~/.local/bin/hermes-<repo>` symlink it created, the installer lock and its
 exclude line, and **the private `.hermes` state: profiles, Kanban board, provider
 logins, messaging tokens, sessions and memory.** That cannot be undone. Repository
-files and Git history are not touched.
+files and Git history are not touched. If `.hermes` is already gone, `remove` clears only the
+container, volumes, network, image and host link left by this repository's
+earlier install, so `install` can start over.
 
 ## Running and remaining gates
 

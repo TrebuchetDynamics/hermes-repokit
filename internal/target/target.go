@@ -151,7 +151,11 @@ func Inspect(id Identity, pathEnv string) []string {
 			// A repository named repokit shares its host command name with
 			// the RepoKit bootstrap. That entry is preserved and reported by
 			// install, like install.sh preserves a launcher; it never blocks.
-			if e != nil || resolved != id.Launcher && !RepoKitBootstrap(resolved) {
+			// This repository's own host link is dangling while .hermes is
+			// absent (an interrupted or removed deployment); install recreates
+			// the launcher it names and then reuses the link.
+			own, _ := os.Readlink(p)
+			if (e != nil || resolved != id.Launcher && !RepoKitBootstrap(resolved)) && own != id.Launcher {
 				issues = append(issues, "PATH collision: "+p)
 			}
 		} else if !os.IsNotExist(err) {

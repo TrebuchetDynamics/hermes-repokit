@@ -16,6 +16,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/launcher"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 )
@@ -39,6 +40,9 @@ type removal struct {
 // only on deployments it can prove it generated and only after the owner types
 // the repository name in an interactive terminal.
 func (a App) remove(id target.Identity, stdout, stderr io.Writer) int {
+	if _, err := os.Lstat(filepath.Join(id.Root, ".hermes")); os.IsNotExist(err) {
+		return a.removeLeftovers(id, stdout, stderr)
+	}
 	plan, err := a.planRemoval(id)
 	if err != nil {
 		fmt.Fprintln(stderr, "remove refused:", err)
@@ -281,4 +285,137 @@ func declaredVolumes(compose []byte) []string {
 		}
 	}
 	return names
+}
+
+// leftovers are what an install of this repository left behind once its
+// .hermes is gone: without the generated Compose file, each is proved by the
+// Compose project label (a hash of this exact repository path), the mount
+// sources, RepoKit's image name or the host link's exact destination.
+type leftovers struct {
+	dockerContext     string
+	container, image  string
+	volumes, networks []string
+	hostCommand       string
+}
+
+func (a App) planLeftovers(ctx context.Context, id target.Identity) (leftovers, error) {
+	var l leftovers
+	dc := a.Runner.Run(ctx, "docker", "context", "show")
+	if dc.Err != nil || dc.Truncated {
+		return l, fmt.Errorf("Docker context unavailable")
+	}
+	l.dockerContext = strings.TrimSpace(dc.Output)
+	docker := func(args ...string) process.Result {
+		return a.Runner.Run(ctx, "docker", append([]string{"--context", l.dockerContext}, args...)...)
+	}
+	if observed := docker("container", "inspect", "--format", verify.InspectFormat, id.Container); observed.Err == nil && !observed.Truncated {
+		var state verify.Runtime
+		if json.Unmarshal([]byte(observed.Output), &state) != nil || state.Project != id.Project || state.Workspace != id.Root || state.Home != filepath.Join(id.Root, ".hermes") {
+			return l, fmt.Errorf("container %s does not belong to this repository; nothing was removed", id.Container)
+		}
+		l.container = id.Container
+		if image := docker("container", "inspect", "--format", "{{.Config.Image}}", id.Container); image.Err == nil {
+			if name := strings.TrimSpace(image.Output); strings.HasPrefix(name, "repokit/"+id.Container+":") {
+				l.image = name
+			}
+		}
+	}
+	label := "label=com.docker.compose.project=" + id.Project
+	if out := docker("volume", "ls", "--quiet", "--filter", label); out.Err == nil {
+		l.volumes = strings.Fields(out.Output)
+	}
+	if out := docker("network", "ls", "--quiet", "--filter", label); out.Err == nil {
+		l.networks = strings.Fields(out.Output)
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		command := filepath.Join(home, ".local", "bin", id.Container)
+		if dest, err := os.Readlink(command); err == nil && dest == id.Launcher {
+			l.hostCommand = command
+		}
+	}
+	return l, nil
+}
+
+// removeLeftovers clears an install whose .hermes is gone, so install can
+// start over. It never touches anything it cannot prove belongs here.
+func (a App) removeLeftovers(id target.Identity, stdout, stderr io.Writer) int {
+	ctx := context.Background()
+	l, err := a.planLeftovers(ctx, id)
+	if err != nil {
+		fmt.Fprintln(stderr, "remove refused:", err)
+		return 1
+	}
+	if l.container == "" && l.image == "" && len(l.volumes)+len(l.networks) == 0 && l.hostCommand == "" {
+		fmt.Fprintln(stderr, "remove refused: no RepoKit deployment here (.hermes is absent and nothing from an earlier install remains)")
+		return 1
+	}
+	fmt.Fprintf(stdout, "%s/.hermes is gone; these are left from an earlier install of this repository:\n", id.Root)
+	if l.container != "" {
+		fmt.Fprintf(stdout, "  - container %s (running work stops immediately)\n", l.container)
+	}
+	if len(l.volumes) > 0 {
+		fmt.Fprintf(stdout, "  - volumes %s\n", strings.Join(l.volumes, ", "))
+	}
+	if len(l.networks) > 0 {
+		fmt.Fprintf(stdout, "  - networks %s\n", strings.Join(l.networks, ", "))
+	}
+	if l.image != "" {
+		fmt.Fprintf(stdout, "  - image %s\n", l.image)
+	}
+	if l.hostCommand != "" {
+		fmt.Fprintf(stdout, "  - host command %s\n", l.hostCommand)
+	}
+	fmt.Fprintln(stdout, "Repository files and Git history are not touched.")
+	answer, err := a.confirmation(stdout, fmt.Sprintf("Type the repository name (%s) to remove them: ", id.Name))
+	if err != nil {
+		fmt.Fprintln(stderr, "remove refused:", err)
+		return 1
+	}
+	if answer != id.Name {
+		fmt.Fprintln(stderr, "Confirmation did not match; nothing was removed.")
+		return 1
+	}
+	lock, err := lockForRemoval(id)
+	if err != nil {
+		fmt.Fprintln(stderr, "remove refused:", err)
+		return 1
+	}
+	defer lock.Close()
+	docker := func(args ...string) error {
+		return a.Runner.Run(ctx, "docker", append([]string{"--context", l.dockerContext}, args...)...).Err
+	}
+	if l.container != "" {
+		if err := docker("container", "rm", "--force", l.container); err != nil {
+			fmt.Fprintf(stderr, "remove stopped: container %s could not be removed; nothing else was deleted.\n", l.container)
+			return 1
+		}
+		fmt.Fprintf(stdout, "Removed container %s.\n", l.container)
+	}
+	for _, network := range l.networks {
+		if docker("network", "rm", network) != nil {
+			fmt.Fprintf(stderr, "Warning: network %s was not removed.\n", network)
+		}
+	}
+	for _, volume := range l.volumes {
+		if docker("volume", "rm", volume) != nil {
+			fmt.Fprintf(stderr, "Warning: volume %s was not removed.\n", volume)
+		}
+	}
+	if l.image != "" && docker("image", "rm", l.image) != nil {
+		fmt.Fprintf(stderr, "Warning: image %s was not removed (still in use or already gone).\n", l.image)
+	}
+	if l.hostCommand != "" {
+		if err := os.Remove(l.hostCommand); err != nil {
+			fmt.Fprintf(stderr, "Warning: host command %s was not removed: %v\n", l.hostCommand, err)
+		} else {
+			fmt.Fprintf(stdout, "Removed host command %s.\n", l.hostCommand)
+		}
+	}
+	if err := a.dropLockExclude(ctx, id); err != nil {
+		fmt.Fprintf(stderr, "Warning: %v\n", err)
+	}
+	lock.Close()
+	os.Remove(filepath.Join(id.Root, ".hermes-repokit.lock"))
+	fmt.Fprintf(stdout, "Leftovers removed. Run %s install to start over.\n", self())
+	return 0
 }

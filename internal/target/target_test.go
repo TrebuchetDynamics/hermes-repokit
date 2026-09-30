@@ -515,6 +515,27 @@ func TestRepoKitBootstrapOnPathIsNotACollision(t *testing.T) {
 	}
 }
 
+// A host link to this repository's own launcher is not a collision while
+// .hermes is absent (install recreates the launcher); a dangling link to any
+// other path still is.
+func TestOwnDanglingHostLinkIsNotACollision(t *testing.T) {
+	id, err := Resolve(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	bin := t.TempDir()
+	command := filepath.Join(bin, id.Container)
+	for dest, collides := range map[string]bool{id.Launcher: false, id.Launcher + "-other": true} {
+		os.Remove(command)
+		if err := os.Symlink(dest, command); err != nil {
+			t.Fatal(err)
+		}
+		if found := strings.Contains(strings.Join(Inspect(id, bin), "; "), "PATH collision"); found != collides {
+			t.Fatalf("%s: collision=%v", dest, found)
+		}
+	}
+}
+
 // Ordinary granted-tool activity (npx package links, the browser harness's
 // private control socket) must not make RepoKit refuse its own deployment.
 func TestInspectAllowsNpmLinksAndPrivateBrowserSocket(t *testing.T) {

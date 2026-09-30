@@ -314,7 +314,10 @@ func (a App) plan(id target.Identity) Plan {
 			if name == id.Container {
 				observed := a.Runner.Run(ctx, "docker", "--context", p.DockerContext, "container", "inspect", "--format", verify.InspectFormat, name)
 				var state verify.Runtime
-				if !p.ExistingState || observed.Err != nil || observed.Truncated || json.Unmarshal([]byte(observed.Output), &state) != nil || state.Project != id.Project || state.Workspace != id.Root || state.Home != filepath.Join(id.Root, ".hermes") {
+				leftover := observed.Err == nil && !observed.Truncated && json.Unmarshal([]byte(observed.Output), &state) == nil && state.Project == id.Project && state.Workspace == id.Root && state.Home == filepath.Join(id.Root, ".hermes")
+				if !p.ExistingState && leftover {
+					p.Collisions = append(p.Collisions, "container "+name+" is left from an earlier install of this repository, but .hermes is missing; clear it with `"+self()+" remove`, then install again")
+				} else if !p.ExistingState || observed.Err != nil || observed.Truncated || json.Unmarshal([]byte(observed.Output), &state) != nil || state.Project != id.Project || state.Workspace != id.Root || state.Home != filepath.Join(id.Root, ".hermes") {
 					p.Collisions = append(p.Collisions, "container name already exists (running or stopped); native deployment ownership requires verification")
 				}
 			}

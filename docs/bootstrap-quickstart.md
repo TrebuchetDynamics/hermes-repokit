@@ -236,6 +236,13 @@ network left by a killed container is cleaned too. Piped input is never accepted
 as confirmation. Stop the deployment with ordinary Compose instead if you only
 want it offline.
 
+If `.hermes` is already gone (deleted, or lost after an interrupted first
+install), `install` refuses and names the container left behind. `remove` then
+clears only what provably belongs to this repository: the container whose
+Compose project and mounts match this path, that project's volumes and
+networks, RepoKit's image for it and the host link to this launcher. It asks for
+the same typed confirmation; after that, `install` starts over.
+
 ## Qualification boundaries
 
 `verify` reads files/metadata and bounded Docker observations. It never invokes

@@ -298,7 +298,9 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 }
 
 // nativeReadyTimeout bounds the wait for a just-started container's Hermes CLI.
-var nativeReadyTimeout = 90 * time.Second
+// A first boot remaps the hermes user and fixes ownership of the state tree,
+// which took over 90 seconds on an SELinux-enforcing Fedora host.
+var nativeReadyTimeout = 5 * time.Minute
 
 func (a App) waitForNativeCLI(id target.Identity, dockerContext string) error {
 	runner := a.Initializer
