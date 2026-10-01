@@ -2,6 +2,7 @@ package verify
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -36,6 +37,7 @@ func ChannelSessions(ctx context.Context, id target.Identity, r Runner) []Probe 
 	}
 	platforms := configuredPlatforms(ctx, r, dc, container)
 	sort.Strings(platforms)
+	ended := endedConversations(ctx, r, dc, container, platforms)
 	var stale []string
 	checked := 0
 	for _, platform := range platforms {
@@ -55,7 +57,9 @@ func ChannelSessions(ctx context.Context, id target.Identity, r Runner) []Probe 
 			continue
 		}
 		checked++
-		if start.Before(identity) {
+		// An ended conversation (RepoKit or /new closed it) is not the one
+		// the next message continues: that message starts fresh.
+		if start.Before(identity) && !ended[platform] {
 			stale = append(stale, platform)
 		}
 	}
@@ -66,4 +70,31 @@ func ChannelSessions(ctx context.Context, id target.Identity, r Runner) []Probe 
 		return []Probe{{"sessions", Healthy, "current messaging conversations began with default's current identity"}}
 	}
 	return nil
+}
+
+// endedNewest reads, read-only through Hermes's own session store, whether
+// each platform's newest conversation has ended; nothing else is read.
+const endedNewest = `import json, sys
+from hermes_state import SessionDB
+db = SessionDB(read_only=True)
+out = {}
+for source in sys.argv[1:]:
+    rows = db.list_sessions_rich(source=source, limit=1)
+    out[source] = bool(rows) and rows[0].get("ended_at") is not None
+print("REPOKIT_ENDED=" + json.dumps(out))
+`
+
+var endedResult = regexp.MustCompile(`(?m)^REPOKIT_ENDED=(\{.*\})$`)
+
+func endedConversations(ctx context.Context, r Runner, dc, container string, platforms []string) map[string]bool {
+	ended := map[string]bool{}
+	if len(platforms) == 0 {
+		return ended
+	}
+	args := append([]string{"--context", dc, "exec", "--user", "hermes", "--env", "HOME=/opt/data", "--workdir", "/", container, "/opt/hermes/.venv/bin/python", "-c", endedNewest}, platforms...)
+	out := r.Run(ctx, "docker", args...)
+	if m := endedResult.FindStringSubmatch(out.Output); out.Err == nil && !out.Truncated && m != nil {
+		json.Unmarshal([]byte(m[1]), &ended)
+	}
+	return ended
 }

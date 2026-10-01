@@ -2,6 +2,7 @@ package verify
 
 import (
 	"context"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"os"
 	"path/filepath"
 	"strings"
@@ -69,5 +70,38 @@ func TestChannelSessionsReportsUnavailableRuntime(t *testing.T) {
 	probes := ChannelSessions(context.Background(), id, base)
 	if len(probes) != 1 || probes[0].Component != "sessions" || probes[0].Status != Unknown {
 		t.Fatalf("unavailable runtime hidden: %+v", probes)
+	}
+}
+
+// endedRunner reports whether each platform's newest conversation has ended.
+type endedRunner struct {
+	*hermesRunner
+	ended string
+}
+
+func (e *endedRunner) Run(ctx context.Context, p string, args ...string) process.Result {
+	if strings.Contains(strings.Join(args, " "), "REPOKIT_ENDED") {
+		return process.Result{Output: "REPOKIT_ENDED=" + e.ended + "\n"}
+	}
+	return e.hermesRunner.Run(ctx, p, args...)
+}
+
+// A conversation that predates the identity but has ended (RepoKit or /new
+// closed it) is not stale: the next message starts a fresh one.
+func TestEndedEarlierConversationIsNotStale(t *testing.T) {
+	id, base := integrationFixture(t)
+	soul := filepath.Join(id.Root, ".hermes", "SOUL.md")
+	os.WriteFile(soul, []byte("identity"), 0600)
+	changed := time.Date(2026, 9, 30, 4, 29, 0, 0, time.UTC)
+	os.Chtimes(soul, changed, changed)
+	h := &hermesRunner{integrationRunner: base, replies: map[string]string{
+		"send --list --json":                        `{"platforms":{"telegram":[{"id":"1"}]}}`,
+		"sessions list --source telegram --limit 1": "Title Preview Last ID\nx y z 20260929_192739_30656db1\n",
+	}}
+	for ended, want := range map[string]Status{`{"telegram":true}`: Healthy, `{"telegram":false}`: Degraded} {
+		probes := ChannelSessions(context.Background(), id, &endedRunner{h, ended})
+		if len(probes) != 1 || probes[0].Status != want {
+			t.Fatalf("%s: %+v", ended, probes)
+		}
 	}
 }

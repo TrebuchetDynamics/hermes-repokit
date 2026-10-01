@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
@@ -36,5 +37,42 @@ func TestNotifyChatsPostsToEachHomeChannel(t *testing.T) {
 	}
 	if !strings.Contains(IdentityChangedNotice, "/new") {
 		t.Fatal("notice does not tell the owner what to do")
+	}
+}
+
+// freshenCLI answers send --list, records the in-container session script's
+// arguments and reports telegram ended (discord was in use).
+type freshenCLI struct {
+	sendCLI
+	script []string
+}
+
+func (f *freshenCLI) RunInput(ctx context.Context, in io.Reader, p string, args ...string) process.Result {
+	for i, a := range args {
+		if a == "-c" && i+1 < len(args) && strings.Contains(args[i+1], "end_session") {
+			f.script = args[i+2:]
+			return process.Result{Output: "noise\nREPOKIT_FRESH=[\"telegram\"]\n"}
+		}
+	}
+	return f.sendCLI.RunInput(ctx, in, p, args...)
+}
+
+func TestFreshenChatsEndsQuietEarlierConversations(t *testing.T) {
+	r := &freshenCLI{}
+	cutoff := time.Unix(1790880000, 0)
+	ended := FreshenChats(context.Background(), target.Identity{Compose: "/x/.hermes/compose.yaml"}, "default", r, cutoff)
+	if strings.Join(ended, ",") != "telegram" {
+		t.Fatalf("ended %v", ended)
+	}
+	if strings.Join(r.script, " ") != "1790880000 300 discord telegram" {
+		t.Fatalf("session script args: %v", r.script)
+	}
+	// Chats that were not freshened get the /new reminder instead.
+	r.sends = nil
+	if sent := NotifyChatsExcept(context.Background(), target.Identity{Compose: "/x/.hermes/compose.yaml"}, "default", r, ended, IdentityChangedNotice); len(sent) != 0 {
+		t.Fatalf("reminder posted to a freshened or unreachable chat: %v", sent)
+	}
+	if !strings.Contains(freshenChats, "\"repokit_identity_change\"") || !strings.Contains(freshenChats, "> idle") {
+		t.Fatal("session script lost its reason or its in-use guard")
 	}
 }

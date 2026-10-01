@@ -316,9 +316,17 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 		changed = changed || role.Profile == "default" && role.State == "upgrade"
 	}
 	if changed {
-		u.note("default's identity changed: send /new in each chat (Telegram and others) so the conversation uses it")
-		if sent := native.NotifyChats(context.Background(), id, dockerContext, runner, native.IdentityChangedNotice); len(sent) > 0 {
-			u.note("posted that reminder to your " + strings.Join(sent, ", ") + " chat")
+		// End each quiet conversation that predates the new identity so the
+		// next message starts fresh, as /new would; a chat in use is left
+		// alone and gets the /new reminder instead.
+		ctx := context.Background()
+		fresh := native.FreshenChats(ctx, id, dockerContext, runner, time.Now())
+		if len(fresh) > 0 {
+			native.NotifyChatsOn(ctx, id, dockerContext, runner, fresh, native.FreshChatNotice)
+			u.note("default's identity changed: your next message in " + strings.Join(fresh, ", ") + " starts a fresh conversation with it (the earlier one's history is kept)")
+		}
+		if sent := native.NotifyChatsExcept(ctx, id, dockerContext, runner, fresh, native.IdentityChangedNotice); len(sent) > 0 {
+			u.note("default's identity changed: send /new in your " + strings.Join(sent, ", ") + " chat, which was in use, so the conversation uses it")
 		}
 	}
 	return 0
