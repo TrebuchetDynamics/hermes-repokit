@@ -659,6 +659,11 @@ func TestWorkerScratchCopiesAreNotWalked(t *testing.T) {
 	if issues := Inspect(id, ""); len(issues) != 0 {
 		t.Fatalf("scratch copy walked: %v", issues)
 	}
+	// A copy keeps the repository's group-writable modes (umask 002).
+	os.Chmod(filepath.Join(state, "profiles/tester/cache/scratch/copy"), 0775)
+	if issues := Inspect(id, ""); len(issues) != 0 {
+		t.Fatalf("group-writable scratch copy refused: %v", issues)
+	}
 	os.Chmod(filepath.Join(state, "profiles/tester/cache/scratch/copy"), 0777)
 	if issues := Inspect(id, ""); len(issues) != 1 {
 		t.Fatalf("world-writable scratch entry accepted: %v", issues)

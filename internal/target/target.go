@@ -223,6 +223,12 @@ func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
 		return toolLink || huggingFaceModelLink.MatchString(rel) || workerScratch.MatchString(rel)
 	}
 	if info.IsDir() {
+		// A worker's scratch copy of the repository keeps the repository's
+		// own modes, which are group-writable under the common 002 umask.
+		// RepoKit never reads scratch; only world-writable is refused there.
+		if workerScratchEntry.MatchString(rel) {
+			return info.Mode().Perm()&0002 == 0
+		}
 		return info.Mode().Perm()&0022 == 0
 	}
 	if info.Mode()&os.ModeSocket != 0 {
