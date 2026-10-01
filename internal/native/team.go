@@ -50,8 +50,14 @@ func configUnset(args []string, output string) bool {
 	return false
 }
 
+// configValue reads one resolved key. It asks Hermes for the key's top-level
+// section, which resolves defaults the same way, and walks to the key: each
+// Hermes CLI call costs about a second of start-up, and with cachedConfig one
+// section serves every key beneath it. An unset key is nil, as nativeTeamCLI
+// reports a direct `config get` of one.
 func configValue(run teamCLI, name, key string) (any, error) {
-	raw, err := run("-p", name, "config", "get", key, "--json")
+	path := strings.Split(key, ".")
+	raw, err := run("-p", name, "config", "get", path[0], "--json")
 	if err != nil {
 		return nil, err
 	}
@@ -60,11 +66,37 @@ func configValue(run teamCLI, name, key string) (any, error) {
 		return nil, errors.New("native configuration JSON unavailable")
 	}
 	if object, ok := value.(map[string]any); ok {
-		if v, found := object["value"]; found {
-			return v, nil
+		if v, found := object["value"]; found && len(object) == 1 {
+			value = v
 		}
 	}
+	for _, part := range path[1:] {
+		object, _ := value.(map[string]any)
+		value = object[part] // nil when the section or key is unset
+	}
 	return value, nil
+}
+
+// cachedConfig answers repeated `config get` reads from one call each. Only a
+// read-only pass may use it: nothing it serves reflects a later write.
+func cachedConfig(run teamCLI) teamCLI {
+	type reply struct {
+		out []byte
+		err error
+	}
+	cache := map[string]reply{}
+	return func(args ...string) ([]byte, error) {
+		if len(args) != 6 || args[0] != "-p" || args[2] != "config" || args[3] != "get" || args[5] != "--json" {
+			return run(args...)
+		}
+		key := args[1] + "\x00" + args[4]
+		if r, ok := cache[key]; ok {
+			return r.out, r.err
+		}
+		out, err := run(args...)
+		cache[key] = reply{out, err}
+		return out, err
+	}
 }
 func shellQuote(v string) string { return "'" + strings.ReplaceAll(v, "'", "'\\''") + "'" }
 func teamCommand(args ...string) string {
@@ -354,6 +386,8 @@ func resetWrite(role team.Role) string {
 // teamScript plans convergence. reset, when set, names one roster profile the
 // owner explicitly asked to return to RepoKit's baseline.
 func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, root *os.Root) (teamPlan, error) {
+	// Planning only reads native configuration; the plan's script writes later.
+	run = cachedConfig(run)
 	roles := team.ForRepository(id)
 	if reset != "" && !knownRole(reset) {
 		return teamPlan{}, errors.New("reset target is not a roster profile")

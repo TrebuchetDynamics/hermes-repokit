@@ -53,8 +53,8 @@ func (r *gatewayInput) RunInput(_ context.Context, input io.Reader, program stri
 			return process.Result{Output: "✗ Gateway is not running"}
 		}
 		return process.Result{Output: fmt.Sprintf("✓ Gateway is running (PID: %d)", r.pid)}
-	case strings.Contains(joined, "config get model.default") && r.model != "":
-		return process.Result{Output: `{"value":"` + r.model + `"}`}
+	case strings.HasSuffix(joined, "config get model --json") && r.model != "":
+		return process.Result{Output: `{"default":"` + r.model + `"}`}
 	case strings.HasSuffix(joined, "kanban stats --json"):
 		return process.Result{Output: `{"by_status":{}}`}
 	case strings.Contains(joined, " config get "):
