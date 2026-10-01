@@ -315,18 +315,22 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 	for _, role := range teamReport.Roles {
 		changed = changed || role.Profile == "default" && role.State == "upgrade"
 	}
-	if changed {
-		// End each quiet conversation that predates the new identity so the
-		// next message starts fresh, as /new would; a chat in use is left
-		// alone and gets the /new reminder instead.
+	// End each quiet conversation that predates default's identity so the
+	// next message starts fresh, as /new would. Every run checks, so a chat
+	// that was in use when the identity changed is freshened once it is
+	// quiet; the /new reminder for a chat in use goes out only when the
+	// identity changes.
+	if info, err := os.Lstat(filepath.Join(id.Root, ".hermes", "SOUL.md")); err == nil && info.Mode().IsRegular() {
 		ctx := context.Background()
-		fresh := native.FreshenChats(ctx, id, dockerContext, runner, time.Now())
+		fresh, busy := native.FreshenChats(ctx, id, dockerContext, runner, info.ModTime())
 		if len(fresh) > 0 {
 			native.NotifyChatsOn(ctx, id, dockerContext, runner, fresh, native.FreshChatNotice)
-			u.note("default's identity changed: your next message in " + strings.Join(fresh, ", ") + " starts a fresh conversation with it (the earlier one's history is kept)")
+			u.note("your next message in " + strings.Join(fresh, ", ") + " starts a fresh conversation with default's current identity (the earlier one's history is kept)")
 		}
-		if sent := native.NotifyChatsExcept(ctx, id, dockerContext, runner, fresh, native.IdentityChangedNotice); len(sent) > 0 {
-			u.note("default's identity changed: send /new in your " + strings.Join(sent, ", ") + " chat, which was in use, so the conversation uses it")
+		if changed {
+			if sent := native.NotifyChatsOn(ctx, id, dockerContext, runner, busy, native.IdentityChangedNotice); len(sent) > 0 {
+				u.note("default's identity changed: your " + strings.Join(sent, ", ") + " chat is in use, so RepoKit left it; send /new there, or the next install freshens it once it is quiet")
+			}
 		}
 	}
 	return 0

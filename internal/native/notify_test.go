@@ -51,7 +51,7 @@ func (f *freshenCLI) RunInput(ctx context.Context, in io.Reader, p string, args 
 	for i, a := range args {
 		if a == "-c" && i+1 < len(args) && strings.Contains(args[i+1], "end_session") {
 			f.script = args[i+2:]
-			return process.Result{Output: "noise\nREPOKIT_FRESH=[\"telegram\"]\n"}
+			return process.Result{Output: "noise\nREPOKIT_FRESH={\"ended\": [\"telegram\"], \"busy\": []}\n"}
 		}
 	}
 	return f.sendCLI.RunInput(ctx, in, p, args...)
@@ -60,9 +60,9 @@ func (f *freshenCLI) RunInput(ctx context.Context, in io.Reader, p string, args 
 func TestFreshenChatsEndsQuietEarlierConversations(t *testing.T) {
 	r := &freshenCLI{}
 	cutoff := time.Unix(1790880000, 0)
-	ended := FreshenChats(context.Background(), target.Identity{Compose: "/x/.hermes/compose.yaml"}, "default", r, cutoff)
-	if strings.Join(ended, ",") != "telegram" {
-		t.Fatalf("ended %v", ended)
+	ended, busy := FreshenChats(context.Background(), target.Identity{Compose: "/x/.hermes/compose.yaml"}, "default", r, cutoff)
+	if strings.Join(ended, ",") != "telegram" || len(busy) != 0 {
+		t.Fatalf("ended %v busy %v", ended, busy)
 	}
 	if strings.Join(r.script, " ") != "1790880000 300 discord telegram" {
 		t.Fatalf("session script args: %v", r.script)
@@ -72,7 +72,7 @@ func TestFreshenChatsEndsQuietEarlierConversations(t *testing.T) {
 	if sent := NotifyChatsExcept(context.Background(), target.Identity{Compose: "/x/.hermes/compose.yaml"}, "default", r, ended, IdentityChangedNotice); len(sent) != 0 {
 		t.Fatalf("reminder posted to a freshened or unreachable chat: %v", sent)
 	}
-	if !strings.Contains(freshenChats, "\"repokit_identity_change\"") || !strings.Contains(freshenChats, "> idle") {
+	if !strings.Contains(freshenChats, "\"repokit_identity_change\"") || !strings.Contains(freshenChats, "> idle") || !strings.Contains(freshenChats, "starts fresh anyway") {
 		t.Fatal("session script lost its reason or its in-use guard")
 	}
 }

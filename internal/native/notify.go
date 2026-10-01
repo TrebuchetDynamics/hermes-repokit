@@ -36,36 +36,42 @@ const freshenChats = `import json, sys, time
 from hermes_state import SessionDB
 cutoff, idle = float(sys.argv[1]), float(sys.argv[2])
 db = SessionDB()
-ended = []
+ended, busy = [], []
 for source in sys.argv[3:]:
     for s in db.list_sessions_rich(source=source, limit=1):
-        quiet = time.time() - float(s.get("last_active") or 0) > idle
-        if s.get("ended_at") is None and float(s.get("started_at") or 0) < cutoff and quiet:
+        if s.get("ended_at") is not None or float(s.get("started_at") or 0) >= cutoff:
+            continue  # the next message starts fresh anyway
+        if time.time() - float(s.get("last_active") or 0) > idle:
             db.end_session(s["id"], "repokit_identity_change")
             ended.append(source)
-print("REPOKIT_FRESH=" + json.dumps(ended))
+        else:
+            busy.append(source)
+print("REPOKIT_FRESH=" + json.dumps({"ended": ended, "busy": busy}))
 `
 
-var freshResult = regexp.MustCompile(`(?m)^REPOKIT_FRESH=(\[.*\])$`)
+var freshResult = regexp.MustCompile(`(?m)^REPOKIT_FRESH=(\{.*\})$`)
 
 // FreshenChats starts a fresh conversation, on the next message, in every
 // messaging chat whose conversation predates cutoff (default's identity
-// change) and is quiet; a chat in active use is left alone. It returns the
-// platforms whose conversation it ended.
-func FreshenChats(ctx context.Context, id target.Identity, dc string, r InputRunner, cutoff time.Time) []string {
+// change) and is quiet. It returns the platforms whose conversation it ended
+// and those whose earlier conversation is in active use, left alone; a chat
+// already starting fresh is in neither.
+func FreshenChats(ctx context.Context, id target.Identity, dc string, r InputRunner, cutoff time.Time) (ended, busy []string) {
 	platforms := chatPlatforms(nativeTeamCLI(ctx, id, dc, r))
 	if len(platforms) == 0 {
-		return nil
+		return nil, nil
 	}
 	args := []string{"--context", dc, "compose", "--env-file", "/dev/null", "-f", id.Compose, "exec", "-T", "--user", "hermes", "--env", "HOME=/opt/data", "--workdir", "/opt/data", "hermes", "/opt/hermes/.venv/bin/python", "-c", freshenChats, strconv.FormatInt(cutoff.Unix(), 10), strconv.Itoa(chatIdleSeconds)}
 	result := r.RunInput(ctx, nil, "docker", append(args, platforms...)...)
 	m := freshResult.FindStringSubmatch(result.Output)
-	var ended []string
-	if result.Err != nil || m == nil || json.Unmarshal([]byte(m[1]), &ended) != nil {
-		return nil
+	var out struct{ Ended, Busy []string }
+	if result.Err != nil || m == nil || json.Unmarshal([]byte(m[1]), &out) != nil {
+		// Unobserved: remind every chat rather than stay silent.
+		return nil, platforms
 	}
-	sort.Strings(ended)
-	return ended
+	sort.Strings(out.Ended)
+	sort.Strings(out.Busy)
+	return out.Ended, out.Busy
 }
 
 // chatPlatforms lists the messaging platforms Hermes can reach, from public
