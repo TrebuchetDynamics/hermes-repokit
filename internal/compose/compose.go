@@ -39,9 +39,10 @@ const (
 )
 
 // ToolchainCacheMounted reports whether a render mounts the toolchain cache:
-// Go's module and build caches stay out of the repository's .hermes.
+// Go's module and build caches and Cargo's registry stay out of the
+// repository's .hermes.
 func ToolchainCacheMounted(o Options) bool {
-	return o.Development != nil && o.Development.Go && !o.beforeToolchainCache
+	return o.Development != nil && (o.Development.Go || o.Development.Rust) && !o.beforeToolchainCache
 }
 
 // StateMaskTarget is where the repository's own .hermes appears inside

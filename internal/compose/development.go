@@ -42,10 +42,10 @@ func DevelopmentSelected(id target.Identity) (Options, bool) {
 	if len(data) == 0 {
 		return Options{}, false
 	}
-	for _, goTool := range []bool{false, true} {
+	for _, toolchain := range development.Toolchains() {
 		for _, tests := range []bool{false, true} {
 			for _, sel := range []selinux.State{"", selinux.Detect()} {
-				req := development.Requirements{Go: goTool}
+				req := toolchain
 				o := Options{HermesImage: qualification.FoundationImage, Development: &req, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: sel}
 				expected, err := Render(id, o)
 				if err == nil && bytes.Equal(data, expected) {

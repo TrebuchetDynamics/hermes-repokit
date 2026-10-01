@@ -87,10 +87,10 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 		}
 		for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
 			for _, older := range olderRecipes {
-				// The older Compose was rendered for the older recipe's Go
-				// selection: a repository that gained a go.mod had no
-				// toolchain-cache volume before.
-				olderReq := development.Requirements{Go: development.RecipeGo(older.files)}
+				// The older Compose was rendered for the older recipe's
+				// toolchains: a repository that gained a go.mod or Cargo.toml
+				// had no toolchain-cache volume before.
+				olderReq := development.RecipeRequirements(older.files)
 				opts := compose.Options{HermesImage: qualification.FoundationImage, Development: &olderReq, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
 				old, err := compose.OlderRecipe(id, opts, older.fingerprint)
 				if err != nil {
@@ -142,7 +142,7 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 		if len(current.Collisions) > 0 {
 			return fmt.Errorf("target changed: %s", strings.Join(current.Collisions, "; "))
 		}
-		if current.Development.Go != report.Development.Go {
+		if current.Development.Go != report.Development.Go || current.Development.Rust != report.Development.Rust {
 			return fmt.Errorf("repository toolchain requirements changed during installation")
 		}
 		if current.DockerContext != report.DockerContext {

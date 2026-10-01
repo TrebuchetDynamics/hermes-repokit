@@ -118,30 +118,36 @@ func TestInstallUpgradesThePreMaskLayout(t *testing.T) {
 	}
 }
 
-// A deployment installed without Go whose repository then gains a go.mod (at
-// the root or in a nested project) upgrades in place: the older Compose was
-// rendered for the older recipe, without the toolchain-cache volume.
-func TestInstallUpgradesWhenARepositoryGainsGo(t *testing.T) {
-	for _, path := range []string{"go.mod", "svc/go.mod"} {
+// A deployment installed without a toolchain whose repository then gains a
+// go.mod or Cargo.toml (at the root or in a nested project) upgrades in place:
+// the older Compose was rendered for the older recipe, without the
+// toolchain-cache volume.
+func TestInstallUpgradesWhenARepositoryGainsAToolchain(t *testing.T) {
+	for _, path := range []string{"go.mod", "svc/go.mod", "Cargo.toml", "crate/Cargo.toml"} {
 		t.Run(path, func(t *testing.T) {
 			a, r := foundationApp(t)
 			if c, _, d := invoke(t, a, "install"); c != 0 {
 				t.Fatal(d)
 			}
-			if o, _ := compose.DevelopmentSelected(r.id); o.Development.Go {
-				t.Fatal("Go selected before any go.mod")
+			if o, _ := compose.DevelopmentSelected(r.id); o.Development.Go || o.Development.Rust {
+				t.Fatal("toolchain selected before any manifest")
+			}
+			rust := strings.HasSuffix(path, "Cargo.toml")
+			content := "module example.test/demo\n\ngo 1.26.0\n"
+			if rust {
+				content = "[package]\nname = \"demo\"\n"
 			}
 			file := filepath.Join(a.Directory, path)
 			os.MkdirAll(filepath.Dir(file), 0700)
-			if err := os.WriteFile(file, []byte("module example.test/demo\n\ngo 1.26.0\n"), 0600); err != nil {
+			if err := os.WriteFile(file, []byte(content), 0600); err != nil {
 				t.Fatal(err)
 			}
 			if c, out, d := invoke(t, a, "install"); c != 0 {
 				t.Fatalf("gaining Go refused: %s %s", out, d)
 			}
 			o, ok := compose.DevelopmentSelected(r.id)
-			if !ok || !o.Development.Go || !compose.ToolchainCacheMounted(o) {
-				t.Fatal("upgraded Compose does not select Go with its toolchain cache")
+			if !ok || o.Development.Go == rust || o.Development.Rust != rust || !compose.ToolchainCacheMounted(o) {
+				t.Fatal("upgraded Compose does not select the toolchain with its cache")
 			}
 			if backups, _ := filepath.Glob(filepath.Join(r.id.Root, ".hermes", "compose.before-recipe-*.yaml")); len(backups) != 1 {
 				t.Fatalf("prior Compose not backed up: %v", backups)

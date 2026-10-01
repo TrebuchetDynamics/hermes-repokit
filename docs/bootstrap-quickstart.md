@@ -268,12 +268,16 @@ claims authenticated chat, memory recall or independent review. Dogfood on RepoK
 Normal `install` now publishes `.hermes/development-image` and builds Hermes with
 its project toolchain. A `go.mod` at the root or in a nested project up to three
 folders deep (a monorepo's `rig-vigia/go.mod`) selects pinned Go plus
-checksum-pinned `staticcheck`; vendored, generated and hidden trees are skipped
-and symlinks are never followed. Node/npm, Python and standard build utilities
-come from the pinned base plus checksum-pinned tools. Nested Rust and JVM
-projects (such as an app's Android wrapper) are noted but not provisioned.
+checksum-pinned `staticcheck`; a `Cargo.toml` likewise selects the official
+Rust release (rustc and cargo with clippy, rustfmt and rust-analyzer), pinned by
+checksum, with Cargo's registry on the toolchain-cache volume. A
+`rust-toolchain` file pinning another release, or a newer `rust-version`, is
+reported by `verify`. Vendored, generated and hidden trees are skipped and
+symlinks are never followed. Node/npm, Python and standard build utilities come
+from the pinned base plus checksum-pinned tools. JVM projects (such as an app's
+Android wrapper) are noted but not provisioned.
 `install` builds and starts it. A changed recipe (such as a repository gaining
-a `go.mod`) is republished in place with a retained backup; edited recipes are
+a `go.mod` or `Cargo.toml`) is republished in place with a retained backup; edited recipes are
 preserved and refused.
 `verify` reports actual development tool versions and profile workdirs separately
 from memory and model-driven acceptance.

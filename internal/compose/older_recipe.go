@@ -56,18 +56,18 @@ func BeforeStateMask(id target.Identity, o Options, fingerprint string) ([]byte,
 func DevelopmentInstallSelected(id target.Identity) (Options, bool) {
 	data := generatedData(id)
 	recipe, fingerprint, generated := development.ReadGeneratedRecipe(filepath.Join(id.Root, ".hermes", "development-image"))
-	// A recipe awaiting replacement determines the Go selection its Compose
-	// was rendered with; the image tag alone cannot.
-	recipeGo := development.RecipeGo(recipe)
-	for _, goTool := range []bool{false, true} {
+	// A recipe awaiting replacement determines the toolchain selection its
+	// Compose was rendered with; the image tag alone cannot.
+	recipeTools := development.RecipeRequirements(recipe)
+	for _, toolchain := range development.Toolchains() {
 		for _, tests := range []bool{false, true} {
 			for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
-				req := development.Requirements{Go: goTool}
+				req := toolchain
 				o := Options{HermesImage: qualification.FoundationImage, Development: &req, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
 				if expected, err := Render(id, o); err == nil && bytes.Equal(data, expected) {
 					return o, true
 				}
-				if generated && goTool == recipeGo {
+				if generated && toolchain.Go == recipeTools.Go && toolchain.Rust == recipeTools.Rust {
 					if expected, err := OlderRecipe(id, o, fingerprint); err == nil && bytes.Equal(data, expected) {
 						return o, true
 					}

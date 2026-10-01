@@ -19,13 +19,15 @@ const maxManifests = 64
 
 type Requirements struct {
 	Go          bool     `json:"go"`
+	Rust        bool     `json:"rust"`
 	Detected    []string `json:"detected"`
 	Unsupported []string `json:"unsupported"`
 }
 
 // Detect inspects root manifests strictly and, within bounds, those of nested
-// projects in a monorepo (rig-vigia/go.mod). Dependency installation,
-// arbitrary version selectors, Rust and JVM provisioning remain unqualified.
+// projects in a monorepo (rig-vigia/go.mod). Go and Rust are provisioned;
+// dependency installation, arbitrary version selectors and JVM provisioning
+// remain unqualified.
 func Detect(path string) (Requirements, error) {
 	r := Requirements{Detected: []string{}, Unsupported: []string{}}
 	root, err := os.OpenRoot(path)
@@ -118,7 +120,10 @@ func Detect(path string) (Requirements, error) {
 					}
 				}
 			}
-		case "rust", "jvm":
+		case "rust":
+			r.Rust = true
+			r.Unsupported = append(r.Unsupported, rustRequirements(root, "", string(data))...)
+		case "jvm":
 			r.Unsupported = append(r.Unsupported, kind+" toolchain provisioning is not supported")
 		}
 	}
@@ -330,9 +335,10 @@ func compact(values []string) []string {
 // skips vendored, generated and hidden trees. A nested go.mod provisions Go;
 // one that cannot be read or qualified is reported with its path and never
 // fails detection, so a stray file deep in a repository cannot block install.
-// Other nested projects are only recorded as detected: Node and Python come
-// with the image, and nested Rust or JVM builds (often an app's Android
-// wrapper) are not provisioned and do not mark the environment degraded.
+// A nested Cargo.toml provisions Rust the same way. Other nested projects are
+// only recorded as detected: Node and Python come with the image, and nested
+// JVM builds (often an app's Android wrapper) are not provisioned and do not
+// mark the environment degraded.
 const maxNestedDepth = 3
 const maxNestedEntries = 20000
 
@@ -386,11 +392,53 @@ func detectNested(root *os.Root, r *Requirements, found map[string]bool) {
 			case name == "pyproject.toml" || (strings.HasPrefix(name, "requirements") && strings.HasSuffix(name, ".txt")):
 				found["python"] = true
 			case name == "Cargo.toml":
+				data, err := readManifest(root, rel)
+				if err != nil {
+					r.Unsupported = append(r.Unsupported, rel+" cannot be safely inspected")
+					continue
+				}
 				found["rust"] = true
+				r.Rust = true
+				r.Unsupported = append(r.Unsupported, rustRequirements(root, dir+"/", string(data))...)
 			case name == "pom.xml" || strings.HasPrefix(name, "build.gradle"):
 				found["jvm"] = true
 			}
 		}
 	}
 	walk(".", 0)
+}
+
+var rustVersionField = regexp.MustCompile(`^rust-version\s*=\s*"([^"]+)"`)
+var toolchainChannel = regexp.MustCompile(`^channel\s*=\s*"([^"]+)"`)
+
+// rustRequirements reports what the pinned Rust cannot satisfy for one crate
+// or workspace: a newer rust-version, or a toolchain file pinning another
+// release (without rustup, cargo would ignore it and build with the pinned
+// one). Nothing is executed.
+func rustRequirements(root *os.Root, dir, manifest string) []string {
+	var unsupported []string
+	pin, _ := numbers(RustVersion)
+	for line := range strings.SplitSeq(manifest, "\n") {
+		if m := rustVersionField.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
+			if v, ok := numbers(m[1]); !ok || compare(v, pin) > 0 {
+				unsupported = append(unsupported, dir+"Cargo.toml requires Rust "+m[1]+" beyond pinned "+RustVersion)
+			}
+		}
+	}
+	for _, name := range []string{"rust-toolchain.toml", "rust-toolchain"} {
+		data, err := readManifest(root, dir+name)
+		if err != nil {
+			continue
+		}
+		channel := strings.TrimSpace(string(data))
+		for line := range strings.SplitSeq(string(data), "\n") {
+			if m := toolchainChannel.FindStringSubmatch(strings.TrimSpace(line)); m != nil {
+				channel = m[1]
+			}
+		}
+		if channel != "stable" && channel != RustVersion && channel != strings.Join(strings.Split(RustVersion, ".")[:2], ".") {
+			unsupported = append(unsupported, dir+name+" pins a Rust toolchain other than the provisioned "+RustVersion)
+		}
+	}
+	return unsupported
 }

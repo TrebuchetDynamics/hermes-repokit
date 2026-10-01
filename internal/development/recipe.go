@@ -20,6 +20,7 @@ import (
 // Node/npm/Python come from the immutable Hermes base and are asserted at build.
 const GoVersion = "1.26.6"
 const StaticcheckVersion = "2026.2.1"
+const RustVersion = "1.98.1"
 const NodeVersion = "26.5.1"
 const NPMVersion = "11.17.0"
 const PythonVersion = "3.13.5"
@@ -71,6 +72,32 @@ ENV PATH="/usr/local/go/bin:${PATH}" \
     GOMODCACHE=/var/cache/repokit/go-mod
 `
 
+// rustInstall is the official standalone Rust release (dated, immutable URL),
+// checksum-pinned, with cargo, clippy, rustfmt and rust-analyzer. Cargo's
+// registry and git caches live on the toolchain-cache volume.
+const rustInstall = `RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) arch=x86_64; rust_sha=5326b36c53de11d148c8f8dab6553a3d1006c2cfd32123683073fad3c302605b ;; \
+      arm64) arch=aarch64; rust_sha=0b514a8cc1cbcd939bff0f151661fe58b6ea5c7a7f645a5098c69e32e8c1e0a2 ;; \
+      *) echo 'Unqualified Rust architecture' >&2; exit 1 ;; \
+    esac; \
+    curl --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 900 \
+      "https://static.rust-lang.org/dist/2026-09-03/rust-1.98.1-${arch}-unknown-linux-gnu.tar.xz" -o /tmp/repokit-rust.tar.xz; \
+    printf '%s  %s\n' "$rust_sha" /tmp/repokit-rust.tar.xz | sha256sum -c -; \
+    mkdir /tmp/repokit-rust; \
+    tar -xJf /tmp/repokit-rust.tar.xz -C /tmp/repokit-rust --strip-components=1; \
+    /tmp/repokit-rust/install.sh --prefix=/usr/local --disable-ldconfig \
+      --components=rustc,rust-std-${arch}-unknown-linux-gnu,cargo,rustfmt-preview,clippy-preview,rust-analyzer-preview; \
+    rm -rf /tmp/repokit-rust /tmp/repokit-rust.tar.xz; \
+    rustc --version | grep -F 'rustc 1.98.1 '; \
+    cargo clippy --version; rustfmt --version; \
+    cd /tmp; CARGO_HOME=/tmp/repokit-cargo cargo new --quiet --vcs none repokit-rust-smoke; \
+    cd /tmp/repokit-rust-smoke; CARGO_HOME=/tmp/repokit-cargo cargo test --quiet --offline; \
+    rm -rf /tmp/repokit-rust-smoke /tmp/repokit-cargo
+RUN install -d -m 1777 /var/cache/repokit
+ENV CARGO_HOME=/var/cache/repokit/cargo
+`
+
 func recipeInputs(req Requirements) map[string][]byte {
 	template, err := assets.Assets.ReadFile("Dockerfile")
 	if err != nil {
@@ -83,6 +110,9 @@ func recipeInputs(req Requirements) map[string][]byte {
 	goSteps := ""
 	if req.Go {
 		goSteps = goInstall
+	}
+	if req.Rust {
+		goSteps += rustInstall
 	}
 	content := strings.NewReplacer("{{HERMES_IMAGE}}", qualification.FoundationImage, "{{GO_INSTALL}}", goSteps).Replace(string(template))
 	requirements, err := assets.Assets.ReadFile("repokit-ddgs-requirements.txt")
@@ -113,10 +143,18 @@ func hashRecipe(files map[string][]byte) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// RecipeGo reports whether a generated recipe installs Go, which determines the
-// Go selection its Compose was rendered with.
-func RecipeGo(files map[string][]byte) bool {
-	return bytes.Contains(files["Dockerfile"], []byte("https://go.dev/dl/go"))
+// RecipeRequirements reports the toolchains a generated recipe installs, which
+// determine the selection its Compose was rendered with.
+func RecipeRequirements(files map[string][]byte) Requirements {
+	return Requirements{
+		Go:   bytes.Contains(files["Dockerfile"], []byte("https://go.dev/dl/go")),
+		Rust: bytes.Contains(files["Dockerfile"], []byte("https://static.rust-lang.org/dist/")),
+	}
+}
+
+// Toolchains lists every toolchain selection a generated Compose can carry.
+func Toolchains() []Requirements {
+	return []Requirements{{}, {Go: true}, {Rust: true}, {Go: true, Rust: true}}
 }
 
 var recipeLabel = regexp.MustCompile(`org\.repokit\.development\.recipe=([0-9a-f]{64})`)

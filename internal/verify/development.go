@@ -41,6 +41,9 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 	if req.Go {
 		tools = append(tools, struct{ name, command string }{"go", "go version"}, struct{ name, command string }{"staticcheck", "staticcheck -version"})
 	}
+	if req.Rust {
+		tools = append(tools, struct{ name, command string }{"rustc", "rustc --version"}, struct{ name, command string }{"cargo", "cargo --version"}, struct{ name, command string }{"clippy", "cargo clippy --version"})
+	}
 	missing := append([]string(nil), req.Unsupported...)
 	for _, tool := range tools {
 		out := r.Run(ctx, "docker", "--context", dc, "exec", "--user", "hermes", "--workdir", "/workspace", container, "/usr/bin/bash", "-lc", tool.command)
@@ -57,7 +60,8 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		} else if tool.name == "compose" && strings.TrimPrefix(version, "v") != development.ComposeVersion ||
 			tool.name == "buildx" && !containsVersionToken(version, "v"+development.BuildxVersion) ||
 			tool.name == "go" && !strings.HasPrefix(version, "go version go"+development.GoVersion+" ") ||
-			tool.name == "staticcheck" && !strings.HasPrefix(version, "staticcheck "+development.StaticcheckVersion+" ") {
+			tool.name == "staticcheck" && !strings.HasPrefix(version, "staticcheck "+development.StaticcheckVersion+" ") ||
+			tool.name == "rustc" && !strings.HasPrefix(version, "rustc "+development.RustVersion+" ") {
 			status = Degraded
 		}
 		if status == Degraded {

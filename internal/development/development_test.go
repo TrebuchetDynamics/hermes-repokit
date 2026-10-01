@@ -75,7 +75,7 @@ func TestDetectReportsUnqualifiedRequirements(t *testing.T) {
 		{"pyproject.toml", "[project]\nrequires-python = \"==3.13\"\n"},
 		{"pyproject.toml", "[project]\nrequires-python = \"^3.0\"\n"},
 		{"package.json", `{"engines":{"bun":"1"}}`},
-		{"Cargo.toml", "[package]\nname='example'\n"},
+		{"Cargo.toml", "[package]\nname='example'\nrust-version = \"1.99\"\n"},
 		{"pom.xml", "<project/>"},
 		{"build.gradle.kts", "plugins {}"},
 	} {
@@ -90,6 +90,37 @@ func TestDetectReportsUnqualifiedRequirements(t *testing.T) {
 				t.Fatalf("requirements unexpectedly qualified: %+v", r)
 			}
 		})
+	}
+}
+
+// A Cargo.toml at the root or in a nested crate provisions the pinned Rust;
+// a toolchain file pinning another release, or a newer rust-version, is noted
+// with its path.
+func TestDetectProvisionsRust(t *testing.T) {
+	for _, tc := range []struct {
+		files map[string]string
+		notes []string
+	}{
+		{map[string]string{"Cargo.toml": "[package]\nname = \"a\"\nrust-version = \"1.80\"\n"}, nil},
+		{map[string]string{"crate/Cargo.toml": "[package]\nname = \"a\"\n", "crate/rust-toolchain.toml": "[toolchain]\nchannel = \"stable\"\n"}, nil},
+		{map[string]string{"Cargo.toml": "[workspace]\n", "rust-toolchain": RustVersion + "\n"}, nil},
+		{map[string]string{"crate/Cargo.toml": "[package]\nname = \"a\"\n", "crate/rust-toolchain.toml": "[toolchain]\nchannel = \"nightly-2026-01-01\"\n"}, []string{"crate/rust-toolchain.toml pins"}},
+		{map[string]string{"crate/Cargo.toml": "[package]\nrust-version = \"1.99.0\"\n"}, []string{"crate/Cargo.toml requires Rust 1.99.0"}},
+	} {
+		root := t.TempDir()
+		for rel, content := range tc.files {
+			os.MkdirAll(filepath.Join(root, filepath.Dir(rel)), 0700)
+			manifest(t, filepath.Join(root, filepath.Dir(rel)), filepath.Base(rel), content)
+		}
+		r, err := Detect(root)
+		if err != nil || !r.Rust || r.Go || len(r.Unsupported) != len(tc.notes) {
+			t.Fatalf("%v: %+v %v", tc.files, r, err)
+		}
+		for i, note := range tc.notes {
+			if !strings.HasPrefix(r.Unsupported[i], note) {
+				t.Errorf("%v: note %q, want prefix %q", tc.files, r.Unsupported[i], note)
+			}
+		}
 	}
 }
 
@@ -236,6 +267,42 @@ func TestRecipePinsInputsAndChangesForGo(t *testing.T) {
 	}
 	if Fingerprint(Requirements{Go: true}) != Fingerprint(Requirements{Go: true, Detected: []string{"go"}}) {
 		t.Fatal("manifest inventory changed same image recipe")
+	}
+}
+
+func tools(r Requirements) string {
+	switch {
+	case r.Go && r.Rust:
+		return "go+rust"
+	case r.Go:
+		return "go"
+	case r.Rust:
+		return "rust"
+	}
+	return ""
+}
+
+func TestRustRecipeIsPinnedAndSeparateFromGo(t *testing.T) {
+	rust, err := Recipe(Requirements{Rust: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := string(rust["Dockerfile"])
+	for _, want := range []string{"static.rust-lang.org/dist/2026-09-03/rust-" + RustVersion + "-", "sha256sum -c", "clippy-preview", "rustfmt-preview", "rustc --version | grep -F 'rustc " + RustVersion + " '", "cargo test --quiet --offline", "ENV CARGO_HOME=/var/cache/repokit/cargo"} {
+		if !strings.Contains(dockerfile, want) {
+			t.Errorf("Rust recipe missing %s", want)
+		}
+	}
+	if strings.Contains(dockerfile, "go.dev/dl") || tools(RecipeRequirements(rust)) != "rust" {
+		t.Fatal("Rust recipe installs Go or is misread")
+	}
+	goOnly, _ := Recipe(Requirements{Go: true})
+	if strings.Contains(string(goOnly["Dockerfile"]), "rust-lang") || tools(RecipeRequirements(goOnly)) != "go" {
+		t.Fatal("Go recipe installs Rust or is misread")
+	}
+	both, _ := Recipe(Requirements{Go: true, Rust: true})
+	if tools(RecipeRequirements(both)) != "go+rust" {
+		t.Fatal("combined recipe misread")
 	}
 }
 
