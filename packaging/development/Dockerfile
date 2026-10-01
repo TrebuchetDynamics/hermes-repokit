@@ -120,6 +120,13 @@ ENV HERMES_BIN=/opt/hermes/.venv/bin/hermes
 # Login shells reset the inherited PATH; retain the native privilege-drop shim.
 RUN ln -s /opt/hermes/bin/hermes /usr/local/bin/hermes
 COPY --chmod=0555 repokit-docker-test /usr/local/bin/repokit-docker-test
+# s6 kills every process 3s after the container is told to stop, which cut
+# Hermes gateways off mid-shutdown. This finish hook stops the gateway slots
+# through their supervisor and waits for them; s6 allows a finish hook 5s by
+# default, raised here to cover Hermes's own 30s cron drain. A quick shutdown
+# still returns at once, and Docker's 60s stop_grace_period stays the ceiling.
+COPY --chmod=0555 repokit-stop-gateways /etc/cont-finish.d/50-repokit-stop-gateways
+ENV S6_KILL_FINISH_MAXTIME=45000
 RUN set -eu; \
     git --version; bash --version; curl --version; jq --version; rg --version; \
     python3 --version; node --version; npm --version; make --version; gcc --version; g++ --version; \

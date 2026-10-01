@@ -170,7 +170,11 @@ func recipeInputs(req Requirements) map[string][]byte {
 	if err != nil {
 		panic("missing embedded browser-use requirements")
 	}
-	files := map[string][]byte{"Dockerfile": []byte(content), "repokit-docker-test": helper, "repokit-ddgs-requirements.txt": requirements, "repokit-browser-use-requirements.txt": browser, ".dockerignore": []byte("*\n!Dockerfile\n!repokit-docker-test\n!repokit-ddgs-requirements.txt\n!repokit-browser-use-requirements.txt\n")}
+	stopGateways, err := assets.Assets.ReadFile("repokit-stop-gateways")
+	if err != nil {
+		panic("missing embedded gateway stop hook")
+	}
+	files := map[string][]byte{"Dockerfile": []byte(content), "repokit-docker-test": helper, "repokit-ddgs-requirements.txt": requirements, "repokit-browser-use-requirements.txt": browser, "repokit-stop-gateways": stopGateways, ".dockerignore": []byte("*\n!Dockerfile\n!repokit-docker-test\n!repokit-ddgs-requirements.txt\n!repokit-browser-use-requirements.txt\n!repokit-stop-gateways\n")}
 	return files
 }
 

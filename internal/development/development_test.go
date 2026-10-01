@@ -384,3 +384,41 @@ func TestGoCachesLiveOnTheToolchainVolume(t *testing.T) {
 		t.Error("recipe no longer self-certifies")
 	}
 }
+
+func TestRecipeStopsGatewaysBeforeS6Kills(t *testing.T) {
+	recipe, err := Recipe(Requirements{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := string(recipe["Dockerfile"])
+	for _, want := range []string{"COPY --chmod=0555 repokit-stop-gateways /etc/cont-finish.d/50-repokit-stop-gateways", "ENV S6_KILL_FINISH_MAXTIME=45000"} {
+		if !strings.Contains(dockerfile, want) {
+			t.Fatalf("missing %s", want)
+		}
+	}
+	if strings.Contains(dockerfile, "S6_KILL_GRACETIME") {
+		t.Fatal("the final s6 kill grace is a fixed sleep on every stop; leave it at s6's default")
+	}
+	if !strings.Contains(string(recipe[".dockerignore"]), "!repokit-stop-gateways") {
+		t.Fatal("stop hook not in the build context")
+	}
+	hook := string(recipe["repokit-stop-gateways"])
+	// The hook goes through each slot's supervisor as the hermes user and waits
+	// for the exit; it never kills processes or records a stop intent.
+	for _, want := range []string{"/run/service/gateway-*", "s6-setuidgid hermes", "s6-svc -d", "s6-svwait -D -t 40000"} {
+		if !strings.Contains(hook, want) {
+			t.Fatalf("stop hook missing %s", want)
+		}
+	}
+	var code []string
+	for _, line := range strings.Split(hook, "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), "#") {
+			code = append(code, line)
+		}
+	}
+	for _, banned := range []string{"kill", "gateway stop", ".hermes", "/opt/data"} {
+		if strings.Contains(strings.Join(code, "\n"), banned) {
+			t.Fatalf("stop hook must not use %q", banned)
+		}
+	}
+}
