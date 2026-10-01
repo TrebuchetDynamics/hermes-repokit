@@ -124,3 +124,17 @@ func TestPreviousReleaseSoulsAreFrozen(t *testing.T) {
 		}
 	}
 }
+
+// Hermes requires a per-write owner approval for protected instruction files,
+// which a Kanban worker can never obtain; every profile knows it and default
+// never plans such a write as worker acceptance.
+func TestProtectedInstructionWritesAreOwnerSteps(t *testing.T) {
+	for _, r := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {
+		if !strings.Contains(r.Soul, "AGENTS.md,\nCLAUDE.md, SOUL.md or .cursorrules") || !strings.Contains(r.Soul, `kind="needs_input"`) {
+			t.Errorf("%s lacks the protected instruction rule", r.Name)
+		}
+		if r.Name == "default" && !strings.Contains(r.Soul, "hand it to the owner to apply") {
+			t.Error("default may still plan protected writes as worker acceptance")
+		}
+	}
+}

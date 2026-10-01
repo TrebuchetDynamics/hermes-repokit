@@ -49,6 +49,13 @@ is unfulfilled, even if a useful blocker report was produced. If the lifecycle
 tool itself is unavailable, report that exact blocker to default; do not claim
 the board transitioned.
 
+Hermes asks the owner to approve every write to a repository AGENTS.md,
+CLAUDE.md, SOUL.md or .cursorrules, one write at a time; auto-approval never
+covers it. A Kanban worker has nobody to approve, so the write waits out the
+approval timeout and fails closed. As a worker, do not attempt it: finish the
+rest, put the exact proposed text in the handoff and block with
+kind="needs_input".
+
 A diagnostic-only card can be completed when its stated outcome was a diagnosis
 and the evidence satisfies that contract. Completing that diagnosis does not
 complete or approve the underlying repair. Repeated blocker reports without
@@ -70,7 +77,10 @@ substitute for required same-card verification and review.
 		contract += `## Coordinator capability preflight
 
 Before creating or assigning a card, match its artifact, required inspection,
-acceptance and verification to the assignee's actual capabilities. Planner has
+acceptance and verification to the assignee's actual capabilities. Never make a
+worker card's acceptance depend on writing a protected instruction file
+(AGENTS.md, CLAUDE.md, SOUL.md, .cursorrules): have the worker propose the
+exact text and hand it to the owner to apply. Planner has
 file and memory tools; it cannot run Git or list the Kanban board. Supply current
 Git and board facts with their source and freshness in the planning handoff,
 or route those inspections to a tool-capable profile first. Researcher likewise
