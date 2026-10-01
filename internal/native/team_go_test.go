@@ -579,9 +579,14 @@ func TestResetRefusesUnsafeOrUnknownTargets(t *testing.T) {
 	if _, err := teamScript(id, false, "executor", sectioned(run), root); err == nil || !strings.Contains(err.Error(), "running") {
 		t.Fatalf("reset under a running worker: %v", err)
 	}
-	// Another role's running card does not hold this reset back.
-	if plan, err := teamScript(id, false, "tester", sectioned(run), root); err != nil || !strings.Contains(rowStates(plan), "tester=reset") {
+	// Another role's running card does not hold this reset back, and the
+	// guard under the lock does not re-check the busy profile it leaves alone.
+	plan, err := teamScript(id, false, "tester", sectioned(run), root)
+	if err != nil || !strings.Contains(rowStates(plan), "tester=reset") {
 		t.Fatalf("reset waited for an unrelated worker: %s %v", rowStates(plan), err)
+	}
+	if guard := regexp.MustCompile(`(?s)python3 -c .*?; then exit 3`).FindString(plan.Script); strings.Contains(guard, "'executor'") || !strings.Contains(guard, "'tester'") {
+		t.Fatalf("guard re-checks the busy, unwritten profile or misses the reset one:\n%s", guard)
 	}
 	owner := operationalKanban()
 	owner["max_in_progress"] = float64(3)

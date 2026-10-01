@@ -649,7 +649,7 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 		return plan, nil
 	}
 	if guarded {
-		guard += runningGuard(plan.Roles)
+		guard += runningGuard(plan.Roles, busyRoles)
 	}
 	plan.Script = bootstrapScript + "\n" + guard + changes
 	plan.Script += teamCommand("profile", "list")

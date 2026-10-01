@@ -119,13 +119,15 @@ func runningProfiles(run teamCLI) (map[string]bool, error) {
 
 // runningGuard refuses under the lock if any profile the script rewrites
 // started a card since Go observed the board, or if the board cannot be read.
-// Default is always checked: its card leaves the whole team observed.
-func runningGuard(rows []RoleStatus) string {
+// Default is always checked: its card leaves the whole team observed. A
+// profile that was busy when Go planned is classified but not written, so its
+// running card is no reason to refuse.
+func runningGuard(rows []RoleStatus, busy map[string]bool) string {
 	names := []string{"default"}
 	for _, row := range rows {
 		switch row.State {
 		case "adopt", "reset", "upgrade", "missing", "current":
-			if row.Profile != "default" {
+			if row.Profile != "default" && !busy[row.Profile] {
 				names = append(names, row.Profile)
 			}
 		}
