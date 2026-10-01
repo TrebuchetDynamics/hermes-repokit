@@ -103,15 +103,22 @@ ENV CARGO_HOME=/var/cache/repokit/cargo
 // flutterInstall is the official stable Flutter SDK (with its Dart), pinned by
 // the checksum in Flutter's release manifest. Flutter publishes Linux SDKs for
 // x86_64 only; elsewhere the step is skipped and verify reports it missing.
-// A smoke project runs analyze and test at build so their host artifacts are
-// cached; Flutter writes into its own SDK, so the SDK is opened to the
-// runtime-remapped user in the same layer. Pub's cache lives on the
+// Flutter unpacks downloaded artifacts with unzip, which the base lacks; it
+// comes from Debian's own package (permanent snapshot URL, checksum from the
+// signed trixie index), never from apt.
+// A smoke project runs analyze, test and a web build at build time so their
+// artifacts are cached; Flutter writes into its own SDK, so the SDK is opened
+// to the runtime-remapped user in the same layer. Pub's cache lives on the
 // toolchain-cache volume. Flutter's and Dart's telemetry are suppressed.
 const flutterInstall = `RUN set -eu; \
     case "$(dpkg --print-architecture)" in \
       amd64) ;; \
       *) echo 'Flutter publishes Linux SDKs for x86_64 only; Flutter is not installed' >&2; exit 0 ;; \
     esac; \
+    curl --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 300 \
+      "https://snapshot.debian.org/file/b8536b5816fa245c8e1c3df6f84d812f15d51b7b" -o /tmp/repokit-unzip.deb; \
+    printf '%s  %s\n' fc11f8736bdec6fc46a6864f75bce0c8206a790df37dbcab5ddb25b1bf0f58f0 /tmp/repokit-unzip.deb | sha256sum -c -; \
+    dpkg -i /tmp/repokit-unzip.deb; rm /tmp/repokit-unzip.deb; unzip -v | head -1; \
     curl --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 1800 \
       "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.47.5-stable.tar.xz" -o /tmp/repokit-flutter.tar.xz; \
     printf '%s  %s\n' 2132e990f236f8d22e7c6314b29a191a95b10d7cbcfec9b4e2e303d996652cbb /tmp/repokit-flutter.tar.xz | sha256sum -c -; \
@@ -124,7 +131,7 @@ const flutterInstall = `RUN set -eu; \
     export PUB_CACHE=/tmp/repokit-pub-cache FLUTTER_SUPPRESS_ANALYTICS=true DASH__SUPPRESS_ANALYTICS=true; \
     flutter --version | grep -F 'Flutter 3.47.5 '; \
     cd /tmp; flutter create --project-name repokit_smoke --platforms web repokit_smoke >/dev/null; \
-    cd /tmp/repokit_smoke; flutter analyze; flutter test; \
+    cd /tmp/repokit_smoke; flutter analyze; flutter test; flutter build web >/dev/null; \
     cd /; rm -rf /tmp/repokit_smoke /tmp/repokit-pub-cache /root/.config/flutter /root/.dart-tool /root/.flutter; \
     chmod -R a+rwX /opt/flutter
 RUN install -d -m 1777 /var/cache/repokit
