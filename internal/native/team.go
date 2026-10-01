@@ -136,6 +136,15 @@ func matchingSoul(soul string, role team.Role) bool {
 	return soul == role.Soul || previousSoul(soul, role)
 }
 
+// repositorySoul reports a RepoKit-generated SOUL for this repository from any
+// RepoKit build: its stable repository ID line and RepoKit's identity
+// heading. It proves the team exists, so a SOUL text change between builds
+// never makes an installed team look unset; the profile itself still counts
+// as customized unless its SOUL matches exactly.
+func repositorySoul(soul string, id target.Identity) bool {
+	return strings.Contains(soul, "\nStable repository ID: "+id.Project+"\n") && strings.Contains(soul, "\n# RepoKit Agent Identity\n")
+}
+
 // previousSoul reports an untouched SOUL from team.PreviousRelease that differs
 // from the current one.
 func previousSoul(soul string, role team.Role) bool {
@@ -465,7 +474,7 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 	managed := false
 	for _, role := range roles {
 		s, e := readSoul(root, role.Name)
-		if e == nil && matchingSoul(s, role) {
+		if e == nil && (matchingSoul(s, role) || repositorySoul(s, id)) {
 			managed = true
 			break
 		}

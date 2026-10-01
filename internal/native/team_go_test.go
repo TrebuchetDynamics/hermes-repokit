@@ -741,3 +741,44 @@ func TestPreviousReleaseSoulUpgradesOnlyWhenIdle(t *testing.T) {
 		t.Fatalf("edited previous SOUL must stay the owner's: %s %v", rowStates(plan), err)
 	}
 }
+
+// A team installed by an earlier RepoKit build carries different SOUL text;
+// its repository ID line still proves the team exists, so the next install
+// never reports it as unset; another repository's SOULs are still not adopted.
+func TestEarlierBuildTeamIsRecognizedNotPendingSetup(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	for _, foreign := range []bool{false, true} {
+		dir := t.TempDir()
+		for _, role := range team.ForRepository(id) {
+			path := filepath.Join(dir, ".hermes", "profiles", role.Name, "SOUL.md")
+			if role.Name == "default" {
+				path = filepath.Join(dir, ".hermes", "SOUL.md")
+			}
+			os.MkdirAll(filepath.Dir(path), 0700)
+			soul := strings.Replace(role.Soul, "\n# RepoKit Agent Identity\n", "\n# RepoKit Agent Identity\n\nAn earlier build's wording.\n", 1)
+			if foreign {
+				soul = strings.Replace(soul, "Stable repository ID: repo-123", "Stable repository ID: other-456", 1)
+			}
+			if err := os.WriteFile(path, []byte(soul), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		root, err := os.OpenRoot(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		plan, err := teamScript(id, false, "", sectioned(fakeTeamConfig), root)
+		root.Close()
+		if foreign {
+			if err != nil || plan.Status != "pending-setup" {
+				t.Fatalf("another repository's SOULs adopted: %q %v", plan.Status, err)
+			}
+			continue
+		}
+		// The fake answers no team settings, so rows read drift here; what
+		// matters is that the team is recognized rather than reported unset.
+		if err != nil || plan.Status == "pending-setup" || !strings.Contains(rowStates(plan), "executor=") {
+			t.Fatalf("earlier-build team not recognized: %q %s %v", plan.Status, rowStates(plan), err)
+		}
+	}
+}
