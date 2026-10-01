@@ -30,7 +30,9 @@ func ChannelSessions(ctx context.Context, id target.Identity, r Runner) []Probe 
 	identity := info.ModTime().UTC()
 	dc, container, err := integrationRuntime(ctx, id, r)
 	if err != nil {
-		return nil
+		// Report it like every other runtime probe instead of vanishing
+		// (for example while a recipe change awaits recreation).
+		return []Probe{{"sessions", Unknown, "runtime unavailable; conversation ages not observed"}}
 	}
 	platforms := configuredPlatforms(ctx, r, dc, container)
 	sort.Strings(platforms)

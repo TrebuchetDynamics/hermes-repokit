@@ -57,3 +57,17 @@ func TestChannelSessionsFlagConversationsOlderThanTheIdentity(t *testing.T) {
 		}
 	}
 }
+
+// Without a matching runtime (a recipe change awaiting recreation) the probe
+// reports unknown like every other runtime probe instead of disappearing.
+func TestChannelSessionsReportsUnavailableRuntime(t *testing.T) {
+	id, base := integrationFixture(t)
+	if err := os.WriteFile(filepath.Join(id.Root, ".hermes", "SOUL.md"), []byte("identity"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	base.hermes = "" // container inspect finds no matching runtime
+	probes := ChannelSessions(context.Background(), id, base)
+	if len(probes) != 1 || probes[0].Component != "sessions" || probes[0].Status != Unknown {
+		t.Fatalf("unavailable runtime hidden: %+v", probes)
+	}
+}
