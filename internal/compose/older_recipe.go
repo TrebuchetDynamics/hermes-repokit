@@ -58,7 +58,7 @@ func DevelopmentInstallSelected(id target.Identity) (Options, bool) {
 	recipe, fingerprint, generated := development.ReadGeneratedRecipe(filepath.Join(id.Root, ".hermes", "development-image"))
 	// A recipe awaiting replacement determines the Go selection its Compose
 	// was rendered with; the image tag alone cannot.
-	recipeGo := bytes.Contains(recipe["Dockerfile"], []byte("https://go.dev/dl/go"))
+	recipeGo := development.RecipeGo(recipe)
 	for _, goTool := range []bool{false, true} {
 		for _, tests := range []bool{false, true} {
 			for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {

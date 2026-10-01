@@ -86,8 +86,12 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 			continue
 		}
 		for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
-			opts := compose.Options{HermesImage: qualification.FoundationImage, Development: &report.Development, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
 			for _, older := range olderRecipes {
+				// The older Compose was rendered for the older recipe's Go
+				// selection: a repository that gained a go.mod had no
+				// toolchain-cache volume before.
+				olderReq := development.Requirements{Go: development.RecipeGo(older.files)}
+				opts := compose.Options{HermesImage: qualification.FoundationImage, Development: &olderReq, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
 				old, err := compose.OlderRecipe(id, opts, older.fingerprint)
 				if err != nil {
 					fmt.Fprintln(stderr, err)
@@ -101,7 +105,7 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 					return 1
 				}
 				previous = append(previous, install.StackUpgrade{Compose: v023, BackupName: "compose.before-state-mask-" + older.fingerprint[:12] + ".yaml", PreviousRecipe: older.files})
-				if report.Development.Go {
+				if olderReq.Go {
 					v020, err := compose.BeforeToolchainCache(id, opts, older.fingerprint)
 					if err != nil {
 						fmt.Fprintln(stderr, err)

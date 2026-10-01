@@ -113,6 +113,12 @@ func hashRecipe(files map[string][]byte) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// RecipeGo reports whether a generated recipe installs Go, which determines the
+// Go selection its Compose was rendered with.
+func RecipeGo(files map[string][]byte) bool {
+	return bytes.Contains(files["Dockerfile"], []byte("https://go.dev/dl/go"))
+}
+
 var recipeLabel = regexp.MustCompile(`org\.repokit\.development\.recipe=([0-9a-f]{64})`)
 
 // GeneratedRecipe recognizes an unmodified RepoKit-generated recipe of any

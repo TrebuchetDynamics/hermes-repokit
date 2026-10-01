@@ -117,3 +117,35 @@ func TestInstallUpgradesThePreMaskLayout(t *testing.T) {
 		t.Fatalf("pre-mask Compose not backed up: %v", err)
 	}
 }
+
+// A deployment installed without Go whose repository then gains a go.mod (at
+// the root or in a nested project) upgrades in place: the older Compose was
+// rendered for the older recipe, without the toolchain-cache volume.
+func TestInstallUpgradesWhenARepositoryGainsGo(t *testing.T) {
+	for _, path := range []string{"go.mod", "svc/go.mod"} {
+		t.Run(path, func(t *testing.T) {
+			a, r := foundationApp(t)
+			if c, _, d := invoke(t, a, "install"); c != 0 {
+				t.Fatal(d)
+			}
+			if o, _ := compose.DevelopmentSelected(r.id); o.Development.Go {
+				t.Fatal("Go selected before any go.mod")
+			}
+			file := filepath.Join(a.Directory, path)
+			os.MkdirAll(filepath.Dir(file), 0700)
+			if err := os.WriteFile(file, []byte("module example.test/demo\n\ngo 1.26.0\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if c, out, d := invoke(t, a, "install"); c != 0 {
+				t.Fatalf("gaining Go refused: %s %s", out, d)
+			}
+			o, ok := compose.DevelopmentSelected(r.id)
+			if !ok || !o.Development.Go || !compose.ToolchainCacheMounted(o) {
+				t.Fatal("upgraded Compose does not select Go with its toolchain cache")
+			}
+			if backups, _ := filepath.Glob(filepath.Join(r.id.Root, ".hermes", "compose.before-recipe-*.yaml")); len(backups) != 1 {
+				t.Fatalf("prior Compose not backed up: %v", backups)
+			}
+		})
+	}
+}
