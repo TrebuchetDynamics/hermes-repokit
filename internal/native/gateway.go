@@ -95,6 +95,50 @@ func gatewayPID(run teamCLI) (int, error) {
 const idleGuard = "# Refuse under the lock if work started since Go observed the board.\n" +
 	"if hermes -p default kanban stats --json | grep -Eq '\"running\": *[1-9]'; then exit 3; fi\n"
 
+// runningProfiles names the profiles with a running card, from native
+// per-assignee stats.
+func runningProfiles(run teamCLI) (map[string]bool, error) {
+	raw, err := run("-p", "default", "kanban", "stats", "--json")
+	if err != nil {
+		return nil, err
+	}
+	var stats struct {
+		ByAssignee map[string]map[string]int `json:"by_assignee"`
+	}
+	if json.Unmarshal(raw, &stats) != nil {
+		return nil, errors.New("native Kanban stats unavailable")
+	}
+	running := map[string]bool{}
+	for profile, counts := range stats.ByAssignee {
+		if counts["running"] > 0 {
+			running[profile] = true
+		}
+	}
+	return running, nil
+}
+
+// runningGuard refuses under the lock if any profile the script rewrites
+// started a card since Go observed the board, or if the board cannot be read.
+// Default is always checked: its card leaves the whole team observed.
+func runningGuard(rows []RoleStatus) string {
+	names := []string{"default"}
+	for _, row := range rows {
+		switch row.State {
+		case "adopt", "reset", "upgrade", "missing", "current":
+			if row.Profile != "default" {
+				names = append(names, row.Profile)
+			}
+		}
+	}
+	check := "import json, sys\nd = json.load(sys.stdin)\nbusy = {a for a, s in d.get('by_assignee', {}).items() if s.get('running')}\nsys.exit(1 if busy & set(sys.argv[1:]) else 0)"
+	args := ""
+	for _, name := range names {
+		args += " " + shellQuote(name)
+	}
+	return "# Refuse under the lock if a profile this script rewrites started work.\n" +
+		"if ! hermes -p default kanban stats --json | /usr/bin/python3 -c " + shellQuote(check) + args + "; then exit 3; fi\n"
+}
+
 func runningWork(run teamCLI) (bool, error) {
 	raw, err := run("-p", "default", "kanban", "stats", "--json")
 	if err != nil {

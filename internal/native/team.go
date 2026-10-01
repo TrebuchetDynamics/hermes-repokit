@@ -415,7 +415,8 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 	if err != nil {
 		return teamPlan{}, err
 	}
-	observe, busy := false, false
+	observe, busy, guarded := false, false, false
+	busyRoles := map[string]bool{}
 	if dispatch == true {
 		value, err := configValue(run, "default", "kanban")
 		if err != nil {
@@ -426,12 +427,16 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 		// are created and a requested reset applies. An owner-changed policy,
 		// or a busy board, is only observed.
 		if OperationalPolicy(kanban) {
-			running, err := runningWork(run)
-			busy = err != nil || running
-			if busy && reset != "" {
-				return teamPlan{}, errors.New("a card is running or Kanban is unreadable; profile reset waits for idle workers")
+			// A profile is rewritten only while it has no running card; the
+			// rest of a busy board keeps working. Default's own card, or an
+			// unreadable board, still leaves the whole team observed.
+			running, err := runningProfiles(run)
+			busy = err != nil || running["default"]
+			busyRoles = running
+			if reset != "" && (busy || busyRoles[reset]) {
+				return teamPlan{}, errors.New("a card is running for " + reset + " or Kanban is unreadable; profile reset waits for that worker")
 			}
-			guard += idleGuard
+			guarded = true
 		}
 		observe = busy || !OperationalPolicy(kanban)
 		if observe && reset != "" {
@@ -579,6 +584,18 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 				plan.role(role.Name, "drift", check.differs(role))
 				continue
 			}
+			if busyRoles[role.Name] {
+				// Its worker is running: classify only, write nothing.
+				switch {
+				case check.customized():
+					plan.role(role.Name, "customized", check.differs(role))
+				case check.previous(role):
+					plan.role(role.Name, "deferred", []string{"SOUL"})
+				default:
+					plan.role(role.Name, "current", nil)
+				}
+				continue
+			}
 			switch {
 			case role.Name == reset:
 				plan.role(role.Name, "reset", check.differs(role))
@@ -630,6 +647,9 @@ func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, 
 		// proved. Preserve all state and let the owner inspect it first.
 		plan.Status = "drift"
 		return plan, nil
+	}
+	if guarded {
+		guard += runningGuard(plan.Roles)
 	}
 	plan.Script = bootstrapScript + "\n" + guard + changes
 	plan.Script += teamCommand("profile", "list")

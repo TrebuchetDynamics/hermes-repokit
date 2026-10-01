@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -573,9 +574,14 @@ func TestResetDefaultRestoresIdentityOnly(t *testing.T) {
 func TestResetRefusesUnsafeOrUnknownTargets(t *testing.T) {
 	id := target.Identity{Project: "repo-123", Name: "atlas"}
 	roles := team.ForRepository(id)
-	root, run := deployTeam(t, roles, teamFixture{souls: currentSouls(roles), kanban: operationalKanban(), stats: `{"by_status":{"running":1}}`})
+	executorBusy := `{"by_status":{"running":1},"by_assignee":{"executor":{"running":1}}}`
+	root, run := deployTeam(t, roles, teamFixture{souls: currentSouls(roles), kanban: operationalKanban(), stats: executorBusy})
 	if _, err := teamScript(id, false, "executor", sectioned(run), root); err == nil || !strings.Contains(err.Error(), "running") {
 		t.Fatalf("reset under a running worker: %v", err)
+	}
+	// Another role's running card does not hold this reset back.
+	if plan, err := teamScript(id, false, "tester", sectioned(run), root); err != nil || !strings.Contains(rowStates(plan), "tester=reset") {
+		t.Fatalf("reset waited for an unrelated worker: %s %v", rowStates(plan), err)
 	}
 	owner := operationalKanban()
 	owner["max_in_progress"] = float64(3)
@@ -595,8 +601,9 @@ func TestResetRefusesUnsafeOrUnknownTargets(t *testing.T) {
 	}
 }
 
-// An operational team gets missing roles only while no card runs; a busy
-// board is observed and nothing is written.
+// An operational team gets missing roles while their profiles run nothing,
+// guarded under the lock; a running card of default's leaves the whole team
+// observed and nothing is written.
 func TestOperationalTeamCreatesMissingRolesOnlyWhenIdle(t *testing.T) {
 	id := target.Identity{Project: "repo-123", Name: "atlas"}
 	roles := team.ForRepository(id)
@@ -604,13 +611,18 @@ func TestOperationalTeamCreatesMissingRolesOnlyWhenIdle(t *testing.T) {
 	delete(souls, "tester")
 	root, run := deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: `{"by_status":{"done":3}}`})
 	plan, err := teamScript(id, false, "", sectioned(run), root)
-	if err != nil || plan.Status != "configured" || !strings.Contains(plan.Script, "'profile' 'create' 'tester'") || !strings.Contains(plan.Script, idleGuard) {
+	if err != nil || plan.Status != "configured" || !strings.Contains(plan.Script, "'profile' 'create' 'tester'") || !strings.Contains(plan.Script, "kanban stats --json | /usr/bin/python3") || !regexp.MustCompile(`(?s)python3 -c .*'tester'[^\n]*; then exit 3`).MatchString(plan.Script) {
 		t.Fatalf("idle operational team not reconciled or unguarded: %q %v %v\n%s", plan.Status, plan.Drift, err, plan.Script)
 	}
-	root, run = deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: `{"by_status":{"running":1}}`})
+	root, run = deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: `{"by_status":{"running":1},"by_assignee":{"executor":{"running":1}}}`})
+	plan, err = teamScript(id, false, "", sectioned(run), root)
+	if err != nil || !strings.Contains(plan.Script, "'profile' 'create' 'tester'") || strings.Contains(writes(plan.Script), "profiles/executor/") {
+		t.Fatalf("missing role not created beside an unrelated worker, or the running one touched: %v\n%s", err, plan.Script)
+	}
+	root, run = deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: `{"by_status":{"running":1},"by_assignee":{"default":{"running":1}}}`})
 	plan, err = teamScript(id, false, "", sectioned(run), root)
 	if err != nil || strings.Contains(plan.Script, "'profile' 'create'") || strings.Contains(writes(plan.Script), "SOUL.md") {
-		t.Fatalf("profiles written under a running worker: %v\n%s", err, plan.Script)
+		t.Fatalf("profiles written while default's card runs: %v\n%s", err, plan.Script)
 	}
 }
 
@@ -707,8 +719,8 @@ func TestMissingSkillReportsAreValidated(t *testing.T) {
 }
 
 // An untouched SOUL from the previous release is RepoKit's: it upgrades in
-// place while no card runs and waits while one does. Any other SOUL stays the
-// owner's.
+// place unless that profile has a running card, and waits while it does. Any
+// other SOUL stays the owner's.
 func TestPreviousReleaseSoulUpgradesOnlyWhenIdle(t *testing.T) {
 	id := target.Identity{Project: "repo-123", Name: "atlas"}
 	roles := team.ForRepository(id)
@@ -723,7 +735,8 @@ func TestPreviousReleaseSoulUpgradesOnlyWhenIdle(t *testing.T) {
 		writes      bool
 	}{
 		{`{"by_status":{}}`, "steward=upgrade[SOUL]", true},
-		{`{"by_status":{"running":1}}`, "steward=deferred[SOUL]", false},
+		{`{"by_status":{"running":1},"by_assignee":{"executor":{"running":1}}}`, "steward=upgrade[SOUL]", true},
+		{`{"by_status":{"running":1},"by_assignee":{"steward":{"running":1}}}`, "steward=deferred[SOUL]", false},
 	} {
 		root, run := deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: c.stats})
 		plan, err := teamScript(id, false, "", sectioned(run), root)
