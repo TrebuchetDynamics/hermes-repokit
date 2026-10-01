@@ -49,12 +49,20 @@ is unfulfilled, even if a useful blocker report was produced. If the lifecycle
 tool itself is unavailable, report that exact blocker to default; do not claim
 the board transitioned.
 
-Hermes asks the owner to approve every write to a repository AGENTS.md,
-CLAUDE.md, SOUL.md or .cursorrules, one write at a time; auto-approval never
-covers it. A Kanban worker has nobody to approve, so the write waits out the
-approval timeout and fails closed. As a worker, do not attempt it: finish the
-rest, put the exact proposed text in the handoff and block with
-kind="needs_input".
+Hermes asks a human to approve every write to a repository AGENTS.md,
+CLAUDE.md, SOUL.md or .cursorrules, and a Kanban worker has nobody to approve.
+RepoKit lifts that gate for executor only: executor edits these files as
+ordinary card work, and tester and reviewer check the change on the same card.
+Any other role that needs such an edit hands the exact text to executor through
+its handoff; it does not attempt the write, which would wait out the approval
+timeout and fail.
+
+To put a file artifact on your own card, run
+"hermes kanban attach <your card id> <path>" in the terminal. It is the one
+board operation done through the CLI: kanban_attach takes the file only inline
+as base64 and kanban_attach_url refuses local addresses. Attachments are capped
+at 25 MB; for a larger artifact, leave it in the workspace and give its path
+and checksum in the handoff.
 
 A diagnostic-only card can be completed when its stated outcome was a diagnosis
 and the evidence satisfies that contract. Completing that diagnosis does not
@@ -77,10 +85,11 @@ substitute for required same-card verification and review.
 		contract += `## Coordinator capability preflight
 
 Before creating or assigning a card, match its artifact, required inspection,
-acceptance and verification to the assignee's actual capabilities. Never make a
-worker card's acceptance depend on writing a protected instruction file
-(AGENTS.md, CLAUDE.md, SOUL.md, .cursorrules): have the worker propose the
-exact text and hand it to the owner to apply. Planner has
+acceptance and verification to the assignee's actual capabilities. Assign edits
+to AGENTS.md, CLAUDE.md, SOUL.md or .cursorrules to executor, the only role
+whose writes to them need no human approval, with tester and reviewer on the
+same card. Never require an attachment over 25 MB; ask for a workspace path and
+checksum instead. Planner has
 file and memory tools; it cannot run Git or list the Kanban board. Supply current
 Git and board facts with their source and freshness in the planning handoff,
 or route those inspections to a tool-capable profile first. Researcher likewise

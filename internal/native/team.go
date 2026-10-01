@@ -164,6 +164,9 @@ func expectedTeamFields(role team.Role) map[string]any {
 		fields["toolsets"] = role.Toolsets
 		fields["platform_toolsets.cli"] = role.Toolsets
 	}
+	for key, value := range role.Settings {
+		fields[key] = value
+	}
 	return fields
 }
 
@@ -173,6 +176,9 @@ func expectedTeamFields(role team.Role) map[string]any {
 // granted at creation or reset and is the owner's to remove.
 func requiredTeamFields(role team.Role) map[string]any {
 	fields := expectedTeamFields(role)
+	for key := range role.Settings {
+		delete(fields, key) // granted, then the owner's
+	}
 	for _, key := range []string{"toolsets", "platform_toolsets.cli"} {
 		if _, ok := fields[key]; ok {
 			fields[key] = role.Required
