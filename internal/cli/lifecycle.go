@@ -51,6 +51,11 @@ func (a App) containerState(id target.Identity, dc string) (string, error) {
 	return state.Status, nil
 }
 
+// stopTimeout is how long Docker waits for Hermes to shut down before SIGKILL
+// when a container is stopped or recreated. Docker's 10s default cut sdrhf's
+// gateway off mid-shutdown ("previous gateway life exited UNCLEANLY").
+const stopTimeout = "60"
+
 // startDeployment builds (when needed) and starts the Hermes service. A
 // running current deployment is left alone. Recreating a running deployment
 // for an upgraded image is deferred while a Kanban card is running.
@@ -86,7 +91,7 @@ func (a App) startDeployment(id target.Identity, dc string, stdout, stderr io.Wr
 	} else {
 		u.working("Container", "building and starting "+id.Container+" (the first build can take several minutes)")
 	}
-	if err := a.composeProject(id, dc, stdout, stderr, "up", "-d", "--build", "hermes"); err != nil {
+	if err := a.composeProject(id, dc, stdout, stderr, "up", "-d", "--build", "--timeout", stopTimeout, "hermes"); err != nil {
 		u.fail("Docker Compose could not start %s; native state is preserved. Retry with: %s", id.Container, buildCommand(id, dc))
 		return 1
 	}
@@ -128,7 +133,7 @@ func (a App) stop(id target.Identity, stdout, stderr io.Writer) int {
 		u.fail("stop refused: %v", err)
 		return 1
 	}
-	if err := a.composeProject(id, dc, stdout, stderr, "--profile", "docker-tests", "stop"); err != nil {
+	if err := a.composeProject(id, dc, stdout, stderr, "--profile", "docker-tests", "stop", "--timeout", stopTimeout); err != nil {
 		u.fail("Docker Compose could not stop the deployment; inspect it with docker compose")
 		return 1
 	}

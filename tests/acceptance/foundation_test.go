@@ -112,7 +112,7 @@ case "$*" in
   [ "$1" = --context ] && [ "$2" = default ] && [ "$3" = compose ] || exit 2
   shift 7
   # install builds and starts the deployment through ordinary Compose.
-  if [ "$1" = up ] && [ "$2" = -d ] && [ "$3" = --build ] && [ "$4" = hermes ]; then exit 0; fi
+  if [ "$1" = up ] && [ "$2" = -d ] && [ "$3" = --build ] && [ "$4" = --timeout ] && [ "$5" = 60 ] && [ "$6" = hermes ]; then exit 0; fi
   # Setup first waits for the native CLI to answer a public read. This
   # fixture fakes Docker/native execution only; other native commands fail.
   if [ "$1" = exec ] && [ "$2" = -T ] && [ "$3" = --user ]; then

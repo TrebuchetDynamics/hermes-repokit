@@ -19,9 +19,9 @@ func liveCompose(a *App, r *foundationRunner) {
 		call := strings.Join(args, " ")
 		r.composeCalls = append(r.composeCalls, call)
 		switch {
-		case strings.HasSuffix(call, " up -d --build hermes"):
+		case strings.HasSuffix(call, " up -d --build --timeout 60 hermes"):
 			r.runtime = developmentRuntimeFixture(r.id)
-		case strings.HasSuffix(call, " stop"):
+		case strings.HasSuffix(call, " stop --timeout 60"):
 			r.runtime = strings.Replace(developmentRuntimeFixture(r.id), `"running"`, `"exited"`, 1)
 		}
 		return nil
@@ -85,14 +85,14 @@ func TestStopAndStartRoundTrip(t *testing.T) {
 	}
 	a.Initializer = &statsInput{foundationRunner: r}
 	code, out, diag := invoke(t, a, "stop")
-	if code != 0 || !strings.HasSuffix(r.composeCalls[len(r.composeCalls)-1], "-f "+r.id.Compose+" --profile docker-tests stop") || !strings.Contains(out, "state is preserved") {
+	if code != 0 || !strings.HasSuffix(r.composeCalls[len(r.composeCalls)-1], "-f "+r.id.Compose+" --profile docker-tests stop --timeout 60") || !strings.Contains(out, "state is preserved") {
 		t.Fatalf("stop: code=%d calls=%v out=%s diag=%s", code, r.composeCalls, out, diag)
 	}
 	if _, err := os.Stat(filepath.Join(a.Directory, ".hermes/compose.yaml")); err != nil {
 		t.Fatal("stop deleted state")
 	}
 	code, out, diag = invoke(t, a, "start")
-	if code != 0 || !strings.HasSuffix(r.composeCalls[len(r.composeCalls)-1], " up -d --build hermes") || !strings.Contains(out, "answering") {
+	if code != 0 || !strings.HasSuffix(r.composeCalls[len(r.composeCalls)-1], " up -d --build --timeout 60 hermes") || !strings.Contains(out, "answering") {
 		t.Fatalf("start: code=%d calls=%v out=%s diag=%s", code, r.composeCalls, out, diag)
 	}
 	// The team was never set up, so there is no gateway to check yet.

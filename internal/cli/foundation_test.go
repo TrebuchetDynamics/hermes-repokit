@@ -106,7 +106,7 @@ func TestFoundationInstallAndVerifyWithoutOptionalIntegrations(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("install: %d %s", code, diag)
 	}
-	if len(r.composeCalls) == 0 || !strings.Contains(r.composeCalls[len(r.composeCalls)-1], "--context local-test compose --env-file /dev/null -f "+r.id.Compose+" up -d --build hermes") {
+	if len(r.composeCalls) == 0 || !strings.Contains(r.composeCalls[len(r.composeCalls)-1], "--context local-test compose --env-file /dev/null -f "+r.id.Compose+" up -d --build --timeout 60 hermes") {
 		t.Fatalf("install did not build and start the deployment: %v\n%s", r.composeCalls, out)
 	}
 	for _, name := range []string{"compose.yaml", "config.yaml", "bin/hermes-test-project"} {

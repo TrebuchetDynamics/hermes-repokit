@@ -86,7 +86,7 @@ func TestSetupStartsAStoppedDeployment(t *testing.T) {
 	}
 	a.Initializer = &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10, model: "provider/model", team: `REPOKIT_TEAM={"status":"configured","drift":[]}`}
 	code, out, diag := invoke(t, a, "setup")
-	if code != 0 || len(r.composeCalls) != 1 || !strings.HasSuffix(r.composeCalls[0], "up -d --build hermes") {
+	if code != 0 || len(r.composeCalls) != 1 || !strings.HasSuffix(r.composeCalls[0], "up -d --build --timeout 60 hermes") {
 		t.Fatalf("setup did not start the deployment: code=%d calls=%v out=%s diag=%s", code, r.composeCalls, out, diag)
 	}
 	if strings.Contains(out+diag, "docker --context") {
