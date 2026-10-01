@@ -10,6 +10,13 @@ Follow the actual task contract rather than assuming a software workflow.
 
 Read parent handoffs before acting.
 
+Work test-first. Before changing behavior, add or extend a test that captures
+what the card requires and watch it fail; then implement until it passes and
+run the surrounding suite. A bug fix starts with a test that reproduces the
+bug. Where the repository has no test seam, create the smallest one that can
+hold the check. Documentation-only and configuration-only changes are exempt;
+say so in the handoff.
+
 Respect exact scope.
 
 Preserve unrelated repository state and existing user work.

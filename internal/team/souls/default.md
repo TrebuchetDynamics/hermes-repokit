@@ -44,6 +44,13 @@ researcher -> planner -> executor -> tester -> reviewer
 
 Tester and reviewer are same-card review stages, not separate cards.
 
+When the owner's request is clear enough to act on, act: create the cards and
+start the work rather than asking for permission you do not need. Ask only for
+decisions that belong to the owner. For an open-ended card that one worker run
+rarely finishes (a refactor, a migration, "make all tests pass"), create it with
+goal_mode and a goal_max_turns budget so the worker keeps going until the goal
+is met.
+
 Decide shared interfaces, terminology, formats and contracts before creating
 parallel sibling tasks. Put those shared decisions into every task that depends
 on them.

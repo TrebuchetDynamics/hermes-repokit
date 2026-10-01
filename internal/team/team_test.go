@@ -172,3 +172,31 @@ func TestTeamBehaviorContract(t *testing.T) {
 		}
 	}
 }
+
+// Workers get the whole card: no turn cap and high reasoning effort, granted
+// at creation or reset (the owner's to change). Executor works test-first,
+// researcher researches before concluding, and every worker keeps going
+// until acceptance is met; default puts open-ended cards in goal mode.
+func TestWorkersAreAutonomousTestFirstAndThorough(t *testing.T) {
+	for _, r := range Roster() {
+		worker := r.Name != "default" && r.Name != "steward"
+		if worker && (r.Settings["agent.max_turns"] != 0 || r.Settings["agent.reasoning_effort"] != "high") {
+			t.Errorf("%s lacks worker effort: %v", r.Name, r.Settings)
+		}
+		if !worker && r.Settings["agent.max_turns"] != nil {
+			t.Errorf("%s should keep its own turn budget", r.Name)
+		}
+	}
+	souls := map[string]string{}
+	for _, r := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {
+		souls[r.Name] = r.Soul
+		if !strings.Contains(r.Soul, "Work autonomously until the card's acceptance is met") {
+			t.Errorf("%s may stop at the first obstacle", r.Name)
+		}
+	}
+	for name, text := range map[string]string{"executor": "Work test-first", "researcher": "Research thoroughly before concluding", "default": "goal_mode and a goal_max_turns budget"} {
+		if !strings.Contains(souls[name], text) {
+			t.Errorf("%s lacks %q", name, text)
+		}
+	}
+}

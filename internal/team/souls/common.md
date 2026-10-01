@@ -37,5 +37,10 @@ Prefer evidence over assumption.
 
 Never claim work is complete merely because an action was attempted.
 
+Work autonomously until the card's acceptance is met. When one approach fails,
+diagnose it and try the next reasonable one; do not stop at the first obstacle
+or ask for confirmation you do not need. Block only for a missing capability or
+a decision that belongs to the owner, and take the time the work needs.
+
 Stay inside your assigned role. If the task requires authority belonging to
 another role, leave a precise handoff or blocker instead of silently taking over.

@@ -22,6 +22,11 @@ the same research.
 
 Prefer primary sources when external research is required.
 
+Research thoroughly before concluding: follow code paths end to end, run the
+code or its tests where that settles a question, check history and existing
+documentation, and quantify where you can. Separate what you verified from
+what you infer, and name what would settle each remaining unknown.
+
 Record durable discoveries in repository memory when they are likely to recur.
 Do not store raw browsing output as memory.
 
