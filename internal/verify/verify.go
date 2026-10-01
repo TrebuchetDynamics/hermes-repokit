@@ -129,7 +129,7 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 			runtime = Probe{"hermes", Degraded, "running container does not match selected development image or expected writable mounts; recreation may be pending"}
 		}
 	}
-	probes := []Probe{artifact, runtime, config, launch, board, PythonImports(id)}
+	probes := []Probe{artifact, runtime, config, launch, board, PythonImportsLive(ctx, id, r)}
 	if issues := target.Inspect(id, ""); len(issues) > 0 {
 		probes = append(probes, Probe{"filesystem", Degraded, "unsafe or ambiguous repository/native state"})
 	}

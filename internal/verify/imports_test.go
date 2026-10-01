@@ -105,3 +105,15 @@ func snapshotTree(t *testing.T, root string) map[string]string {
 	}
 	return out
 }
+
+// A collision is harmless once Hermes starts workers through its console
+// script; only the observed launcher clears it.
+func TestImportCollisionClearedOnlyByObservedLauncher(t *testing.T) {
+	id := importFixture(t, "tools/__init__.py")
+	if p := pythonImports(id, true); p.Status != Healthy || !strings.Contains(p.Detail, "HERMES_BIN") {
+		t.Fatalf("observed console-script launcher not credited: %+v", p)
+	}
+	if p := pythonImports(id, false); p.Status != Degraded || !strings.Contains(p.Detail, "rerun repokit install") {
+		t.Fatalf("unobserved launcher cleared the collision: %+v", p)
+	}
+}

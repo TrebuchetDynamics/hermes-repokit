@@ -94,6 +94,12 @@ RUN set -eu; cd /tmp; \
     rm /tmp/repokit-ddgs-requirements.txt; \
     ddgs --help >/dev/null
 {{GO_INSTALL}}
+# Hermes starts Kanban workers as `python -m hermes_cli.main` from /workspace,
+# which puts the repository first on their import path: a repository's own
+# root tools/ package then replaces Hermes's and workers lose their file tools.
+# Hermes honors HERMES_BIN first; its console script keeps /workspace off the
+# import path. Repository files are never renamed.
+ENV HERMES_BIN=/opt/hermes/.venv/bin/hermes
 # Login shells reset the inherited PATH; retain the native privilege-drop shim.
 RUN ln -s /opt/hermes/bin/hermes /usr/local/bin/hermes
 COPY --chmod=0555 repokit-docker-test /usr/local/bin/repokit-docker-test

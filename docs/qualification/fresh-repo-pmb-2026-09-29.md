@@ -26,9 +26,13 @@ changed during the run.
 7. `verify --dispatch-check` failed three times (`t_dd42b4b9`, `t_d6a97fc6`,
    `t_c4dcde67`). The gateway claimed each card automatically, but the researcher
    had no file tools and blocked. Moving `AGENTS.md` aside did not change the
-   result (restored byte-identical). Root cause: the
-   [Python import collision](python-import-collision.md) caused by the
-   repository's root `tools/` package.
+   result (restored byte-identical). Root cause: a Python import collision.
+   Hermes starts workers as `python -m hermes_cli.main` from `/workspace`, so
+   the repository's root `tools/` package replaced Hermes's own and the file
+   tools vanished. Resolved 2026-10-01: the development image pins
+   `HERMES_BIN` to Hermes's console script, which keeps `/workspace` off the
+   workers' import path (proved on this repository: the dispatcher resolves the
+   console script and `verify` observes it).
 
 The Telegram task, executor/reviewer loop and restart steps were deliberately not
 run: they would have exercised a known-broken worker environment. `verify` now
