@@ -79,18 +79,27 @@ func (a App) setup(id target.Identity, teamOnly, noCanary bool, stdout, stderr i
 		} else {
 			u.working("Hermes", "private setup: answer Hermes's own questions; RepoKit never sees them")
 			if code := native.Setup(id.Launcher, id.Compose, dc, a.Stdin, stdout, stderr); code != 0 {
-				u.fail("Hermes setup did not finish; nothing else changed. Run %s setup again", self())
-				return code
+				// Hermes exits 1 on Ctrl+C at any prompt, including optional
+				// ones asked after the model is saved. A configured model is
+				// all the team needs, so RepoKit continues rather than leave
+				// a working Hermes without its team.
+				if configured, err = native.DefaultModelConfigured(context.Background(), id, dc, runner); err != nil || !configured {
+					u.fail("Hermes setup did not finish; nothing else changed. Run %s setup again", self())
+					return code
+				}
+				u.ok("Hermes", "private setup exited before its last questions, but a default model is configured; continuing with the team")
+				u.note("finish Hermes's remaining options anytime: " + id.Container + " -p default setup")
+			} else {
+				if !native.InteractiveInput(a.Stdin) {
+					u.fail("Hermes setup was noninteractive; team provisioning remains pending. Run %s setup in your terminal", self())
+					return 1
+				}
+				if configured, err = native.DefaultModelConfigured(context.Background(), id, dc, runner); err != nil || !configured {
+					u.fail("Hermes setup ended without a default model; run %s setup again", self())
+					return 1
+				}
+				u.ok("Hermes", "private setup complete")
 			}
-			if !native.InteractiveInput(a.Stdin) {
-				u.fail("Hermes setup was noninteractive; team provisioning remains pending. Run %s setup in your terminal", self())
-				return 1
-			}
-			if configured, err = native.DefaultModelConfigured(context.Background(), id, dc, runner); err != nil || !configured {
-				u.fail("Hermes setup ended without a default model; run %s setup again", self())
-				return 1
-			}
-			u.ok("Hermes", "private setup complete")
 		}
 	}
 	if code := a.initialize(id, dc, true, stdout, stderr); code != 0 {

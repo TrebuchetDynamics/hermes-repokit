@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
@@ -128,5 +130,53 @@ func TestTeamReportPrintsOneLinePerProfile(t *testing.T) {
 	}
 	if strings.Count(text, "\n") != len(report.Roles) {
 		t.Fatalf("expected one line per profile:\n%s", text)
+	}
+}
+
+// modelAfterWizard reports default's model only once the private wizard ran.
+type modelAfterWizard struct {
+	*gatewayInput
+	marker string
+}
+
+func (m *modelAfterWizard) RunInput(ctx context.Context, input io.Reader, program string, args ...string) process.Result {
+	if _, err := os.Stat(m.marker); err == nil {
+		m.model = "provider/model"
+	}
+	return m.gatewayInput.RunInput(ctx, input, program, args...)
+}
+
+// Hermes's wizard exits 1 on Ctrl+C at any prompt, even after the model is
+// saved. With a model configured setup goes on to create the team; without
+// one it stops and changes nothing.
+func TestSetupContinuesWhenTheWizardExitsAfterSavingAModel(t *testing.T) {
+	for _, saved := range []bool{true, false} {
+		a, r := foundationApp(t)
+		if code, _, diag := invoke(t, a, "install"); code != 0 {
+			t.Fatal(diag)
+		}
+		r.runtime = developmentRuntimeFixture(r.id)
+		bin := t.TempDir()
+		marker := filepath.Join(bin, "wizard-started")
+		t.Setenv("REPOKIT_TEST_WIZARD_MARKER", marker)
+		t.Setenv("PATH", bin+":"+os.Getenv("PATH"))
+		if err := os.WriteFile(filepath.Join(bin, "docker"), []byte("#!/bin/sh\n: > \"$REPOKIT_TEST_WIZARD_MARKER\"\nexit 1\n"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		input := &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10, team: `REPOKIT_TEAM={"status":"configured","drift":[]}`}
+		a.Initializer = input
+		if saved {
+			a.Initializer = &modelAfterWizard{input, marker}
+		}
+		code, out, diag := invoke(t, a, "setup")
+		if _, err := os.Stat(marker); err != nil {
+			t.Fatal("private wizard did not run")
+		}
+		if saved && (code != 0 || !strings.Contains(out, "continuing with the team") || !strings.Contains(out, "RepoKit ready.")) {
+			t.Fatalf("configured model did not continue to the team: code=%d out=%s diag=%s", code, out, diag)
+		}
+		if !saved && (code == 0 || !strings.Contains(out+diag, "did not finish") || strings.Contains(out, "RepoKit ready.")) {
+			t.Fatalf("unfinished wizard continued: code=%d out=%s diag=%s", code, out, diag)
+		}
 	}
 }
