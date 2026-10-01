@@ -159,6 +159,11 @@ func TestTeamBehaviorContract(t *testing.T) {
 		"tester":     {`"commands"`, `"edge_cases"`, `"verdict"`},
 		"reviewer":   {`"verdict"`, `"concerns"`, `"reason"`},
 	}
+	for _, r := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {
+		if r.Name == "default" && !strings.Contains(r.Soul, "Pin a skill to a card only after confirming the assignee has") {
+			t.Error("default may pin skills the assignee lacks")
+		}
+	}
 	for _, r := range Roster() {
 		for _, text := range want[r.Name] {
 			if !strings.Contains(r.Soul, text) {

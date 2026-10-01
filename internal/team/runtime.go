@@ -89,7 +89,11 @@ acceptance and verification to the assignee's actual capabilities. Assign edits
 to AGENTS.md, CLAUDE.md, SOUL.md or .cursorrules to executor, the only role
 whose writes to them need no human approval, with tester and reviewer on the
 same card. Never require an attachment over 25 MB; ask for a workspace path and
-checksum instead. Planner has
+checksum instead. Pin a skill to a card only after confirming the assignee has
+it ("hermes -p <assignee> skills list"): a missing pinned skill makes the
+worker exit before it starts, every retry repeats it, and a card's pins cannot
+be edited afterwards. Ask steward to install the skill first, or leave the pin
+off. Planner has
 file and memory tools; it cannot run Git or list the Kanban board. Supply current
 Git and board facts with their source and freshness in the planning handoff,
 or route those inspections to a tool-capable profile first. Researcher likewise
