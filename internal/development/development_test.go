@@ -139,19 +139,53 @@ func TestDockerfileRunSyntax(t *testing.T) {
 	}
 }
 
-func TestDetectIgnoresNestedProjectsAndDoesNotExecuteManifests(t *testing.T) {
-	root := t.TempDir()
-	if err := os.Mkdir(filepath.Join(root, "nested"), 0700); err != nil {
-		t.Fatal(err)
+// A monorepo's nested go.mod provisions Go. The walk is bounded, skips
+// vendored, generated and hidden trees, never follows symlinks, never executes
+// a manifest, and a nested problem is a note with its path, not a failure.
+func TestDetectNestedProjectsWithinBounds(t *testing.T) {
+	put := func(root, rel, value string) {
+		t.Helper()
+		path := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+			t.Fatal(err)
+		}
+		manifest(t, filepath.Dir(path), filepath.Base(path), value)
 	}
-	manifest(t, filepath.Join(root, "nested"), "go.mod", "go 1.26.0\n")
-	manifest(t, root, "package.json", `{"scripts":{"postinstall":"touch OWNED"}}`)
+	root := t.TempDir()
+	put(root, "rig/go.mod", "go 1.26.0\n")
+	put(root, "app/android/build.gradle.kts", "plugins {}\n")
+	put(root, "web/package.json", `{"scripts":{"postinstall":"touch OWNED"}}`)
 	r, err := Detect(root)
-	if err != nil || r.Go {
+	if err != nil || !r.Go || len(r.Unsupported) != 0 || strings.Join(r.Detected, ",") != "go,jvm,node" {
 		t.Fatalf("%+v %v", r, err)
 	}
-	if _, err := os.Stat(filepath.Join(root, "OWNED")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(root, "web", "OWNED")); !os.IsNotExist(err) {
 		t.Fatal("manifest executed")
+	}
+	for _, hidden := range []string{"node_modules/x/go.mod", "vendor/x/go.mod", "third_party/x/go.mod", ".cache/x/go.mod", "testdata/go.mod", "a/b/c/d/go.mod"} {
+		skip := t.TempDir()
+		put(skip, hidden, "go 1.26.0\n")
+		if r, err := Detect(skip); err != nil || r.Go {
+			t.Errorf("%s provisioned Go: %+v %v", hidden, r, err)
+		}
+	}
+	linked := t.TempDir()
+	put(linked, "real/go.mod", "go 1.26.0\n")
+	outside := t.TempDir()
+	put(outside, "go.mod", "go 1.26.0\n")
+	if err := os.Symlink(outside, filepath.Join(linked, "elsewhere")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(outside, "go.mod"), filepath.Join(linked, "real", "go.sum")); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := Detect(linked); err != nil || !r.Go || len(r.Unsupported) != 0 {
+		t.Fatalf("symlinked tree changed detection: %+v %v", r, err)
+	}
+	newer := t.TempDir()
+	put(newer, "svc/go.mod", "go 1.99.0\n")
+	if r, err := Detect(newer); err != nil || !r.Go || len(r.Unsupported) != 1 || !strings.HasPrefix(r.Unsupported[0], "svc/go.mod: ") {
+		t.Fatalf("nested unqualified Go not reported with its path: %+v %v", r, err)
 	}
 }
 
@@ -164,8 +198,8 @@ func TestRecipePinsInputsAndChangesForGo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(base["Dockerfile"]), "go.dev/dl") {
-		t.Fatal("Go installed without manifest")
+	if strings.Contains(string(base["Dockerfile"]), "go.dev/dl") || strings.Contains(string(base["Dockerfile"]), "staticcheck") {
+		t.Fatal("Go tools installed without manifest")
 	}
 	for _, want := range []string{"@sha256:", "sha256sum -c", "go" + GoVersion + ".linux-", "GOTOOLCHAIN=local", "WORKDIR /workspace", "org.repokit.development.recipe=" + Fingerprint(Requirements{Go: true}), "/usr/local/lib/docker/cli-plugins/docker-compose", "/usr/local/lib/docker/cli-plugins/docker-buildx", "docker compose version --short", "docker buildx version"} {
 		if !strings.Contains(string(goRecipe["Dockerfile"]), want) {
@@ -183,7 +217,7 @@ func TestRecipePinsInputsAndChangesForGo(t *testing.T) {
 			t.Fatalf("unpinned pip install: %s", line)
 		}
 	}
-	for _, want := range []string{"ast-grep/releases/download/0.45.3/", "ast-grep --version | grep -F 0.45.3", "ddgs --help", "sheeki03/tirith/releases/download/v0.4.2/", "tirith --version | grep -F 0.4.2"} {
+	for _, want := range []string{"ast-grep/releases/download/0.45.3/", "ast-grep --version | grep -F 0.45.3", "ddgs --help", "sheeki03/tirith/releases/download/v0.4.2/", "tirith --version | grep -F 0.4.2", "go-tools/releases/download/" + StaticcheckVersion + "/", "staticcheck -version | grep -F '" + StaticcheckVersion + "'"} {
 		if !strings.Contains(string(goRecipe["Dockerfile"]), want) {
 			t.Fatalf("missing %s", want)
 		}

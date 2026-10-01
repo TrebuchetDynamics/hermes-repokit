@@ -38,7 +38,7 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		{"compose", "docker compose version --short"}, {"buildx", "docker buildx version"},
 	}
 	if req.Go {
-		tools = append(tools, struct{ name, command string }{"go", "go version"})
+		tools = append(tools, struct{ name, command string }{"go", "go version"}, struct{ name, command string }{"staticcheck", "staticcheck -version"})
 	}
 	missing := append([]string(nil), req.Unsupported...)
 	for _, tool := range tools {
@@ -55,7 +55,8 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 			status, version = Degraded, "unavailable"
 		} else if tool.name == "compose" && strings.TrimPrefix(version, "v") != development.ComposeVersion ||
 			tool.name == "buildx" && !containsVersionToken(version, "v"+development.BuildxVersion) ||
-			tool.name == "go" && !strings.HasPrefix(version, "go version go"+development.GoVersion+" ") {
+			tool.name == "go" && !strings.HasPrefix(version, "go version go"+development.GoVersion+" ") ||
+			tool.name == "staticcheck" && !strings.HasPrefix(version, "staticcheck "+development.StaticcheckVersion+" ") {
 			status = Degraded
 		}
 		if status == Degraded {

@@ -19,6 +19,7 @@ import (
 // These are pinned recipe candidates, not a claim of live coding acceptance.
 // Node/npm/Python come from the immutable Hermes base and are asserted at build.
 const GoVersion = "1.26.6"
+const StaticcheckVersion = "2026.2.1"
 const NodeVersion = "26.5.1"
 const NPMVersion = "11.17.0"
 const PythonVersion = "3.13.5"
@@ -46,6 +47,20 @@ const goInstall = `RUN set -eu; \
     cd /tmp/repokit-go-smoke; \
     GOTOOLCHAIN=local GO111MODULE=off GOCACHE=/tmp/repokit-go-cache /usr/local/go/bin/go test -race; \
     rm -rf /tmp/repokit-go-smoke /tmp/repokit-go-cache
+# staticcheck: Go static analysis beyond go vet, from the checksum-pinned release.
+RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) arch=amd64; sc_sha=91186205a78db3f2d40efb3c102749aef66f85c2204793de7488d163b655aa7c ;; \
+      arm64) arch=arm64; sc_sha=594421f28ba620ea14b98377cb84a309cf73cc420ba0f52f30c7fa4d92fd2b0e ;; \
+      *) echo 'Unqualified staticcheck architecture' >&2; exit 1 ;; \
+    esac; \
+    curl --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 300 \
+      "https://github.com/dominikh/go-tools/releases/download/2026.2.1/staticcheck_linux_${arch}.tar.gz" -o /tmp/repokit-staticcheck.tar.gz; \
+    printf '%s  %s\n' "$sc_sha" /tmp/repokit-staticcheck.tar.gz | sha256sum -c -; \
+    tar -C /tmp -xzf /tmp/repokit-staticcheck.tar.gz staticcheck/staticcheck; \
+    install -m 0755 /tmp/staticcheck/staticcheck /usr/local/bin/staticcheck; \
+    rm -rf /tmp/repokit-staticcheck.tar.gz /tmp/staticcheck; \
+    /usr/local/bin/staticcheck -version | grep -F '2026.2.1'
 # Go caches live on the project's toolchain-cache volume, never in the
 # repository's .hermes. Docker copies this sticky, world-writable directory
 # into the empty volume, so the runtime-remapped hermes user can write there.

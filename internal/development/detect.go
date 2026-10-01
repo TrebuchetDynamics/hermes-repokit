@@ -23,7 +23,8 @@ type Requirements struct {
 	Unsupported []string `json:"unsupported"`
 }
 
-// Detect inspects only root manifests. Nested workspaces, dependency installation,
+// Detect inspects root manifests strictly and, within bounds, those of nested
+// projects in a monorepo (rig-vigia/go.mod). Dependency installation,
 // arbitrary version selectors, Rust and JVM provisioning remain unqualified.
 func Detect(path string) (Requirements, error) {
 	r := Requirements{Detected: []string{}, Unsupported: []string{}}
@@ -121,6 +122,7 @@ func Detect(path string) (Requirements, error) {
 			r.Unsupported = append(r.Unsupported, kind+" toolchain provisioning is not supported")
 		}
 	}
+	detectNested(root, &r, found)
 	for kind := range found {
 		r.Detected = append(r.Detected, kind)
 	}
@@ -322,4 +324,73 @@ func compact(values []string) []string {
 		}
 	}
 	return out
+}
+
+// Nested projects are found by a bounded walk that never follows symlinks and
+// skips vendored, generated and hidden trees. A nested go.mod provisions Go;
+// one that cannot be read or qualified is reported with its path and never
+// fails detection, so a stray file deep in a repository cannot block install.
+// Other nested projects are only recorded as detected: Node and Python come
+// with the image, and nested Rust or JVM builds (often an app's Android
+// wrapper) are not provisioned and do not mark the environment degraded.
+const maxNestedDepth = 3
+const maxNestedEntries = 20000
+
+var skippedDirs = map[string]bool{"node_modules": true, "vendor": true, "third_party": true, "testdata": true, "build": true, "dist": true, "target": true, "out": true}
+
+func detectNested(root *os.Root, r *Requirements, found map[string]bool) {
+	visited := 0
+	var walk func(dir string, depth int)
+	walk = func(dir string, depth int) {
+		f, err := root.Open(dir)
+		if err != nil {
+			return
+		}
+		entries, err := f.ReadDir(maxRootEntries + 1)
+		f.Close()
+		if err != nil && err != io.EOF {
+			return
+		}
+		for _, entry := range entries {
+			if visited++; visited > maxNestedEntries {
+				return
+			}
+			name := entry.Name()
+			rel := name
+			if dir != "." {
+				rel = dir + "/" + name
+			}
+			if entry.IsDir() {
+				if depth < maxNestedDepth && !strings.HasPrefix(name, ".") && !skippedDirs[name] {
+					walk(rel, depth+1)
+				}
+				continue
+			}
+			if depth == 0 || !entry.Type().IsRegular() {
+				continue
+			}
+			switch {
+			case name == "go.mod":
+				data, err := readManifest(root, rel)
+				if err != nil {
+					r.Unsupported = append(r.Unsupported, rel+" cannot be safely inspected")
+					continue
+				}
+				found["go"] = true
+				r.Go = true
+				for _, problem := range goRequirements(string(data)) {
+					r.Unsupported = append(r.Unsupported, rel+": "+problem)
+				}
+			case name == "package.json":
+				found["node"] = true
+			case name == "pyproject.toml" || (strings.HasPrefix(name, "requirements") && strings.HasSuffix(name, ".txt")):
+				found["python"] = true
+			case name == "Cargo.toml":
+				found["rust"] = true
+			case name == "pom.xml" || strings.HasPrefix(name, "build.gradle"):
+				found["jvm"] = true
+			}
+		}
+	}
+	walk(".", 0)
 }
