@@ -71,6 +71,20 @@ RUN set -eu; \
     install -m 0555 /tmp/repokit-tirith/tirith /usr/local/bin/tirith; \
     rm -rf /tmp/repokit-tirith /tmp/repokit-tirith.tar.gz; \
     tirith --version | grep -F 0.4.2
+# shellcheck lints the shell scripts agents write and run (guards, checks).
+RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) sc_arch=x86_64; sc_sha=b7af85e41cc99489dcc21d66c6d5f3685138f06d34651e6d34b42ec6d54fe6f6 ;; \
+      arm64) sc_arch=aarch64; sc_sha=68a8133197a50beb8803f8d42f9908d1af1c5540d4bb05fdfca8c1fa47decefc ;; \
+      *) echo 'Unqualified shellcheck architecture' >&2; exit 1 ;; \
+    esac; \
+    curl --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 300 \
+      "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.${sc_arch}.tar.gz" -o /tmp/repokit-shellcheck.tar.gz; \
+    printf '%s  %s\n' "$sc_sha" /tmp/repokit-shellcheck.tar.gz | sha256sum -c -; \
+    tar -xzf /tmp/repokit-shellcheck.tar.gz -C /tmp shellcheck-v0.11.0/shellcheck; \
+    install -m 0555 /tmp/shellcheck-v0.11.0/shellcheck /usr/local/bin/shellcheck; \
+    rm -rf /tmp/shellcheck-v0.11.0 /tmp/repokit-shellcheck.tar.gz; \
+    shellcheck --version | grep -F 'version: 0.11.0'
 COPY repokit-ddgs-requirements.txt /tmp/repokit-ddgs-requirements.txt
 # --no-config and /tmp keep uv from applying Hermes's own project settings.
 RUN set -eu; cd /tmp; \

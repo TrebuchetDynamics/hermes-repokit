@@ -212,7 +212,8 @@ granted toolset or skill is not drift and RepoKit never re-adds it.
 Skills come from the official Nous Research catalog only (`official/<category>/<name>`),
 chosen because they need no API key or paid service. The development image
 ships the binaries two of them rely on (`ast-grep`/`sg` and `ddgs`), pinned by
-checksum. A skill that does not install (offline, or blocked by Hermes's
+checksum, along with `shellcheck` for the shell scripts agents write and, in a
+Go repository, `staticcheck`. A skill that does not install (offline, or blocked by Hermes's
 security scan) is reported and never fails the run. Community plugins are
 never installed; authentication-dependent ones such as the official `snyk`
 plugin stay optional Hermes configuration for the owner.
