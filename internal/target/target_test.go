@@ -664,3 +664,42 @@ func TestWorkerScratchCopiesAreNotWalked(t *testing.T) {
 		t.Fatalf("world-writable scratch entry accepted: %v", issues)
 	}
 }
+
+// The Dart analysis server (flutter analyze, dart analyze) leaves a private
+// per-process socket in each home's state directory.
+func TestInspectAllowsDartAnalysisSocket(t *testing.T) {
+	root, err := os.MkdirTemp("/tmp", "rk")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(root) })
+	os.Chmod(root, 0755)
+	id, err := Resolve(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state := filepath.Join(root, ".hermes")
+	dir := filepath.Join(state, "profiles/x/home/.local/state/Dart/perf")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	os.Chmod(state, 0700)
+	socket := filepath.Join(dir, "17241")
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	if err := os.Chmod(socket, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if issues := Inspect(id, ""); len(issues) != 0 {
+		t.Fatalf("Dart analysis socket refused: %v", issues)
+	}
+	if err := os.Chmod(socket, 0777); err != nil {
+		t.Fatal(err)
+	}
+	if issues := Inspect(id, ""); len(issues) != 1 {
+		t.Fatalf("world-writable Dart socket accepted: %v", issues)
+	}
+}

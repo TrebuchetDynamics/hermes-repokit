@@ -43,7 +43,9 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		tools = append(tools, struct{ name, command string }{"go", "go version"}, struct{ name, command string }{"staticcheck", "staticcheck -version"})
 	}
 	if req.Flutter {
-		tools = append(tools, struct{ name, command string }{"flutter", "flutter --version"}, struct{ name, command string }{"dart", "dart --version"})
+		// Flutter's banner carries "•" and Dart's a quoted platform, which the
+		// version-text check rejects; report only the plain version.
+		tools = append(tools, struct{ name, command string }{"flutter", `flutter --version 2>/dev/null | sed -n '1s/^Flutter \([^ ]*\).*/Flutter \1/p'`}, struct{ name, command string }{"dart", "dart --version 2>&1 | sed 's/ on .*//'"})
 	}
 	if req.Rust {
 		tools = append(tools, struct{ name, command string }{"rustc", "rustc --version"}, struct{ name, command string }{"cargo", "cargo --version"}, struct{ name, command string }{"clippy", "cargo clippy --version"})
@@ -66,7 +68,7 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 			tool.name == "go" && !strings.HasPrefix(version, "go version go"+development.GoVersion+" ") ||
 			tool.name == "staticcheck" && !strings.HasPrefix(version, "staticcheck "+development.StaticcheckVersion+" ") ||
 			tool.name == "rustc" && !strings.HasPrefix(version, "rustc "+development.RustVersion+" ") ||
-			tool.name == "flutter" && !strings.HasPrefix(version, "Flutter "+development.FlutterVersion+" ") {
+			tool.name == "flutter" && version != "Flutter "+development.FlutterVersion {
 			status = Degraded
 		}
 		if status == Degraded {

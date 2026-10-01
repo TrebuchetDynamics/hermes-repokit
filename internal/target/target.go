@@ -33,6 +33,9 @@ var profileHome = regexp.MustCompile(`^(?:profiles/[^/]+/)?home/(.+)$`)
 // would otherwise exhaust the inspection limit.
 var workerScratch = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/.+`)
 var workerScratchEntry = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/[^/]+$`)
+// dartPerfSocket is the Dart analysis server's private performance socket in
+// a home's state directory (named by process ID).
+var dartPerfSocket = regexp.MustCompile(`^\.local/state/Dart/perf/[0-9]+$`)
 var browserHarnessSocket = regexp.MustCompile(`^(profiles/[^/]+/)?home/\.config/browser-harness/runtime/[^/]+\.sock$`)
 var huggingFaceModelLink = regexp.MustCompile(`^\.cache/huggingface/hub/models--[A-Za-z0-9][A-Za-z0-9._-]*/(blobs/[0-9a-f]{40}([0-9a-f]{24})?|snapshots/[0-9a-f]{40}/[^/]+(/[^/]+)*)$`)
 var huggingFaceCacheMetadata = regexp.MustCompile(`^\.cache/huggingface/hub/(\.locks/models--[A-Za-z0-9][A-Za-z0-9._-]*/[0-9a-f]{40}([0-9a-f]{24})?\.lock|blobs/[0-9a-f]{2}/[0-9a-f]{64}\.(lock|refs))$`)
@@ -229,6 +232,9 @@ func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
 		}
 		if browserHarnessSocket.MatchString(rel) {
 			return info.Mode().Perm()&0077 == 0
+		}
+		if dartPerfSocket.MatchString(rel) || dartPerfSocket.MatchString(homeRel) {
+			return info.Mode().Perm()&0022 == 0
 		}
 		return info.Mode().Perm()&0022 == 0 && (rel == "gateway.sock" || gatewayTickSocket.MatchString(rel))
 	}
