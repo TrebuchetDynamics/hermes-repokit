@@ -133,3 +133,20 @@ func TestCurrentRenderHidesStateInsideWorkspace(t *testing.T) {
 		t.Fatalf("previous-release render gained the mask: %v", err)
 	}
 }
+
+func TestCurrentRenderGivesHermesTimeToShutDown(t *testing.T) {
+	id, _ := target.Resolve(t.TempDir())
+	req := development.Requirements{}
+	o := Options{HermesImage: qualification.FoundationImage, Development: &req, UID: 1000, GID: 1000}
+	current, err := Render(id, o)
+	if err != nil || !strings.Contains(string(current), "    restart: unless-stopped\n    stop_grace_period: 60s\n") {
+		t.Fatalf("current render has no stop grace period: %v\n%s", err, current)
+	}
+	previous := WithoutStopGrace(current)
+	if strings.Contains(string(previous), "stop_grace_period") || len(previous) == len(current) {
+		t.Fatalf("pre-grace render still carries the period:\n%s", previous)
+	}
+	if prior, err := BeforeStateMask(id, o, strings.Repeat("ab", 32)); err != nil || strings.Contains(string(prior), "stop_grace_period") {
+		t.Fatalf("previous-release render gained the grace period: %v", err)
+	}
+}

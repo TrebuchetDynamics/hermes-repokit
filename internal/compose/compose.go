@@ -2,6 +2,7 @@
 package compose
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/dockertest"
@@ -45,6 +46,21 @@ func ToolchainCacheMounted(o Options) bool {
 	return o.Development != nil && (o.Development.Go || o.Development.Rust || o.Development.Flutter) && !o.beforeToolchainCache
 }
 
+// StopGraceSeconds is how long Docker waits for Hermes to shut down before
+// SIGKILL on every stop: docker stop or restart, a daemon restart or a host
+// shutdown, not only RepoKit's own commands. Docker's 10s default cut a
+// gateway off mid-shutdown ("previous gateway life exited UNCLEANLY").
+const (
+	StopGraceSeconds = 60
+	StopGracePeriod  = "60s"
+)
+
+// WithoutStopGrace returns a render as generated before Compose carried the
+// stop grace period, so install can recognize and upgrade those deployments.
+func WithoutStopGrace(data []byte) []byte {
+	return bytes.Replace(data, []byte("    stop_grace_period: "+StopGracePeriod+"\n"), nil, 1)
+}
+
 // StateMaskTarget is where the repository's own .hermes appears inside
 // /workspace. An empty read-only tmpfs covers it, so private state is reached
 // only through /opt/data: whole-tree commands in the repository never walk it,
@@ -84,6 +100,7 @@ services:
 	}
 	fmt.Fprintf(&s, `    container_name: %q
     restart: unless-stopped
+    stop_grace_period: %s
     working_dir: /workspace
     # Keep the native exec endpoint available before interactive provider setup.
     command: ["sleep", "infinity"]
@@ -92,7 +109,7 @@ services:
       HERMES_WRITE_SAFE_ROOT: /opt/data:/workspace
       HERMES_UID: %q
       HERMES_GID: %q
-`, id.Container, fmt.Sprint(o.UID), fmt.Sprint(o.GID))
+`, id.Container, StopGracePeriod, fmt.Sprint(o.UID), fmt.Sprint(o.GID))
 	relabel := ""
 	if mode := o.SELinux.RelabelMode(); mode != "" {
 		relabel = "          selinux: " + mode + "\n"

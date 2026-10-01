@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -134,6 +135,14 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 		}
 		previous = append(previous, install.StackUpgrade{Compose: old, BackupName: "compose.before-docker-tests.yaml"})
 	}
+	// Every deployment generated before Compose carried the stop grace period
+	// lacks that one line: the current render and each reconfiguration above.
+	for _, prior := range previous {
+		if stripped := compose.WithoutStopGrace(prior.Compose); !bytes.Equal(stripped, prior.Compose) {
+			previous = append(previous, install.StackUpgrade{Compose: stripped, BackupName: prior.BackupName, PreviousRecipe: prior.PreviousRecipe})
+		}
+	}
+	previous = append(previous, install.StackUpgrade{Compose: compose.WithoutStopGrace(data), BackupName: "compose.before-stop-grace.yaml"})
 	created, err := install.PublishStackChecked(id, artifacts, previous, func() error {
 		current := a.plan(id)
 		if len(current.Unsupported) > 0 {

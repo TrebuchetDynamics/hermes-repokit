@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,10 +52,9 @@ func (a App) containerState(id target.Identity, dc string) (string, error) {
 	return state.Status, nil
 }
 
-// stopTimeout is how long Docker waits for Hermes to shut down before SIGKILL
-// when a container is stopped or recreated. Docker's 10s default cut sdrhf's
-// gateway off mid-shutdown ("previous gateway life exited UNCLEANLY").
-const stopTimeout = "60"
+// stopTimeout gives RepoKit's own stop and recreation the same shutdown time
+// that the generated Compose's stop_grace_period gives every other stop.
+var stopTimeout = strconv.Itoa(compose.StopGraceSeconds)
 
 // startDeployment builds (when needed) and starts the Hermes service. A
 // running current deployment is left alone. Recreating a running deployment

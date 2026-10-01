@@ -39,7 +39,8 @@ func BeforeToolchainCache(id target.Identity, o Options, fingerprint string) ([]
 	}
 	o.beforeToolchainCache = true
 	o.beforeStateMask = true
-	return OlderRecipe(id, o, fingerprint)
+	data, err := OlderRecipe(id, o, fingerprint)
+	return WithoutStopGrace(data), err
 }
 
 // BeforeStateMask renders the Compose the previous release generated: an
@@ -47,7 +48,8 @@ func BeforeToolchainCache(id target.Identity, o Options, fingerprint string) ([]
 // install upgrade those deployments in place.
 func BeforeStateMask(id target.Identity, o Options, fingerprint string) ([]byte, error) {
 	o.beforeStateMask = true
-	return OlderRecipe(id, o, fingerprint)
+	data, err := OlderRecipe(id, o, fingerprint)
+	return WithoutStopGrace(data), err
 }
 
 // DevelopmentInstallSelected recovers the installation options of a current
@@ -64,11 +66,13 @@ func DevelopmentInstallSelected(id target.Identity) (Options, bool) {
 			for _, state := range []selinux.State{selinux.Disabled, selinux.Enforcing} {
 				req := toolchain
 				o := Options{HermesImage: qualification.FoundationImage, Development: &req, DockerTests: tests, UID: os.Getuid(), GID: os.Getgid(), SELinux: state}
-				if expected, err := Render(id, o); err == nil && bytes.Equal(data, expected) {
+				// A current deployment generated before the stop grace period
+				// is upgraded in place.
+				if expected, err := Render(id, o); err == nil && (bytes.Equal(data, expected) || bytes.Equal(data, WithoutStopGrace(expected))) {
 					return o, true
 				}
 				if generated && toolchain.Go == recipeTools.Go && toolchain.Rust == recipeTools.Rust && toolchain.Flutter == recipeTools.Flutter {
-					if expected, err := OlderRecipe(id, o, fingerprint); err == nil && bytes.Equal(data, expected) {
+					if expected, err := OlderRecipe(id, o, fingerprint); err == nil && (bytes.Equal(data, expected) || bytes.Equal(data, WithoutStopGrace(expected))) {
 						return o, true
 					}
 					if expected, err := BeforeToolchainCache(id, o, fingerprint); err == nil && bytes.Equal(data, expected) {

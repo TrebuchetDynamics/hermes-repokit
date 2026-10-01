@@ -22,7 +22,7 @@ func developmentRuntimeFixture(id target.Identity) string {
 	if o.DockerTests {
 		mounts = append(mounts, map[string]any{"Type": "volume", "Name": id.Project + "_docker-test-run", "Destination": "/docker-test/run", "RW": false}, map[string]any{"Type": "volume", "Name": id.Project + "_docker-test-work", "Destination": "/docker-tests", "RW": true})
 	}
-	b, _ := json.Marshal(map[string]any{"id": strings.Repeat("a", 64), "status": "running", "service": "hermes", "unexpectedMounts": "", "image": development.ImageName(id.Container, *o.Development), "imageID": "sha256:" + strings.Repeat("d", 64), "project": id.Project, "workspace": id.Root, "home": filepath.Join(id.Root, ".hermes"), "mounts": mounts})
+	b, _ := json.Marshal(map[string]any{"id": strings.Repeat("a", 64), "status": "running", "service": "hermes", "unexpectedMounts": "", "image": development.ImageName(id.Container, *o.Development), "imageID": "sha256:" + strings.Repeat("d", 64), "project": id.Project, "workspace": id.Root, "home": filepath.Join(id.Root, ".hermes"), "mounts": mounts, "stopTimeout": compose.StopGraceSeconds})
 	return string(b)
 }
 func TestDevelopmentInstallDetectsGoAndPreservesRecipeDrift(t *testing.T) {

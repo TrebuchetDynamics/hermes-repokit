@@ -52,12 +52,13 @@ func (a App) gitIssues(ctx context.Context, id target.Identity) []string {
 // nativeRuntimeReady checks the exact runtime before any native mutation or
 // private wizard. Missing/stopped metadata is pending; a foreign runtime refuses.
 func (a App) nativeRuntimeReady(id target.Identity, dockerContext string) (bool, error) {
-	const format = `{"status":{{json .State.Status}},"image":{{json .Config.Image}},"imageID":{{json .Image}},"mounts":{{json .Mounts}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"workspace":{{range .Mounts}}{{if eq .Destination "/workspace"}}{{json .Source}}{{end}}{{end}},"home":{{range .Mounts}}{{if eq .Destination "/opt/data"}}{{json .Source}}{{end}}{{end}},"unexpectedMounts":"{{range .Mounts}}{{if or (ne .Type "bind") (and (ne .Destination "/workspace") (ne .Destination "/opt/data"))}}x{{end}}{{end}}"}`
+	const format = `{"status":{{json .State.Status}},"image":{{json .Config.Image}},"imageID":{{json .Image}},"stopTimeout":{{json .Config.StopTimeout}},"mounts":{{json .Mounts}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"workspace":{{range .Mounts}}{{if eq .Destination "/workspace"}}{{json .Source}}{{end}}{{end}},"home":{{range .Mounts}}{{if eq .Destination "/opt/data"}}{{json .Source}}{{end}}{{end}},"unexpectedMounts":"{{range .Mounts}}{{if or (ne .Type "bind") (and (ne .Destination "/workspace") (ne .Destination "/opt/data"))}}x{{end}}{{end}}"}`
 	observed := a.Runner.Run(context.Background(), "docker", "--context", dockerContext, "container", "inspect", "--format", format, id.Container)
 	var runtime struct {
 		verify.Runtime
 		Image, ImageID, Service, UnexpectedMounts string
 		Mounts                                    []verify.RuntimeMount
+		StopTimeout                               *int
 	}
 	if observed.Err != nil || observed.Truncated || json.Unmarshal([]byte(observed.Output), &runtime) != nil || runtime.Status != "running" {
 		return false, nil
@@ -73,6 +74,11 @@ func (a App) nativeRuntimeReady(id target.Identity, dockerContext string) (bool,
 	}
 	if !verify.HermesImageMatches(context.Background(), id, dockerContext, runtime.Image, runtime.ImageID, a.Runner) || runtime.Service != "hermes" || !verify.RuntimeMountsMatch(id, runtime.UnexpectedMounts, runtime.Mounts) || runtime.Project != id.Project || runtime.Workspace != id.Root || runtime.Home != filepath.Join(id.Root, ".hermes") {
 		return false, fmt.Errorf("running container image or identity does not match the qualified deployment")
+	}
+	// A container created before Compose carried the stop grace period is
+	// recreated, so every stop gives Hermes time to shut down cleanly.
+	if runtime.StopTimeout == nil || *runtime.StopTimeout != compose.StopGraceSeconds {
+		return false, nil
 	}
 	return true, nil
 }
