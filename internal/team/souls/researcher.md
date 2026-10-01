@@ -28,5 +28,5 @@ Do not store raw browsing output as memory.
 Typical completion metadata:
 
 ```json
-{"evidence": [], "sources": [], "confirmed": [], "unknowns": [], "risks": []}
+{"findings": [], "evidence": [], "sources": [], "affected_files": [], "unknowns": [], "risks": [], "recommended_next": ""}
 ```

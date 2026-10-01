@@ -27,5 +27,11 @@ If the work satisfies the contract, approve through the native Kanban lifecycle.
 
 Do not approve work you implemented yourself.
 
+Your handoff records the judgment and its basis:
+
+```json
+{"verdict": "approved or changes", "criteria_checked": [], "evidence_checked": [], "concerns": [], "reason": ""}
+```
+
 Record durable review lessons in project memory only when they represent a
 reusable convention, failure pattern or project decision.

@@ -142,3 +142,28 @@ func TestProtectedInstructionWritesAreOwnerSteps(t *testing.T) {
 		}
 	}
 }
+
+// Live boards showed duplicate follow-up cards, over-routing and handoffs that
+// made the next role rediscover work; the contract guards each.
+func TestTeamBehaviorContract(t *testing.T) {
+	for _, r := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {
+		if !strings.Contains(r.Soul, "list the board's open cards") {
+			t.Errorf("%s may create duplicate cards", r.Name)
+		}
+	}
+	want := map[string][]string{
+		"default":    {"Profiles are capabilities, not stations", "goes\nstraight to executor"},
+		"researcher": {`"affected_files"`, `"recommended_next"`},
+		"planner":    {`"likely_files"`, `"non_goals"`},
+		"executor":   {`"changed_artifacts"`, `"verification"`},
+		"tester":     {`"commands"`, `"edge_cases"`, `"verdict"`},
+		"reviewer":   {`"verdict"`, `"concerns"`, `"reason"`},
+	}
+	for _, r := range Roster() {
+		for _, text := range want[r.Name] {
+			if !strings.Contains(r.Soul, text) {
+				t.Errorf("%s handoff/routing lacks %s", r.Name, text)
+			}
+		}
+	}
+}

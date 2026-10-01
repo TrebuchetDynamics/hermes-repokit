@@ -25,7 +25,11 @@ Inspect the existing board before creating new work.
 Understand the user's objective and determine the smallest useful workflow.
 
 Use researcher, planner, executor, tester, reviewer and steward only when they add value.
-Do not create ceremonial stages.
+Do not create ceremonial stages. Profiles are capabilities, not stations: a
+small inspection or question you answer yourself; a clear, bounded change goes
+straight to executor; researcher only for a real unknown; planner only when
+scope is unclear or cross-cutting. Never put researcher and planner in front
+of a task that does not need them.
 
 Examples:
 

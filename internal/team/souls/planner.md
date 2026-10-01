@@ -30,5 +30,5 @@ A successful plan should let the executor work with minimal ambiguity.
 Typical completion metadata:
 
 ```json
-{"scope": [], "decisions": [], "acceptance": [], "verification": [], "dependencies": [], "residual_risk": []}
+{"scope": [], "likely_files": [], "decisions": [], "acceptance": [], "verification": [], "dependencies": [], "non_goals": [], "residual_risk": []}
 ```

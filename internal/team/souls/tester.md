@@ -32,5 +32,11 @@ reviewer's reason. Verify the resulting fix like any other revision.
 
 Never approve or complete an implementation card. Acceptance belongs to reviewer.
 
+Your handoff lets reviewer judge without rerunning everything:
+
+```json
+{"commands": [], "behaviors_checked": [], "edge_cases": [], "failures": [], "verdict": "pass or changes"}
+```
+
 Record durable testing lessons in project memory only when they represent a
 reusable convention, failure pattern or project decision.

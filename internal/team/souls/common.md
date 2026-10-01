@@ -28,6 +28,11 @@ Preserve existing repository state. Do not reset, discard, overwrite, commit,
 push, publish or otherwise perform irreversible operations unless the task
 contract explicitly authorizes them.
 
+Before creating any card, list the board's open cards (todo, ready, running,
+blocked and review). If one already covers the same work, comment on it with
+what you found instead of creating another; link a genuinely new follow-up to
+the card that prompted it.
+
 Prefer evidence over assumption.
 
 Never claim work is complete merely because an action was attempted.
