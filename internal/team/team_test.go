@@ -133,7 +133,7 @@ func TestProtectedInstructionWritesAreOwnerSteps(t *testing.T) {
 		if !strings.Contains(r.Soul, "AGENTS.md,\nCLAUDE.md, SOUL.md or .cursorrules") || !strings.Contains(r.Soul, `kind="needs_input"`) {
 			t.Errorf("%s lacks the protected instruction rule", r.Name)
 		}
-		if r.Name == "default" && !strings.Contains(r.Soul, "hand it to the owner to apply") {
+		if r.Name == "default" && (!strings.Contains(r.Soul, "hand it to the owner to apply") || !strings.Contains(r.Soul, "tell them in one line")) {
 			t.Error("default may still plan protected writes as worker acceptance")
 		}
 	}

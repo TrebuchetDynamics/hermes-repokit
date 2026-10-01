@@ -56,3 +56,10 @@ Inspect durable handoff evidence, verification results and review state.
 
 For work requiring independent review, require the implementer, verifying
 tester and approving reviewer to be distinct profile identities.
+
+## Kanban notifications
+
+Hermes wakes you each time a card you created changes stage. A review handoff
+between stages (implementation ready for tester, tester passing to reviewer)
+asks nothing of the owner: tell them in one line. Give a full report only for
+a completion, a block, requested changes or a decision the owner must make.
