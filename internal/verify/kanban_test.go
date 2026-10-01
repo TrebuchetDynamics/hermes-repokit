@@ -79,18 +79,18 @@ func TestGatewayAndReviewEvidenceFromPublicCLI(t *testing.T) {
 	id, base := integrationFixture(t)
 	r := &hermesRunner{integrationRunner: base, replies: map[string]string{
 		"gateway status": "✓ Gateway is running (PID: 9)",
-		"kanban list --status done --assignee reviewer --sort completed-desc --json": `[{"id":"t_a"},{"id":"t_b"}]`,
-		"kanban show t_a --json": `{"runs":[{"profile":"executor","outcome":"completed"}]}`,
-		"kanban show t_b --json": `{"runs":[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]}`,
+		"kanban list --status done --assignee reviewer --sort completed-desc": "✓ t_0000000a  done  reviewer  first\n✓ t_0000000b  done  reviewer  second\n",
+		"kanban runs t_0000000a --json":                                       `[{"profile":"executor","outcome":"completed"}]`,
+		"kanban runs t_0000000b --json":                                       `[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]`,
 	}}
 	if got := status(Gateway(context.Background(), id, r), "gateway"); got != Healthy {
 		t.Fatal(got)
 	}
-	if p := ReviewEvidence(context.Background(), id, r); p.Status != Healthy || !strings.Contains(p.Detail, "t_b") {
+	if p := ReviewEvidence(context.Background(), id, r); p.Status != Healthy || !strings.Contains(p.Detail, "t_0000000b") {
 		t.Fatal(p)
 	}
 	// A card completed by its implementer alone is not independent review.
-	r.replies["kanban list --status done --assignee reviewer --sort completed-desc --json"] = `[{"id":"t_a"}]`
+	r.replies["kanban list --status done --assignee reviewer --sort completed-desc"] = "✓ t_0000000a  done  reviewer  first\n"
 	r.replies["gateway status"] = "✗ Gateway is not running"
 	if p := ReviewEvidence(context.Background(), id, r); p.Status != Unqualified {
 		t.Fatal(p)
@@ -153,21 +153,26 @@ func TestReviewEvidenceSurvivesUnrelatedLaterWork(t *testing.T) {
 	reviewed := []string{}
 	replies := map[string]string{}
 	for i := 0; i < reviewEvidenceWindow; i++ {
-		card := fmt.Sprintf("t_%02d", i)
-		reviewed = append(reviewed, `{"id":"`+card+`"}`)
-		replies["kanban show "+card+" --json"] = `{"runs":[{"profile":"reviewer","outcome":"completed"}]}`
+		card := fmt.Sprintf("t_%08x", i)
+		reviewed = append(reviewed, "✓ "+card+"  done  reviewer  card "+card)
+		replies["kanban runs "+card+" --json"] = `[{"profile":"reviewer","outcome":"completed"}]`
 	}
 	// The only qualifying card is the oldest inside the window.
-	replies["kanban show t_19 --json"] = `{"runs":[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]}`
-	replies["kanban list --status done --assignee reviewer --sort completed-desc --json"] = "[" + strings.Join(reviewed, ",") + `,{"id":"t_old"}]`
-	replies["kanban show t_old --json"] = replies["kanban show t_19 --json"]
+	last := fmt.Sprintf("t_%08x", reviewEvidenceWindow-1)
+	replies["kanban runs "+last+" --json"] = `[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]`
+	replies["kanban list --status done --assignee reviewer --sort completed-desc"] = strings.Join(reviewed, "\n") + "\n✓ t_000000ff  done  reviewer  old\n"
+	replies["kanban runs t_000000ff --json"] = replies["kanban runs "+last+" --json"]
 	r := &hermesRunner{integrationRunner: base, replies: replies}
-	if p := ReviewEvidence(context.Background(), id, r); p.Status != Healthy || !strings.Contains(p.Detail, "t_19") {
+	if p := ReviewEvidence(context.Background(), id, r); p.Status != Healthy || !strings.Contains(p.Detail, last) {
 		t.Fatalf("evidence inside the window lost: %+v", p)
 	}
 	for _, call := range r.calls {
-		if strings.Contains(strings.Join(call, " "), "kanban show t_old") {
+		joined := strings.Join(call, " ")
+		if strings.Contains(joined, "t_000000ff") {
 			t.Fatal("read past the bounded window")
+		}
+		if strings.Contains(joined, "kanban list") && strings.Contains(joined, "--json") || strings.Contains(joined, "kanban show") {
+			t.Fatalf("review evidence read whole card bodies: %s", joined)
 		}
 	}
 }

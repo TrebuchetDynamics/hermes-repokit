@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
@@ -167,30 +168,37 @@ func ReviewEvidence(ctx context.Context, id target.Identity, r Runner) Probe {
 	// Reviewer completes every accepted implementation card, so only cards it
 	// finished are candidates; research, planning and admin work cannot push
 	// the evidence out of view. The newest reviewEvidenceWindow are read.
-	out, ok := hermesCLI(ctx, r, dc, container, "kanban", "list", "--status", "done", "--assignee", "reviewer", "--sort", "completed-desc", "--json")
-	var tasks []struct {
-		ID string `json:"id"`
-	}
-	if !ok || json.Unmarshal([]byte(out), &tasks) != nil {
+	// The plain listing carries only IDs and titles; --json includes every
+	// card body and outgrows the bounded output on a busy board (sdrhf: 120 KB).
+	out, ok := hermesCLI(ctx, r, dc, container, "kanban", "list", "--status", "done", "--assignee", "reviewer", "--sort", "completed-desc")
+	if !ok {
 		return probe
 	}
-	if len(tasks) > reviewEvidenceWindow {
-		tasks = tasks[:reviewEvidenceWindow]
-	}
-	for _, task := range tasks {
-		out, ok := hermesCLI(ctx, r, dc, container, "kanban", "show", task.ID, "--json")
-		var record struct {
-			Runs []struct{ Profile, Outcome string } `json:"runs"`
+	// One card per line; its ID comes first, and a title may name others.
+	var ids []string
+	seen := map[string]bool{}
+	for line := range strings.SplitSeq(out, "\n") {
+		if id := taskID.FindString(line); id != "" && !seen[id] && len(ids) < reviewEvidenceWindow {
+			seen[id] = true
+			ids = append(ids, id)
 		}
-		if !ok || json.Unmarshal([]byte(out), &record) != nil {
+	}
+	for _, task := range ids {
+		// Run history alone, not the card's body and comments.
+		out, ok := hermesCLI(ctx, r, dc, container, "kanban", "runs", task, "--json")
+		var runs []struct{ Profile, Outcome string }
+		if !ok || json.Unmarshal([]byte(out), &runs) != nil {
 			continue
 		}
-		if chain := acceptanceChain(record.Runs); chain != "" {
-			return Probe{"review:evidence", Healthy, "card " + task.ID + ": " + chain + " on the same card"}
+		if chain := acceptanceChain(runs); chain != "" {
+			return Probe{"review:evidence", Healthy, "card " + task + ": " + chain + " on the same card"}
 		}
 	}
 	return Probe{"review:evidence", Unqualified, "no same-card executor→tester→reviewer completion among recent reviewer-completed cards; run real reviewed work"}
 }
+
+// taskID matches a native Kanban task ID in listing output.
+var taskID = regexp.MustCompile(`\bt_[0-9a-f]{8}\b`)
 
 // reviewEvidenceWindow bounds how many reviewer-completed cards verify reads
 // (one native `kanban show` each).

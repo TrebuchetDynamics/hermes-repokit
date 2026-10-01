@@ -33,6 +33,7 @@ var profileHome = regexp.MustCompile(`^(?:profiles/[^/]+/)?home/(.+)$`)
 // would otherwise exhaust the inspection limit.
 var workerScratch = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/.+`)
 var workerScratchEntry = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/[^/]+$`)
+
 // dartPerfSocket is the Dart analysis server's private performance socket in
 // a home's state directory (named by process ID).
 var dartPerfSocket = regexp.MustCompile(`^\.local/state/Dart/perf/[0-9]+$`)
