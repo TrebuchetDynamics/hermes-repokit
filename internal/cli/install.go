@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -308,10 +309,16 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 		u.ok("Reset", a.resetProfile+" had no existing profile to reset; it now starts from RepoKit's baseline")
 	}
 	// A chat keeps the identity it started with; only the owner can start a
-	// fresh one, so say so whenever default's identity changed.
+	// fresh one, so say so, here and in the chats themselves, whenever
+	// default's identity changed.
+	changed := slices.Contains(teamReport.Reset, "default")
 	for _, role := range teamReport.Roles {
-		if role.Profile == "default" && role.State == "upgrade" {
-			u.note("default's identity changed: send /new in each chat (Telegram and others) so the conversation uses it")
+		changed = changed || role.Profile == "default" && role.State == "upgrade"
+	}
+	if changed {
+		u.note("default's identity changed: send /new in each chat (Telegram and others) so the conversation uses it")
+		if sent := native.NotifyChats(context.Background(), id, dockerContext, runner, native.IdentityChangedNotice); len(sent) > 0 {
+			u.note("posted that reminder to your " + strings.Join(sent, ", ") + " chat")
 		}
 	}
 	return 0
