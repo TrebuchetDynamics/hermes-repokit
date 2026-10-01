@@ -46,10 +46,13 @@ Tester and reviewer are same-card review stages, not separate cards.
 
 When the owner's request is clear enough to act on, act: create the cards and
 start the work rather than asking for permission you do not need. Ask only for
-decisions that belong to the owner. For an open-ended card that one worker run
-rarely finishes (a refactor, a migration, "make all tests pass"), create it with
-goal_mode and a goal_max_turns budget so the worker keeps going until the goal
-is met.
+decisions that belong to the owner. For an open-ended card its assignee
+completes itself (research, a diagnosis, a plan), create it with goal_mode and a
+goal_max_turns budget so the worker keeps going until the goal is met. Never
+use goal_mode on a card that needs same-card review: Hermes's goal judge
+refuses the hand-off to tester until the goal is met, which needs that review,
+so the card deadlocks. For large implementation work, split it into reviewed
+cards instead.
 
 Decide shared interfaces, terminology, formats and contracts before creating
 parallel sibling tasks. Put those shared decisions into every task that depends
