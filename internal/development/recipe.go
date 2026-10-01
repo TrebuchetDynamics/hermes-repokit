@@ -106,7 +106,7 @@ ENV CARGO_HOME=/var/cache/repokit/cargo
 // A smoke project runs analyze and test at build so their host artifacts are
 // cached; Flutter writes into its own SDK, so the SDK is opened to the
 // runtime-remapped user in the same layer. Pub's cache lives on the
-// toolchain-cache volume.
+// toolchain-cache volume. Flutter's and Dart's telemetry are suppressed.
 const flutterInstall = `RUN set -eu; \
     case "$(dpkg --print-architecture)" in \
       amd64) ;; \
@@ -121,15 +121,18 @@ const flutterInstall = `RUN set -eu; \
     git config --system --add safe.directory /opt/flutter; \
     ln -s /opt/flutter/bin/flutter /usr/local/bin/flutter; \
     ln -s /opt/flutter/bin/dart /usr/local/bin/dart; \
-    export PUB_CACHE=/tmp/repokit-pub-cache; \
-    flutter --disable-analytics >/dev/null; \
+    export PUB_CACHE=/tmp/repokit-pub-cache FLUTTER_SUPPRESS_ANALYTICS=true DASH__SUPPRESS_ANALYTICS=true; \
     flutter --version | grep -F 'Flutter 3.47.5 '; \
     cd /tmp; flutter create --project-name repokit_smoke --platforms web repokit_smoke >/dev/null; \
     cd /tmp/repokit_smoke; flutter analyze; flutter test; \
     cd /; rm -rf /tmp/repokit_smoke /tmp/repokit-pub-cache /root/.config/flutter /root/.dart-tool /root/.flutter; \
     chmod -R a+rwX /opt/flutter
 RUN install -d -m 1777 /var/cache/repokit
-ENV PUB_CACHE=/var/cache/repokit/pub-cache
+# Flutter and Dart send telemetry by default for each new user; agents run
+# unattended, so it stays off without anyone accepting Flutter's notice.
+ENV PUB_CACHE=/var/cache/repokit/pub-cache \
+    FLUTTER_SUPPRESS_ANALYTICS=true \
+    DASH__SUPPRESS_ANALYTICS=true
 `
 
 func recipeInputs(req Requirements) map[string][]byte {

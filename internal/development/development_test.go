@@ -353,7 +353,7 @@ func TestFlutterRecipeIsPinnedAndWarmed(t *testing.T) {
 		t.Fatal(err)
 	}
 	dockerfile := string(files["Dockerfile"])
-	for _, want := range []string{"flutter_infra_release/releases/stable/linux/flutter_linux_" + FlutterVersion + "-stable.tar.xz", "sha256sum -c", "flutter analyze; flutter test", "safe.directory /opt/flutter", "chmod -R a+rwX /opt/flutter", "ENV PUB_CACHE=/var/cache/repokit/pub-cache", "x86_64 only"} {
+	for _, want := range []string{"flutter_infra_release/releases/stable/linux/flutter_linux_" + FlutterVersion + "-stable.tar.xz", "sha256sum -c", "flutter analyze; flutter test", "safe.directory /opt/flutter", "chmod -R a+rwX /opt/flutter", "ENV PUB_CACHE=/var/cache/repokit/pub-cache", "FLUTTER_SUPPRESS_ANALYTICS=true", "DASH__SUPPRESS_ANALYTICS=true", "x86_64 only"} {
 		if !strings.Contains(dockerfile, want) {
 			t.Errorf("Flutter recipe missing %s", want)
 		}
