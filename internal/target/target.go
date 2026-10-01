@@ -22,8 +22,9 @@ var codeKernelSocket = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/herm
 
 // browserHarnessSocket is the browser tool's private control socket in a
 // profile home; granted browser tools create it during ordinary work.
-// profileUVCache is a specialist's own uv cache (its HOME is profiles/<p>/home).
-var profileUVCache = regexp.MustCompile(`^profiles/[^/]+/home/\.cache/uv/`)
+// profileHome matches a path inside default's home/ or a specialist's
+// profiles/<p>/home/: tools write the same caches there as in the state root.
+var profileHome = regexp.MustCompile(`^(?:profiles/[^/]+/)?home/(.+)$`)
 
 // workerScratch is a worker's disposable scratch space. Workers copy whole
 // repositories there, repository symlinks included; RepoKit never reads or
@@ -199,10 +200,18 @@ func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
 		return info.IsDir() && info.Mode().Perm()&0077 == 0
 	}
 	under := func(root string) bool { return strings.HasPrefix(rel, root+"/") }
-	uv := under(".cache/uv") || under(".local/share/uv/tools") || under("home/.cache/uv") || profileUVCache.MatchString(rel)
+	// Tool caches sit in the state root (default's HERMES_HOME) and in each
+	// profile's home; only entries beneath a cache directory qualify, never
+	// the directory itself.
+	homeRel := ""
+	if m := profileHome.FindStringSubmatch(rel); m != nil {
+		homeRel = m[1]
+	}
+	cache := func(root string) bool { return under(root) || strings.HasPrefix(homeRel, root+"/") }
+	uv := cache(".cache/uv") || cache(".local/share/uv/tools")
 	// npm and npx link package binaries inside their own cache (node_modules/.bin).
-	npm := under(".npm") || under("home/.npm") || strings.Contains(rel, "/home/.npm/") && strings.HasPrefix(rel, "profiles/")
-	toolLink := uv || npm || under(".local/bin") || under(".cua-driver/packages") ||
+	npm := cache(".npm")
+	toolLink := uv || npm || cache(".local/bin") || under(".cua-driver/packages") ||
 		(filepath.Dir(rel) == "bin" && filepath.Base(rel) != launcher)
 	if info.Mode()&os.ModeSymlink != 0 {
 		// Native model snapshots and per-repository blob entries are pointers;
