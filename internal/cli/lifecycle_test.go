@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -127,5 +128,36 @@ func TestLifecycleRefusesForeignDeployments(t *testing.T) {
 	a, r := foundationApp(t)
 	if code, _, diag := invoke(t, a, "stop"); code == 0 || len(r.composeCalls) != 0 || !strings.Contains(diag, "no RepoKit deployment") {
 		t.Fatalf("stop without a deployment: %s", diag)
+	}
+}
+
+// unbuiltImage reports the upgraded image as not yet built.
+type unbuiltImage struct{ *foundationRunner }
+
+func (u unbuiltImage) Run(ctx context.Context, p string, args ...string) process.Result {
+	if strings.Contains(strings.Join(args, " "), "image inspect --format {{.Id}} repokit/") {
+		return process.Result{Err: errors.New("No such image")}
+	}
+	return u.foundationRunner.Run(ctx, p, args...)
+}
+
+// With a card running, install builds the upgraded image while the old
+// container keeps working and recreates nothing; the later recreation then
+// takes seconds instead of a build long enough for a card to start.
+func TestDeferredRecreateBuildsTheImageFirst(t *testing.T) {
+	a, r := foundationApp(t)
+	liveCompose(&a, r)
+	if code, _, diag := invoke(t, a, "install"); code != 0 {
+		t.Fatal(diag)
+	}
+	o, _ := compose.DevelopmentSelected(r.id)
+	current := development.ImageName(r.id.Container, *o.Development)
+	r.runtime = strings.Replace(developmentRuntimeFixture(r.id), current, "repokit/hermes-test-project:0123456789abcdef01234567", 1)
+	a.Runner = unbuiltImage{r}
+	a.Initializer = &statsInput{foundationRunner: r, running: true}
+	r.composeCalls = nil
+	code, out, diag := invoke(t, a, "install")
+	if len(r.composeCalls) != 1 || !strings.HasSuffix(r.composeCalls[0], " build hermes") || !strings.Contains(out, "upgraded image built; not recreated") {
+		t.Fatalf("image not built before deferring: code=%d calls=%v out=%s diag=%s", code, r.composeCalls, out, diag)
 	}
 }

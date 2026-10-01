@@ -76,12 +76,22 @@ func (a App) startDeployment(id target.Identity, dc string, stdout, stderr io.Wr
 		return 1
 	}
 	if state == "running" {
+		// Build first while the running container keeps working, so the
+		// idle check below is followed by a recreation of seconds, not by a
+		// build of minutes during which a card could start and be cut off.
+		if !a.imageBuilt(id, dc) {
+			u.working("Container", "building the upgraded image while "+id.Container+" keeps running (this can take several minutes)")
+			if err := a.composeProject(id, dc, stdout, stderr, "build", "hermes"); err != nil {
+				u.fail("Docker Compose could not build the upgraded image; %s keeps running unchanged. Retry with: %s", id.Container, buildCommand(id, dc))
+				return 1
+			}
+		}
 		runner := a.Initializer
 		if runner == nil {
 			runner = process.Runner{Timeout: 30 * time.Second}
 		}
 		if busy, err := native.RunningWork(context.Background(), id, dc, runner); err == nil && busy {
-			u.pending("Container", "upgraded image ready; not recreated while a Kanban card is running")
+			u.pending("Container", "upgraded image built; not recreated while a Kanban card is running")
 			u.note("recreate it when the work finishes: " + self() + " start")
 			return 0
 		}
