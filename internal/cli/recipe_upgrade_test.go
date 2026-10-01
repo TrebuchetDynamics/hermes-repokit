@@ -123,19 +123,23 @@ func TestInstallUpgradesThePreMaskLayout(t *testing.T) {
 // the older Compose was rendered for the older recipe, without the
 // toolchain-cache volume.
 func TestInstallUpgradesWhenARepositoryGainsAToolchain(t *testing.T) {
-	for _, path := range []string{"go.mod", "svc/go.mod", "Cargo.toml", "crate/Cargo.toml"} {
+	for _, path := range []string{"go.mod", "svc/go.mod", "Cargo.toml", "crate/Cargo.toml", "pubspec.yaml", "app/pubspec.yaml"} {
 		t.Run(path, func(t *testing.T) {
 			a, r := foundationApp(t)
 			if c, _, d := invoke(t, a, "install"); c != 0 {
 				t.Fatal(d)
 			}
-			if o, _ := compose.DevelopmentSelected(r.id); o.Development.Go || o.Development.Rust {
+			if o, _ := compose.DevelopmentSelected(r.id); o.Development.Go || o.Development.Rust || o.Development.Flutter {
 				t.Fatal("toolchain selected before any manifest")
 			}
 			rust := strings.HasSuffix(path, "Cargo.toml")
+			flutter := strings.HasSuffix(path, "pubspec.yaml")
 			content := "module example.test/demo\n\ngo 1.26.0\n"
 			if rust {
 				content = "[package]\nname = \"demo\"\n"
+			}
+			if flutter {
+				content = "name: demo\n"
 			}
 			file := filepath.Join(a.Directory, path)
 			os.MkdirAll(filepath.Dir(file), 0700)
@@ -146,7 +150,7 @@ func TestInstallUpgradesWhenARepositoryGainsAToolchain(t *testing.T) {
 				t.Fatalf("gaining Go refused: %s %s", out, d)
 			}
 			o, ok := compose.DevelopmentSelected(r.id)
-			if !ok || o.Development.Go == rust || o.Development.Rust != rust || !compose.ToolchainCacheMounted(o) {
+			if !ok || o.Development.Go == (rust || flutter) || o.Development.Rust != rust || o.Development.Flutter != flutter || !compose.ToolchainCacheMounted(o) {
 				t.Fatal("upgraded Compose does not select the toolchain with its cache")
 			}
 			if backups, _ := filepath.Glob(filepath.Join(r.id.Root, ".hermes", "compose.before-recipe-*.yaml")); len(backups) != 1 {

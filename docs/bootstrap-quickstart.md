@@ -271,13 +271,18 @@ folders deep (a monorepo's `rig-vigia/go.mod`) selects pinned Go plus
 checksum-pinned `staticcheck`; a `Cargo.toml` likewise selects the official
 Rust release (rustc and cargo with clippy, rustfmt and rust-analyzer), pinned by
 checksum, with Cargo's registry on the toolchain-cache volume. A
+`pubspec.yaml` selects the official stable Flutter SDK with its Dart, pinned by
+the checksum in Flutter's release manifest; the build warms `flutter analyze`
+and `flutter test` on a scratch project, and pub's cache lives on the same
+volume. Flutter publishes Linux SDKs for x86_64 only, so on arm64 it is reported
+missing. Android, iOS and desktop builds are not provisioned. A
 `rust-toolchain` file pinning another release, or a newer `rust-version`, is
 reported by `verify`. Vendored, generated and hidden trees are skipped and
 symlinks are never followed. Node/npm, Python and standard build utilities come
 from the pinned base plus checksum-pinned tools. JVM projects (such as an app's
 Android wrapper) are noted but not provisioned.
 `install` builds and starts it. A changed recipe (such as a repository gaining
-a `go.mod` or `Cargo.toml`) is republished in place with a retained backup; edited recipes are
+a `go.mod`, `Cargo.toml` or `pubspec.yaml`) is republished in place with a retained backup; edited recipes are
 preserved and refused.
 `verify` reports actual development tool versions and profile workdirs separately
 from memory and model-driven acceptance.

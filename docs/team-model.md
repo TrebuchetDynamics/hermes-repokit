@@ -215,7 +215,7 @@ ships the binaries two of them rely on (`ast-grep`/`sg` and `ddgs`), pinned by
 checksum, along with `shellcheck` for the shell scripts agents write, the
 `browser-use` CLI behind Hermes's browser tool (pinned by hash and pointed at the
 base image's headless Chromium, since Hermes cannot install it lazily there) and, in a
-Go repository, `staticcheck`; a Rust repository gets cargo's `clippy`. A skill that does not install (offline, or blocked by Hermes's
+Go repository, `staticcheck`; a Rust repository gets cargo's `clippy`; a Flutter repository gets `flutter analyze`. A skill that does not install (offline, or blocked by Hermes's
 security scan) is reported and never fails the run. Community plugins are
 never installed; authentication-dependent ones such as the official `snyk`
 plugin stay optional Hermes configuration for the owner.

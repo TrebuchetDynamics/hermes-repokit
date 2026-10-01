@@ -20,12 +20,14 @@ const maxManifests = 64
 type Requirements struct {
 	Go          bool     `json:"go"`
 	Rust        bool     `json:"rust"`
+	Flutter     bool     `json:"flutter"`
 	Detected    []string `json:"detected"`
 	Unsupported []string `json:"unsupported"`
 }
 
 // Detect inspects root manifests strictly and, within bounds, those of nested
-// projects in a monorepo (rig-vigia/go.mod). Go and Rust are provisioned;
+// projects in a monorepo (rig-vigia/go.mod). Go, Rust and Flutter are
+// provisioned;
 // dependency installation, arbitrary version selectors and JVM provisioning
 // remain unqualified.
 func Detect(path string) (Requirements, error) {
@@ -63,6 +65,8 @@ func Detect(path string) (Requirements, error) {
 			kind = "make"
 		case name == "Cargo.toml":
 			kind = "rust"
+		case name == "pubspec.yaml":
+			kind = "flutter"
 		case name == "pom.xml" || strings.HasPrefix(name, "build.gradle"):
 			kind = "jvm"
 		default:
@@ -123,6 +127,9 @@ func Detect(path string) (Requirements, error) {
 		case "rust":
 			r.Rust = true
 			r.Unsupported = append(r.Unsupported, rustRequirements(root, "", string(data))...)
+		case "flutter":
+			r.Flutter = true
+			r.Unsupported = append(r.Unsupported, dartRequirements("", string(data))...)
 		case "jvm":
 			r.Unsupported = append(r.Unsupported, kind+" toolchain provisioning is not supported")
 		}
@@ -335,7 +342,8 @@ func compact(values []string) []string {
 // skips vendored, generated and hidden trees. A nested go.mod provisions Go;
 // one that cannot be read or qualified is reported with its path and never
 // fails detection, so a stray file deep in a repository cannot block install.
-// A nested Cargo.toml provisions Rust the same way. Other nested projects are
+// A nested Cargo.toml provisions Rust and a nested pubspec.yaml Flutter the
+// same way. Other nested projects are
 // only recorded as detected: Node and Python come with the image, and nested
 // JVM builds (often an app's Android wrapper) are not provisioned and do not
 // mark the environment degraded.
@@ -387,6 +395,15 @@ func detectNested(root *os.Root, r *Requirements, found map[string]bool) {
 				for _, problem := range goRequirements(string(data)) {
 					r.Unsupported = append(r.Unsupported, rel+": "+problem)
 				}
+			case name == "pubspec.yaml":
+				data, err := readManifest(root, rel)
+				if err != nil {
+					r.Unsupported = append(r.Unsupported, rel+" cannot be safely inspected")
+					continue
+				}
+				found["flutter"] = true
+				r.Flutter = true
+				r.Unsupported = append(r.Unsupported, dartRequirements(dir+"/", string(data))...)
 			case name == "package.json":
 				found["node"] = true
 			case name == "pyproject.toml" || (strings.HasPrefix(name, "requirements") && strings.HasSuffix(name, ".txt")):
@@ -441,4 +458,30 @@ func rustRequirements(root *os.Root, dir, manifest string) []string {
 		}
 	}
 	return unsupported
+}
+
+var dartSDKConstraint = regexp.MustCompile(`^\s+sdk:\s*['"]?([^'"#]+?)['"]?\s*(?:#.*)?$`)
+
+// dartRequirements reports a pubspec whose Dart SDK constraint the pinned
+// Flutter's Dart cannot satisfy. Only an `sdk:` line with a version
+// constraint counts (dependencies' `sdk: flutter` is not one), and an
+// unreadable constraint is left to `flutter pub get` rather than guessed.
+func dartRequirements(dir, pubspec string) []string {
+	for line := range strings.SplitSeq(pubspec, "\n") {
+		m := dartSDKConstraint.FindStringSubmatch(line)
+		if m == nil || strings.TrimSpace(m[1]) == "flutter" {
+			continue
+		}
+		constraint := strings.TrimSpace(m[1])
+		readable := true
+		for _, part := range strings.Fields(operatorSpace.ReplaceAllString(constraint, "$1")) {
+			if !selector.MatchString(part) {
+				readable = false
+			}
+		}
+		if readable && !matchesVersion(DartVersion, constraint) {
+			return []string{dir + "pubspec.yaml requires Dart " + constraint + ", not the provisioned " + DartVersion}
+		}
+	}
+	return nil
 }

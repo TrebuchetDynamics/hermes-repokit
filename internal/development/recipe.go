@@ -21,6 +21,8 @@ import (
 const GoVersion = "1.26.6"
 const StaticcheckVersion = "2026.2.1"
 const RustVersion = "1.98.1"
+const FlutterVersion = "3.47.5"
+const DartVersion = "3.13.4"
 const NodeVersion = "26.5.1"
 const NPMVersion = "11.17.0"
 const PythonVersion = "3.13.5"
@@ -98,6 +100,38 @@ RUN install -d -m 1777 /var/cache/repokit
 ENV CARGO_HOME=/var/cache/repokit/cargo
 `
 
+// flutterInstall is the official stable Flutter SDK (with its Dart), pinned by
+// the checksum in Flutter's release manifest. Flutter publishes Linux SDKs for
+// x86_64 only; elsewhere the step is skipped and verify reports it missing.
+// A smoke project runs analyze and test at build so their host artifacts are
+// cached; Flutter writes into its own SDK, so the SDK is opened to the
+// runtime-remapped user in the same layer. Pub's cache lives on the
+// toolchain-cache volume.
+const flutterInstall = `RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) ;; \
+      *) echo 'Flutter publishes Linux SDKs for x86_64 only; Flutter is not installed' >&2; exit 0 ;; \
+    esac; \
+    curl --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 1800 \
+      "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.47.5-stable.tar.xz" -o /tmp/repokit-flutter.tar.xz; \
+    printf '%s  %s\n' 2132e990f236f8d22e7c6314b29a191a95b10d7cbcfec9b4e2e303d996652cbb /tmp/repokit-flutter.tar.xz | sha256sum -c -; \
+    test ! -e /opt/flutter; \
+    tar -xJf /tmp/repokit-flutter.tar.xz -C /opt; \
+    rm /tmp/repokit-flutter.tar.xz; \
+    git config --system --add safe.directory /opt/flutter; \
+    ln -s /opt/flutter/bin/flutter /usr/local/bin/flutter; \
+    ln -s /opt/flutter/bin/dart /usr/local/bin/dart; \
+    export PUB_CACHE=/tmp/repokit-pub-cache; \
+    flutter --disable-analytics >/dev/null; \
+    flutter --version | grep -F 'Flutter 3.47.5 '; \
+    cd /tmp; flutter create --project-name repokit_smoke --platforms web repokit_smoke >/dev/null; \
+    cd /tmp/repokit_smoke; flutter analyze; flutter test; \
+    cd /; rm -rf /tmp/repokit_smoke /tmp/repokit-pub-cache /root/.config/flutter /root/.dart-tool /root/.flutter; \
+    chmod -R a+rwX /opt/flutter
+RUN install -d -m 1777 /var/cache/repokit
+ENV PUB_CACHE=/var/cache/repokit/pub-cache
+`
+
 func recipeInputs(req Requirements) map[string][]byte {
 	template, err := assets.Assets.ReadFile("Dockerfile")
 	if err != nil {
@@ -113,6 +147,9 @@ func recipeInputs(req Requirements) map[string][]byte {
 	}
 	if req.Rust {
 		goSteps += rustInstall
+	}
+	if req.Flutter {
+		goSteps += flutterInstall
 	}
 	content := strings.NewReplacer("{{HERMES_IMAGE}}", qualification.FoundationImage, "{{GO_INSTALL}}", goSteps).Replace(string(template))
 	requirements, err := assets.Assets.ReadFile("repokit-ddgs-requirements.txt")
@@ -151,14 +188,19 @@ func hashRecipe(files map[string][]byte) string {
 // determine the selection its Compose was rendered with.
 func RecipeRequirements(files map[string][]byte) Requirements {
 	return Requirements{
-		Go:   bytes.Contains(files["Dockerfile"], []byte("https://go.dev/dl/go")),
-		Rust: bytes.Contains(files["Dockerfile"], []byte("https://static.rust-lang.org/dist/")),
+		Go:      bytes.Contains(files["Dockerfile"], []byte("https://go.dev/dl/go")),
+		Rust:    bytes.Contains(files["Dockerfile"], []byte("https://static.rust-lang.org/dist/")),
+		Flutter: bytes.Contains(files["Dockerfile"], []byte("https://storage.googleapis.com/flutter_infra_release/")),
 	}
 }
 
 // Toolchains lists every toolchain selection a generated Compose can carry.
 func Toolchains() []Requirements {
-	return []Requirements{{}, {Go: true}, {Rust: true}, {Go: true, Rust: true}}
+	var all []Requirements
+	for i := 0; i < 8; i++ {
+		all = append(all, Requirements{Go: i&1 != 0, Rust: i&2 != 0, Flutter: i&4 != 0})
+	}
+	return all
 }
 
 var recipeLabel = regexp.MustCompile(`org\.repokit\.development\.recipe=([0-9a-f]{64})`)

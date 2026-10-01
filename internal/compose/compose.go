@@ -42,7 +42,7 @@ const (
 // Go's module and build caches and Cargo's registry stay out of the
 // repository's .hermes.
 func ToolchainCacheMounted(o Options) bool {
-	return o.Development != nil && (o.Development.Go || o.Development.Rust) && !o.beforeToolchainCache
+	return o.Development != nil && (o.Development.Go || o.Development.Rust || o.Development.Flutter) && !o.beforeToolchainCache
 }
 
 // StateMaskTarget is where the repository's own .hermes appears inside

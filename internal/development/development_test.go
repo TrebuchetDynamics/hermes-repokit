@@ -124,6 +124,43 @@ func TestDetectProvisionsRust(t *testing.T) {
 	}
 }
 
+// A pubspec.yaml at the root or in a nested app provisions Flutter (with its
+// Dart); only a readable Dart SDK constraint the pinned Dart cannot satisfy is
+// noted.
+func TestDetectProvisionsFlutter(t *testing.T) {
+	for _, tc := range []struct {
+		files map[string]string
+		notes []string
+	}{
+		{map[string]string{"pubspec.yaml": "name: app\nenvironment:\n  sdk: ^3.5.0\ndependencies:\n  flutter:\n    sdk: flutter\n"}, nil},
+		{map[string]string{"client/pubspec.yaml": "name: app\nenvironment:\n  sdk: '>=3.0.0 <4.0.0'\n"}, nil},
+		{map[string]string{"client/pubspec.yaml": "name: app\nenvironment:\n  sdk: \"any\"\n"}, nil},
+		{map[string]string{"client/pubspec.yaml": "name: app\nenvironment:\n  sdk: ^4.0.0\n"}, []string{"client/pubspec.yaml requires Dart ^4.0.0"}},
+		{map[string]string{"third_party/pkg/pubspec.yaml": "name: vendored\n", "pubspec.yaml": "name: app\n"}, nil},
+	} {
+		root := t.TempDir()
+		for rel, content := range tc.files {
+			os.MkdirAll(filepath.Join(root, filepath.Dir(rel)), 0700)
+			manifest(t, filepath.Join(root, filepath.Dir(rel)), filepath.Base(rel), content)
+		}
+		r, err := Detect(root)
+		if err != nil || !r.Flutter || r.Go || r.Rust || len(r.Unsupported) != len(tc.notes) {
+			t.Fatalf("%v: %+v %v", tc.files, r, err)
+		}
+		for i, note := range tc.notes {
+			if !strings.HasPrefix(r.Unsupported[i], note) {
+				t.Errorf("%v: note %q, want prefix %q", tc.files, r.Unsupported[i], note)
+			}
+		}
+	}
+	vendoredOnly := t.TempDir()
+	os.MkdirAll(filepath.Join(vendoredOnly, "third_party", "pkg"), 0700)
+	manifest(t, filepath.Join(vendoredOnly, "third_party", "pkg"), "pubspec.yaml", "name: vendored\n")
+	if r, _ := Detect(vendoredOnly); r.Flutter {
+		t.Fatal("a vendored pubspec provisioned Flutter")
+	}
+}
+
 func TestDetectLimitsRootManifestCount(t *testing.T) {
 	root := t.TempDir()
 	for i := 0; i <= maxManifests; i++ {
@@ -307,6 +344,25 @@ func TestRustRecipeIsPinnedAndSeparateFromGo(t *testing.T) {
 	both, _ := Recipe(Requirements{Go: true, Rust: true})
 	if tools(RecipeRequirements(both)) != "go+rust" {
 		t.Fatal("combined recipe misread")
+	}
+}
+
+func TestFlutterRecipeIsPinnedAndWarmed(t *testing.T) {
+	files, err := Recipe(Requirements{Flutter: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := string(files["Dockerfile"])
+	for _, want := range []string{"flutter_infra_release/releases/stable/linux/flutter_linux_" + FlutterVersion + "-stable.tar.xz", "sha256sum -c", "flutter analyze; flutter test", "safe.directory /opt/flutter", "chmod -R a+rwX /opt/flutter", "ENV PUB_CACHE=/var/cache/repokit/pub-cache", "x86_64 only"} {
+		if !strings.Contains(dockerfile, want) {
+			t.Errorf("Flutter recipe missing %s", want)
+		}
+	}
+	if !RecipeRequirements(files).Flutter || RecipeRequirements(files).Go || RecipeRequirements(files).Rust {
+		t.Fatal("Flutter recipe misread")
+	}
+	if len(Toolchains()) != 8 {
+		t.Fatal("toolchain selections incomplete")
 	}
 }
 
