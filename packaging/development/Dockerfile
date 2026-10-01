@@ -93,6 +93,23 @@ RUN set -eu; cd /tmp; \
     ln -s /opt/repokit-ddgs/bin/ddgs /usr/local/bin/ddgs; \
     rm /tmp/repokit-ddgs-requirements.txt; \
     ddgs --help >/dev/null
+# browser-use is the CLI behind Hermes's browser tool; Hermes cannot install it
+# in this image (lazy installs are off), so ship it pinned by hash.
+COPY repokit-browser-use-requirements.txt /tmp/repokit-browser-use-requirements.txt
+RUN set -eu; cd /tmp; \
+    uv venv --no-config --python /usr/bin/python3 /opt/repokit-browser-use; \
+    uv pip install --no-config --python /opt/repokit-browser-use/bin/python --require-hashes --no-deps -r /tmp/repokit-browser-use-requirements.txt; \
+    ln -s /opt/repokit-browser-use/bin/browser-use /usr/local/bin/browser-use; \
+    rm /tmp/repokit-browser-use-requirements.txt; \
+    browser-use --help >/dev/null
+# The base image ships Playwright's headless Chromium; agent-browser (under
+# browser-use) does not look there, so point it at that one build.
+RUN set -eu; \
+    set -- /opt/hermes/.playwright/chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell; \
+    test "$#" -eq 1 && test -x "$1"; \
+    ln -s "$1" /usr/local/bin/repokit-chromium; \
+    repokit-chromium --version
+ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/local/bin/repokit-chromium
 {{GO_INSTALL}}
 # Hermes starts Kanban workers as `python -m hermes_cli.main` from /workspace,
 # which puts the repository first on their import path: a repository's own

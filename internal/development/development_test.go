@@ -248,10 +248,14 @@ func TestRecipePinsInputsAndChangesForGo(t *testing.T) {
 			t.Fatalf("unpinned pip install: %s", line)
 		}
 	}
-	for _, want := range []string{"ast-grep/releases/download/0.45.3/", "ast-grep --version | grep -F 0.45.3", "ddgs --help", "sheeki03/tirith/releases/download/v0.4.2/", "tirith --version | grep -F 0.4.2", "go-tools/releases/download/" + StaticcheckVersion + "/", "staticcheck -version | grep -F '" + StaticcheckVersion + "'", "shellcheck/releases/download/v0.11.0/", "shellcheck --version | grep -F 'version: 0.11.0'", "ENV HERMES_BIN=/opt/hermes/.venv/bin/hermes"} {
+	for _, want := range []string{"ast-grep/releases/download/0.45.3/", "ast-grep --version | grep -F 0.45.3", "ddgs --help", "sheeki03/tirith/releases/download/v0.4.2/", "tirith --version | grep -F 0.4.2", "go-tools/releases/download/" + StaticcheckVersion + "/", "staticcheck -version | grep -F '" + StaticcheckVersion + "'", "shellcheck/releases/download/v0.11.0/", "shellcheck --version | grep -F 'version: 0.11.0'", "ENV HERMES_BIN=/opt/hermes/.venv/bin/hermes", "ENV AGENT_BROWSER_EXECUTABLE_PATH=/usr/local/bin/repokit-chromium", "/opt/repokit-browser-use/bin/browser-use"} {
 		if !strings.Contains(string(goRecipe["Dockerfile"]), want) {
 			t.Fatalf("missing %s", want)
 		}
+	}
+	browser := string(goRecipe["repokit-browser-use-requirements.txt"])
+	if !strings.Contains(browser, "browser-use==") || !strings.Contains(browser, "--hash=sha256:") || !strings.Contains(string(goRecipe[".dockerignore"]), "!repokit-browser-use-requirements.txt") {
+		t.Fatal("browser-use not pinned by hash or not in the build context")
 	}
 	requirements := string(goRecipe["repokit-ddgs-requirements.txt"])
 	for _, line := range strings.Split(requirements, "\n") {

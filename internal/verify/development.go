@@ -37,6 +37,7 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		{"gcc", "gcc --version"}, {"g++", "g++ --version"}, {"docker", "docker --version"},
 		{"compose", "docker compose version --short"}, {"buildx", "docker buildx version"},
 		{"shellcheck", "shellcheck --version | grep -F version:"},
+		{"browser-use", "browser-use --version"}, {"chromium", "\"$AGENT_BROWSER_EXECUTABLE_PATH\" --version"},
 	}
 	if req.Go {
 		tools = append(tools, struct{ name, command string }{"go", "go version"}, struct{ name, command string }{"staticcheck", "staticcheck -version"})
