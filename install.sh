@@ -212,6 +212,5 @@ if [ -n "$preserved" ]; then
     note "A generated hermes-<repo> launcher kept its name; the bootstrap is available as ${run_command##*/}."
 fi
 title 'Next steps'
-note 'Run these from the repository you want to prepare:'
-printf '  %s install   # build and start the container\n' "$run_command"
-printf '  %s setup     # private Hermes setup, then team, dispatch and canary\n' "$run_command"
+note 'Run this from the repository you want to prepare:'
+printf '  %s install   # build and start the container, then setup: private Hermes setup, team, dispatch and canary\n' "$run_command"

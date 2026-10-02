@@ -88,8 +88,9 @@ func TestInstallScriptPublishesWorkingCLIAndRerunsSafely(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first install: %v\n%s", err, out)
 	}
-	// The handoff is the two-command path, with no Compose choreography.
-	if !strings.Contains(out, "Building") || !strings.Contains(out, "repokit install") || !strings.Contains(out, "repokit setup") || strings.Contains(out, "Compose") {
+	// The handoff is the one-command path (install continues into setup),
+	// with no Compose choreography.
+	if !strings.Contains(out, "Building") || !strings.Contains(out, "repokit install") || !strings.Contains(out, "then setup") || strings.Contains(out, "Compose") {
 		t.Fatalf("installer omitted build progress or deployment handoff: %s", out)
 	}
 	command := filepath.Join(bin, "repokit")
@@ -117,7 +118,7 @@ func TestInstallScriptPublishesWorkingCLIAndRerunsSafely(t *testing.T) {
 	if err != nil {
 		t.Fatalf("idempotent install: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "repokit setup") {
+	if !strings.Contains(out, "repokit install") {
 		t.Fatalf("rerun omitted next step: %s", out)
 	}
 	after, err := os.ReadFile(command)
