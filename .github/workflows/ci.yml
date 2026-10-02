@@ -1,8 +1,8 @@
 name: CI
 
-# Fast checks on every push and pull request. The Docker acceptance suites
-# (-tags=docker, REPOKIT_DOCKER_TESTS=1) need a real daemon and model-free
-# fixtures that take minutes; they stay opt-in and run locally.
+# Fast checks on every push and pull request. The Docker foundation acceptance
+# (-tags=docker, REPOKIT_DOCKER_TESTS=1) takes minutes against a real daemon;
+# acceptance.yml runs it on release tags, weekly and on demand.
 
 on:
   push:

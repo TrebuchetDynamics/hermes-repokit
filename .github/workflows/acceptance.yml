@@ -1,0 +1,32 @@
+name: Docker acceptance
+
+# The Docker foundation acceptance builds and runs a real deployment without
+# model credentials: install, container start, runtime mounts, native CLI,
+# rerun, stop/start persistence and removal of the RepoKit source. It takes
+# minutes, so it gates releases and runs weekly instead of on every push.
+
+on:
+  push:
+    tags: ["v*"]
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  docker-foundation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Docker foundation acceptance
+        env:
+          REPOKIT_DOCKER_TESTS: "1"
+        run: go test -tags=docker -count=1 -timeout 50m -v ./tests/acceptance -run TestDockerFoundation
