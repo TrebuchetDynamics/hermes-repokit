@@ -229,7 +229,9 @@ chosen because they need no API key or paid service. The development image
 ships the binaries two of them rely on (`ast-grep`/`sg` and `ddgs`), pinned by
 checksum, along with `shellcheck` for the shell scripts agents write, the
 `browser-use` CLI behind Hermes's browser tool (pinned by hash and pointed at the
-base image's headless Chromium, since Hermes cannot install it lazily there) and, in a
+base image's headless Chromium, since Hermes cannot install it lazily there),
+`edge-tts` for Hermes's default text-to-speech provider (keyless Edge voices,
+added to Hermes's own environment by hash) and, in a
 Go repository, `staticcheck`; a Rust repository gets cargo's `clippy`; a Flutter repository gets `flutter analyze`. A skill that does not install (offline, or blocked by Hermes's
 security scan) is reported and never fails the run. Community plugins are
 never installed; authentication-dependent ones such as the official `snyk`

@@ -475,3 +475,27 @@ func TestRecipeStopsGatewaysBeforeS6Kills(t *testing.T) {
 		}
 	}
 }
+
+// Hermes's default text-to-speech provider works from first boot: edge-tts is
+// added to Hermes's own environment, hash-pinned, and imported at build time.
+func TestRecipeShipsHashPinnedTextToSpeech(t *testing.T) {
+	files, err := Recipe(Requirements{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := string(files["Dockerfile"])
+	for _, want := range []string{"COPY repokit-tts-requirements.txt", "--python /opt/hermes/.venv/bin/python --require-hashes --no-deps -r /tmp/repokit-tts-requirements.txt", "import edge_tts"} {
+		if !strings.Contains(dockerfile, want) {
+			t.Errorf("recipe missing %q", want)
+		}
+	}
+	reqs := string(files["repokit-tts-requirements.txt"])
+	if !strings.Contains(reqs, "edge-tts==") || !strings.Contains(string(files[".dockerignore"]), "!repokit-tts-requirements.txt") {
+		t.Fatal("edge-tts requirements not in the build context")
+	}
+	for _, line := range strings.Split(reqs, "\n") {
+		if strings.Contains(line, "==") && !strings.HasSuffix(strings.TrimSpace(line), "\\") {
+			t.Fatalf("requirement without hashes: %s", line)
+		}
+	}
+}

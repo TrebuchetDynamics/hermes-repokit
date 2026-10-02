@@ -102,6 +102,14 @@ RUN set -eu; cd /tmp; \
     ln -s /opt/repokit-browser-use/bin/browser-use /usr/local/bin/browser-use; \
     rm /tmp/repokit-browser-use-requirements.txt; \
     browser-use --help >/dev/null
+# Text to speech: Hermes's default provider (Edge TTS, keyless) needs edge-tts,
+# which this sealed Hermes environment cannot install itself. Only the packages
+# it lacks are added to it, hash-pinned and resolved against its own versions.
+COPY repokit-tts-requirements.txt /tmp/repokit-tts-requirements.txt
+RUN set -eu; cd /tmp; \
+    uv pip install --no-config --python /opt/hermes/.venv/bin/python --require-hashes --no-deps -r /tmp/repokit-tts-requirements.txt; \
+    rm /tmp/repokit-tts-requirements.txt; \
+    /opt/hermes/.venv/bin/python -c 'import edge_tts'
 # The base image ships Playwright's headless Chromium; agent-browser (under
 # browser-use) does not look there, so point it at that one build.
 RUN set -eu; \
