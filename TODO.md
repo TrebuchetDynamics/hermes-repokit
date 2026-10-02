@@ -9,6 +9,22 @@ upgrade in place; stale-conversation check in `verify`). The same-card
 executor → tester → reviewer loop is proven live; a reviewer request-changes
 correction cycle is not yet.
 
+## On main since v0.2.3
+
+- Toolchains from the repository's own manifests, including nested projects:
+  Go with staticcheck, Rust, Flutter with Dart, and Flutter's Linux desktop
+  toolchain; shellcheck, the browser tool and tirith in every image.
+- Autonomy posture stated at `setup`: no approval prompts by default, or
+  Hermes's prompts kept on the owner's answer.
+- Memory boundary finished: no profile is granted memory and no SOUL relies on
+  it; an owner who adds memory keeps it.
+- Fresh chats follow default's identity; upgrades never interrupt a running
+  card; the safety scan covers grown native state.
+- MIT license, security policy, and Docker foundation acceptance on release
+  tags and weekly.
+- Withdrawn: the board watch cron job (a RepoKit-authored helper on the
+  operational path); RepoKit installs, configures and leaves.
+
 ## Proven in v0.2.3
 
 - Dogfood and s3upload moved to role-shaped profiles in place: every profile
@@ -98,8 +114,10 @@ against a fresh clone.
       lists nothing under `.hermes`.
       Fixed: Go caches use the project's `toolchain-cache` volume at
       `/var/cache/repokit`; `install` reports a leftover `.hermes/development`.
-- [ ] **Monorepo toolchains.** Detection reads root manifests only, so PMB's
-      Python/Rust subprojects were missed. Defer unless real projects need it.
+- [x] **Monorepo toolchains.** Detection walks nested projects up to three
+      folders deep (skipping vendored, generated and hidden trees) and
+      provisions Go, Rust and Flutter, plus Flutter's Linux desktop toolchain
+      for an app with a `linux/` runner.
 
 ## Owner request: `remove`
 
@@ -116,12 +134,13 @@ against a fresh clone.
 - [ ] Enable a preferred tool set on `default` at install/setup through native
       commands, favoring free or self-hosted providers, with paid/API-key
       integrations optional. Captured set: see the s3upload trial record.
-- [ ] Make the free web backend work: `ddgs` failed to install because the
-      sealed Hermes environment has no pip. Provision it where Hermes loads
-      lazy packages, or accept a SearXNG URL.
+- [x] Make the free web backend work: the development image ships `ddgs`,
+      hash-pinned through `uv --require-hashes`, for keyless web search.
 - [ ] Report tools that cannot work headless (Computer Use) instead of silently
       enabling them.
-- [ ] Decide: do specialists keep narrow role toolsets or get the full set?
+- [x] Decide: do specialists keep narrow role toolsets or get the full set?
+      Role-shaped toolsets (v0.2.3); none includes memory, which stays the
+      owner's to add.
 
 ## Memory boundary
 
@@ -188,6 +207,7 @@ Live and Docker proof that has not been exercised yet.
 - [x] Remove the no-op `--engineering` flag.
 - [ ] `verify` review evidence reads `kanban list/show`; confirm those never
       migrate the board schema, or gate them on an initialized board.
-- [ ] Local housekeeping: decide on the `hermes-s3upload` trial deployment,
+- [ ] Local housekeeping: decide on the stopped `hermes-s3upload` trial
+      deployment (deprecated; hermes-wing replaced it as the live tester),
       old `feat/*` branches, `/tmp/repokit-review` and the 594 MB
       `.hermes/backups/pre-recipe-upgrade-*.zip`.

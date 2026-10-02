@@ -54,6 +54,9 @@ push are each separately scoped.
 7. **Memory is user-managed.** RepoKit neither configures nor verifies a memory
    provider, and memory never gates core readiness. Do not set one up as part of
    this workflow; report it as operator-owned.
+8. **Autonomy is the owner's answer.** Before it creates a new team, `setup`
+   states that workers run without approval prompts and asks to confirm. Let the
+   owner answer in their own terminal; never answer it for them.
 
 ## Command names
 

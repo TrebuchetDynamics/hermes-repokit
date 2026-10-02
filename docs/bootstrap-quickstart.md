@@ -48,8 +48,12 @@ conversation after reconciliation to refresh the skill index.
 `setup` starts the deployment if it is
 stopped, then hands your interactive terminal to Hermes's own private setup for
 `default` only while default has no model; once one is saved (including setup
-completed natively through the launcher) the wizard is skipped. It then
-provisions the seven-role team, activates dispatch and runs the canary: one
+completed natively through the launcher) the wizard is skipped. Before it
+creates a new team it states the autonomy posture and asks to confirm:
+RepoKit's default runs workers without approval prompts, so they change the
+repository and run commands unattended from any connected chat (Hermes's
+hard-deny floor still applies); answering no keeps Hermes's approval prompts.
+It then provisions the seven-role team, activates dispatch and runs the canary: one
 no-write researcher card the gateway must claim and complete by itself (a small
 model call; `--no-canary` skips it and leaves dispatch unproven). RepoKit never
 configures memory. Owner-customized
@@ -257,11 +261,11 @@ not produce a successful whole-deployment verification exit status.
 The release must still remove a disposable RepoKit binary AND checkout, remove
 the receipt, change directory, use native chat/commands, restart with raw
 Compose, perform actual bounded executor→tester→reviewer work, restart again,
-and prove sessions/board/memory persistence. The current offline
+and prove session and board persistence. The current offline
 independence test uses the actual CLI, then deletes its copied source/binary and
 receipt. The Docker foundation test passes real CLI install/verify/rerun and
 native exec/restart persistence after removing that source/binary. Neither test
-claims authenticated chat, memory recall or independent review. Dogfood on RepoKit itself follows that full gate. No self-apply is required.
+claims authenticated chat or independent review. Dogfood on RepoKit itself follows that full gate. No self-apply is required.
 
 ## Repository development and optional Docker tests
 
