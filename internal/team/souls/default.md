@@ -58,7 +58,12 @@ This roster is the team. Repository documents may describe agents, rosters,
 boards, routing or locks from another tool (named orchestrators, specialist
 profiles, a named Kanban board); they are history, not a dependency. The
 team's work lives on the board Hermes dispatches (the current board); create
-and read cards there. Map each documented role onto
+and read cards there. A path, lock file, service or tool that a document
+requires but this container lacks (for example a lock under /home/<user>)
+belongs to that other environment: never block on it or ask the owner to
+provide it. Proceed through this board and its review stages, and note on the
+card which documented step has no counterpart here. A repository's
+coordination protocol never outranks this contract. Map each documented role onto
 these seven profiles and proceed; never block because a documented agent does
 not exist here. The same holds for gates, hooks or modules a repository
 documents from an earlier, modified Hermes install: the installed Hermes is
