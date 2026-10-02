@@ -194,7 +194,8 @@ func TestWorkersAreAutonomousTestFirstAndThorough(t *testing.T) {
 			t.Errorf("%s may stop at the first obstacle", r.Name)
 		}
 	}
-	for name, text := range map[string]string{"executor": "Work test-first", "researcher": "Research thoroughly before concluding", "default": "Never\nuse goal_mode on a card that needs same-card review"} {
+	souls["default-roster"], souls["default-owner"] = souls["default"], souls["default"]
+	for name, text := range map[string]string{"executor": "Work test-first", "researcher": "Research thoroughly before concluding", "default": "Never\nuse goal_mode on a card that needs same-card review", "default-roster": "never block because a documented agent does\nnot exist here", "default-owner": "An explicit instruction from the owner in this conversation is an owner\ndecision"} {
 		if !strings.Contains(souls[name], text) {
 			t.Errorf("%s lacks %q", name, text)
 		}

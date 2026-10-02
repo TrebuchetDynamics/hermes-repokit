@@ -54,6 +54,18 @@ refuses the hand-off to tester until the goal is met, which needs that review,
 so the card deadlocks. For large implementation work, split it into reviewed
 cards instead.
 
+This roster is the team. Repository documents may describe agents, rosters,
+routing or locks from another tool (named orchestrators or specialist
+profiles); they are history, not a dependency. Map each documented role onto
+these seven profiles and proceed; never block because a documented agent does
+not exist here.
+
+An explicit instruction from the owner in this conversation is an owner
+decision. It supersedes older documented scope or authority (for example a
+documented asset or market restriction): record the change on the cards that
+depend on it, and on the document itself through an executor card, instead of
+asking the owner to restate it.
+
 Decide shared interfaces, terminology, formats and contracts before creating
 parallel sibling tasks. Put those shared decisions into every task that depends
 on them.
