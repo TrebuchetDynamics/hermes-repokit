@@ -28,7 +28,7 @@ func TestRepositoryIdentityContract(t *testing.T) {
 		t.Fatal("distinct repositories share identity")
 	}
 	roles[0].Toolsets[0] = "changed"
-	if ForRepository(id)[0].Toolsets[0] != "kanban" {
+	if ForRepository(id)[0].Toolsets[0] != CoordinatorTools[0] {
 		t.Fatal("caller mutated subsequent roster")
 	}
 }

@@ -402,7 +402,21 @@ func (p *teamPlan) role(name, state string, differs []string) {
 // resetWrite backs up a profile's native files, then restores RepoKit's
 // baseline. default's configuration carries the dispatch policy that setup
 // activation owns, so a default reset restores identity only.
-func resetWrite(role team.Role) string {
+// coordinatorToolsWrite grants default its toolset on the CLI and every chat
+// channel, through native `tools enable` (unknown or channel-restricted
+// toolsets are skipped by Hermes). Granted at adoption or reset only.
+func coordinatorToolsWrite(role team.Role, channels []string) string {
+	if role.Name != "default" {
+		return ""
+	}
+	script := ""
+	for _, channel := range channels {
+		script += teamCommand(append(append([]string{"-p", "default", "tools", "enable"}, role.Toolsets...), "--platform", channel)...)
+	}
+	return script
+}
+
+func resetWrite(role team.Role, channels []string) string {
 	dir := "/opt/data"
 	if role.Name != "default" {
 		dir += "/profiles/" + role.Name
@@ -419,11 +433,12 @@ func resetWrite(role team.Role) string {
 			script += teamSet(role.Name, key, value)
 		}
 	} else {
-		// Default's reset restores identity and its granted settings only;
-		// the owner's model, provider and channels stay untouched.
+		// Default's reset restores identity, its granted settings and its
+		// toolset; the owner's model, provider and channels stay untouched.
 		for key, value := range role.Settings {
 			script += teamSet(role.Name, key, value)
 		}
+		script += coordinatorToolsWrite(role, channels)
 	}
 	return script + skillsWrite(role)
 }
@@ -615,6 +630,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 			}
 			changes += teamCommand("profile", "describe", role.Name, "--text", role.Description)
 			changes += soulWrite(role.Name, role.Soul)
+			changes += coordinatorToolsWrite(role, channels)
 			if defaultSkillDiscovery != false {
 				changes += teamCommand("-p", role.Name, "skills", "trust", "/workspace")
 			}
@@ -649,7 +665,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 			case role.Name == reset:
 				plan.role(role.Name, "reset", check.differs(role))
 				changes += progressMark(role.Name + ": back to RepoKit's baseline")
-				changes += resetWrite(role)
+				changes += resetWrite(role, channels)
 			case check.customized():
 				plan.role(role.Name, "customized", check.differs(role))
 				continue

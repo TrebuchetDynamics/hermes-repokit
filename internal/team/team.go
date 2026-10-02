@@ -217,9 +217,21 @@ func WithApprovalPrompts(roles []Role) []Role {
 	return out
 }
 
+// CoordinatorTools is the toolset default is granted on the CLI and every chat
+// channel when RepoKit adopts or resets it: everything the owner talks to can
+// do everything. Only kanban is required; the owner may switch the rest off.
+// Hermes's video generation, Home Assistant, Spotify, Discord and Yuanbao stay
+// the owner's to enable.
+var CoordinatorTools = []string{
+	"web", "browser", "terminal", "file", "code_execution", "vision", "video",
+	"image_gen", "x_search", "tts", "skills", "todo", "kanban", "memory",
+	"context_engine", "session_search", "connections", "clarify", "delegation",
+	"cronjob", "computer_use", "a2a",
+}
+
 func Roster() []Role {
 	roles := []Role{
-		{Name: "default", Description: "Primary human-facing repository coordinator and orchestrator. Understands user goals, answers lightweight questions directly, designs bounded Kanban workflows, assigns the appropriate team roles, establishes shared decisions, follows progress, and verifies that completed work has passed required review.", Toolsets: []string{"kanban"}, Required: []string{"kanban"}, Skills: []string{"official/productivity/decision-questionnaire", "official/autonomous-ai-agents/dynamic-workflow"}, Settings: coordinator},
+		{Name: "default", Description: "Primary human-facing repository coordinator and orchestrator. Understands user goals, answers lightweight questions directly, designs bounded Kanban workflows, assigns the appropriate team roles, establishes shared decisions, follows progress, and verifies that completed work has passed required review.", Toolsets: slices.Clone(CoordinatorTools), Required: []string{"kanban"}, Skills: []string{"official/productivity/decision-questionnaire", "official/autonomous-ai-agents/dynamic-workflow"}, Settings: coordinator},
 		{Name: "researcher", Description: "Investigates repository context, external sources and prior project knowledge. Resolves unknowns, compares alternatives and produces source-backed findings without changing the target artifact.", Toolsets: []string{"file", "web", "browser", "terminal", "skills"}, Required: []string{"file", "web"}, Skills: []string{"official/research/domain-intel", "official/software-development/code-wiki", "official/research/duckduckgo-search"}, Settings: workerEffort},
 		{Name: "planner", Description: "Turns goals, constraints and research into a bounded execution contract with scope, decisions, dependencies, acceptance criteria, verification requirements and known risks. Does not perform the planned work.", Toolsets: []string{"file", "web", "skills"}, Required: []string{"file"}, Skills: []string{"official/software-development/grill-me", "official/productivity/decision-questionnaire"}, Settings: workerEffort},
 		{Name: "executor", Description: "Produces one bounded repository artifact or change from an approved task contract, preserves unrelated state, performs appropriate verification and hands work to independent review when required.", Toolsets: []string{"file", "terminal", "code_execution", "web", "browser", "skills", "delegation"}, Required: []string{"file", "terminal", "code_execution", "skills"}, Skills: []string{"official/software-development/ast-grep", "official/software-development/rest-graphql-debug", "official/software-development/subagent-driven-development", "official/autonomous-ai-agents/agent-merge-conflict-arbiter"},

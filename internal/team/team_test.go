@@ -26,7 +26,7 @@ func TestStableGenericRoster(t *testing.T) {
 			}
 		}
 	}
-	if strings.Join(roles[0].Toolsets, ",") != "kanban" {
+	if strings.Join(roles[0].Toolsets, ",") != strings.Join(CoordinatorTools, ",") || strings.Join(roles[0].Required, ",") != "kanban" {
 		t.Fatal("coordinator has implementation authority")
 	}
 	if !strings.Contains(roles[3].Soul, "same-card review") || !strings.Contains(roles[5].Soul, "Do not modify") || !strings.Contains(roles[4].Soul, "must not modify") {
@@ -188,10 +188,10 @@ func TestWorkersAreAutonomousTestFirstAndThorough(t *testing.T) {
 	}
 }
 
-// Memory is the owner's: RepoKit's baseline grants no profile the memory
-// toolset (an owner who adds it keeps it).
-func TestRoleBaselineGrantsNoMemory(t *testing.T) {
-	for _, role := range Roster() {
+// The owner's coordinator is granted memory with its full toolset; no worker
+// baseline includes memory (an owner who adds it keeps it).
+func TestWorkerBaselinesGrantNoMemory(t *testing.T) {
+	for _, role := range Roster()[1:] {
 		for _, name := range append(append([]string{}, role.Toolsets...), role.Required...) {
 			if name == "memory" {
 				t.Errorf("%s is granted memory", role.Name)

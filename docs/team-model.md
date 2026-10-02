@@ -209,7 +209,7 @@ reset. The worker roles are also granted no turn cap and high reasoning effort.
 
 | Profile | Required toolsets | Also granted | Official skills granted | Boundary |
 | --- | --- | --- | --- | --- |
-| default | kanban | native CLI preset (owner tools preserved) | decision-questionnaire, dynamic-workflow | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
+| default | kanban | on the CLI and every chat channel, at adoption or reset: web, browser, terminal, file, code_execution, vision, video, image_gen, x_search, tts, skills, todo, memory, context_engine, session_search, connections, clarify, delegation, cronjob, computer_use, a2a (owner tools preserved) | decision-questionnaire, dynamic-workflow | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
 | researcher | file, web | browser, terminal, skills | domain-intel, code-wiki, duckduckgo-search | Artifact writes prohibited by SOUL |
 | planner | file | web, skills | grill-me, decision-questionnaire | Implementation prohibited by SOUL |
 | executor | file, terminal, code_execution, skills | web, browser, delegation | ast-grep, rest-graphql-debug, subagent-driven-development, agent-merge-conflict-arbiter | Work limited to the card; sub-agents only for bounded help inside it |
@@ -286,8 +286,9 @@ No reconciliation weakens gateway authentication or sender authorization.
 SOUL defines identity and Kanban holds work state. Memory is user-managed: the
 operator chooses and configures any memory provider the repository needs, and
 RepoKit neither links nor certifies it. Built-in local memory remains a native
-Hermes concern. RepoKit grants no profile the memory toolset; an owner who adds
-it keeps it, and the SOULs use memory only when the owner has configured it.
+Hermes concern. The coordinator is granted the memory toolset with the rest of
+its full toolset; no worker baseline includes memory, an owner who adds it keeps
+it, and the SOULs use memory only when the owner has configured it.
 
 `verify` reports scaffold readiness and native integration configuration, but it
 does not configure or verify a memory provider. Review remains `unqualified`

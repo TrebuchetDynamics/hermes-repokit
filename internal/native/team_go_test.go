@@ -882,3 +882,23 @@ func TestTeamScriptNumbersItsProgress(t *testing.T) {
 		t.Error("an unnumbered progress mark reached the script")
 	}
 }
+
+// Default is granted its full toolset on every channel when it is adopted or
+// reset, never on an ordinary run, so tools the owner switches off stay off.
+func TestCoordinatorToolsAreGrantedOnResetOnly(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	grant := "'-p' 'default' 'tools' 'enable' '" + strings.Join(team.CoordinatorTools, "' '") + "' '--platform' 'cli'"
+	souls := currentSouls(roles)
+	souls["default"] = "Owner coordinator"
+	root, run := deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: `{"by_status":{}}`})
+	plan, err := teamScript(id, false, "default", sectioned(run), root)
+	if err != nil || !strings.Contains(plan.Script, grant) {
+		t.Fatalf("default reset did not grant its toolset: %v\n%s", err, plan.Script)
+	}
+	root, run = deployTeam(t, roles, teamFixture{souls: currentSouls(roles), kanban: operationalKanban(), stats: `{"by_status":{}}`})
+	plan, err = teamScript(id, false, "", sectioned(run), root)
+	if err != nil || strings.Contains(plan.Script, "'tools' 'enable' 'web'") {
+		t.Fatalf("an ordinary run re-granted default's toolset: %v\n%s", err, plan.Script)
+	}
+}
