@@ -85,9 +85,15 @@ if [ -z "$root" ] || [ ! -f "$root/go.mod" ] || [ ! -d "$root/cmd/hermes-repokit
         repokit_ref=$repokit_url
     fi
     ok "Downloaded and unpacked $repokit_ref"
+    version=$repokit_ref
 else
     ok "Using checkout at $root"
+    version=checkout
 fi
+# The stamp `repokit version` and `repokit update` read: a tag or branch name.
+case $version in
+    ''|*[!A-Za-z0-9._/-]*) version=custom ;;
+esac
 
 safe_directory() {
     [ -d "$1" ] && [ ! -L "$1" ] || fail "unsafe installation directory: $1"
@@ -113,7 +119,7 @@ ok "Install target $bin"
 
 step 'Building RepoKit bootstrap'
 build_dir=$(mktemp -d "$temp_root/repokit-install.XXXXXXXX") || fail 'cannot create build directory'
-(cd "$root" && TMPDIR="$temp_root" CGO_ENABLED=0 go build -trimpath -buildvcs=false -o "$build_dir/hermes-repokit" ./cmd/hermes-repokit) || fail 'Go build failed'
+(cd "$root" && TMPDIR="$temp_root" CGO_ENABLED=0 go build -trimpath -buildvcs=false -ldflags "-X github.com/TrebuchetDynamics/hermes-repokit/internal/cli.Version=$version" -o "$build_dir/hermes-repokit" ./cmd/hermes-repokit) || fail 'Go build failed'
 ok "Built static binary with ${go_version}"
 
 step 'Publishing commands'

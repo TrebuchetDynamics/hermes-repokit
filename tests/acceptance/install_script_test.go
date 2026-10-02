@@ -106,6 +106,9 @@ func TestInstallScriptPublishesWorkingCLIAndRerunsSafely(t *testing.T) {
 	if info, err := os.Stat(program); err != nil || !os.SameFile(info, mustStat(t, command)) {
 		t.Fatalf("both names must publish one binary: %v", err)
 	}
+	if version, err := exec.Command(command, "version").CombinedOutput(); err != nil || string(version) != "repokit checkout\n" {
+		t.Fatalf("installed command does not report its stamped version: %v %q", err, version)
+	}
 	help, err := exec.Command(command, "--help").CombinedOutput()
 	if err != nil || !strings.Contains(string(help), "plan|install|setup|verify") {
 		t.Fatalf("installed command cannot run: %v\n%s", err, help)

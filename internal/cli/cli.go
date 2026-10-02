@@ -46,6 +46,10 @@ type App struct {
 	Interactive func() bool
 	// noSetup keeps install from continuing into setup.
 	noSetup bool
+	// Fetch and RunInstaller replace the network and the installer for
+	// update in tests.
+	Fetch        func(url string) ([]byte, error)
+	RunInstaller func(script []byte, ref string, stdout, stderr io.Writer) error
 	// Canary replaces the setup canary card in tests.
 	Canary func(id target.Identity, dockerContext string) (string, error)
 	// resetProfile names one roster profile install returns to RepoKit's
@@ -66,6 +70,19 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 1 && (args[0] == "-h" || args[0] == "--help") {
 		usage(stdout)
 		return 0
+	}
+	if len(args) >= 1 && args[0] == "version" && len(args) == 1 {
+		fmt.Fprintln(stdout, "repokit "+Version)
+		return 0
+	}
+	if len(args) >= 1 && args[0] == "update" {
+		switch {
+		case len(args) == 1:
+			return a.update(false, stdout, stderr)
+		case len(args) == 2 && args[1] == "--main":
+			return a.update(true, stdout, stderr)
+		}
+		return usageError(stderr)
 	}
 	if len(args) == 0 || !recognized(args[0]) {
 		return usageError(stderr)
@@ -354,6 +371,7 @@ func usage(w io.Writer) {
 	fmt.Fprintf(w, "%s%s <plan|install> [--docker-tests] [--reset-profile <role>]\n", pad, me)
 	fmt.Fprintf(w, "%s%s start | stop (start or stop the deployment; state is kept)\n", pad, me)
 	fmt.Fprintf(w, "%s%s remove (deletes the deployment and .hermes after typed confirmation)\n", pad, me)
+	fmt.Fprintf(w, "%s%s update [--main] (replace this binary with the latest release, or main) | version\n", pad, me)
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }
 
