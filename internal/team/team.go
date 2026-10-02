@@ -191,8 +191,10 @@ var workerEffort = settings(noApprovals, map[string]any{"agent.max_turns": 0, "a
 
 // coordinator adds a 10s dispatch tick on default, whose config the gateway's
 // dispatcher reads at boot. Hermes's 60s default left the board idle about
-// half a minute between stages, a fifth of a typical run on a live board.
-var coordinator = settings(noApprovals, map[string]any{"kanban.dispatch_interval_seconds": 10})
+// half a minute between stages, a fifth of a typical run on a live board. A
+// chat /goal gets 100 continuations instead of Hermes's 20, so a long program
+// does not silently expire.
+var coordinator = settings(noApprovals, map[string]any{"kanban.dispatch_interval_seconds": 10, "goals.max_turns": 100})
 
 func settings(maps ...map[string]any) map[string]any {
 	merged := map[string]any{}

@@ -575,7 +575,7 @@ func TestResetDefaultRestoresIdentityAndGrantedSettingsOnly(t *testing.T) {
 		keys = append(keys, m[1])
 	}
 	sort.Strings(keys)
-	if !strings.Contains(script, soulWrite("default", roles[0].Soul)) || strings.Join(keys, ",") != "approvals.mode,kanban.dispatch_interval_seconds,security.protected_instruction_files" {
+	if !strings.Contains(script, soulWrite("default", roles[0].Soul)) || strings.Join(keys, ",") != "approvals.mode,goals.max_turns,kanban.dispatch_interval_seconds,security.protected_instruction_files" {
 		t.Fatalf("default reset must restore identity and granted settings only (%v):\n%s", keys, script)
 	}
 }

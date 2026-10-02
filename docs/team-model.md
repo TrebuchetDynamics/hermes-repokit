@@ -203,6 +203,20 @@ add. To bring prompts back, set either value per profile with
 `hermes-<repo> -p <profile> config set`; RepoKit never re-applies it outside a
 reset. The worker roles are also granted no turn cap and high reasoning effort.
 
+Board watch keeps committed work moving while the board is quiet. The
+coordinator records each goal you state as a goal card (title `Goal:`, parked
+as blocked, never dispatched) holding its acceptance, a budget and your
+constraints, and links the cards that work toward it. RepoKit installs one
+Hermes cron job on default, `repokit-board-watch`, which runs a small script
+every 5 minutes. The script prints `busy`, so no model runs, while a card is
+running or queued, your chat was active in the last 15 minutes, or nothing is
+open. Otherwise default wakes once per idle step (30m, 1h, 2h, 4h, 8h, then
+daily) to recover a triage card, start the next card for an open goal, close
+or question a goal, or remind you once a day of cards waiting on you. Pause,
+edit or remove the job (`hermes-<repo> -p default cron …`) to opt out; RepoKit
+never puts it back. Default is also granted `goals.max_turns: 100`, so a chat
+`/goal` does not expire after 20 turns.
+
 | Profile | Required toolsets | Also granted | Official skills granted | Boundary |
 | --- | --- | --- | --- | --- |
 | default | kanban | native CLI preset (owner tools preserved), memory | decision-questionnaire, dynamic-workflow | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
