@@ -204,6 +204,10 @@ func TestNativeToolInstallDoesNotInvalidatePrivateDeployment(t *testing.T) {
 }
 
 func TestNativeToolExceptionsDoNotPermitRedirectedManagedPaths(t *testing.T) {
+	// Keep the absolute destination outside /opt/data regardless of TMPDIR:
+	// containedToolLink intentionally treats that prefix as the container view
+	// of native state, so a t.TempDir() target can be allowed on some machines.
+	const redirectedTarget = "/tmp/rk-redirect-target"
 	for _, rel := range []string{
 		"compose.yaml", "config.yaml", ".env", "auth.json", "kanban.db", "profiles", "bin",
 		"development-image", ".cache", ".cache/uv", ".local", ".local/bin",
@@ -217,7 +221,7 @@ func TestNativeToolExceptionsDoNotPermitRedirectedManagedPaths(t *testing.T) {
 			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.Symlink(privateDir(t), path); err != nil {
+			if err := os.Symlink(redirectedTarget, path); err != nil {
 				t.Fatal(err)
 			}
 			id, _ := Resolve(p)
