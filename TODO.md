@@ -3,13 +3,14 @@
 RepoKit configures a repository-specific Hermes team through public Hermes
 interfaces, proves what it can prove, then gets out of the way.
 
-**Released:** [v0.2.3](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.3)
-(role-shaped profiles with curated official skills; untouched v0.2.2 profiles
-upgrade in place; stale-conversation check in `verify`). The same-card
+**Released:** [v0.2.4](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.4)
+(repository toolchains with nothing manual, autonomy stated at setup, memory
+left to the owner, fresh chats that follow default's identity; untouched v0.2.3
+profiles upgrade in place). The same-card
 executor → tester → reviewer loop is proven live; a reviewer request-changes
 correction cycle is not yet.
 
-## On main since v0.2.3
+## Released in v0.2.4
 
 - Toolchains from the repository's own manifests, including nested projects:
   Go with staticcheck, Rust, Flutter with Dart, and Flutter's Linux desktop
