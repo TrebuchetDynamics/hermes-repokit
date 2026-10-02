@@ -201,7 +201,10 @@ creation or reset. A profile created later follows the team's posture:
 autonomous only while default's `approvals.mode` is `off`. Default is also granted
 `kanban.dispatch_interval_seconds: 10`, so a card's next stage starts within
 seconds rather than up to a minute; the gateway reads it when it starts.
-Default's reset applies only these, never its model, provider or channels. Hermes's hard floor still refuses wiping the root
+Every profile is also granted Exa's keyless free tier as its web search and
+extract provider (`web.backend: exa`, `web.provider_tier.exa: free`): semantic
+search with page content, no key or account, rate-limited by Exa; DuckDuckGo
+(`ddgs`) works as a keyless alternative. Default's reset applies only these, never its model, provider or channels. Hermes's hard floor still refuses wiping the root
 filesystem, raw device writes and shutdown, as do any `approvals.deny` rules you
 add. To bring prompts back, set either value per profile with
 `hermes-<repo> -p <profile> config set`; RepoKit never re-applies it outside a
@@ -226,12 +229,13 @@ granted toolset or skill is not drift and RepoKit never re-adds it.
 
 Skills come from the official Nous Research catalog only (`official/<category>/<name>`),
 chosen because they need no API key or paid service. The development image
-ships the binaries two of them rely on (`ast-grep`/`sg` and `ddgs`), pinned by
-checksum, along with `shellcheck` for the shell scripts agents write, the
+ships the binaries two of them rely on (`ast-grep`/`sg`, pinned by checksum, and
+`ddgs`), along with `shellcheck` for the shell scripts agents write, the
 `browser-use` CLI behind Hermes's browser tool (pinned by hash and pointed at the
 base image's headless Chromium, since Hermes cannot install it lazily there),
-`edge-tts` for Hermes's default text-to-speech provider (keyless Edge voices,
-added to Hermes's own environment by hash) and, in a
+`edge-tts` and `ddgs` added to Hermes's own environment by hash (for its
+default Edge text-to-speech provider and its DuckDuckGo search provider; the
+`ddgs` command comes from the same install) and, in a
 Go repository, `staticcheck`; a Rust repository gets cargo's `clippy`; a Flutter repository gets `flutter analyze`. A skill that does not install (offline, or blocked by Hermes's
 security scan) is reported and never fails the run. Community plugins are
 never installed; authentication-dependent ones such as the official `snyk`

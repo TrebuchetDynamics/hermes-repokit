@@ -38,8 +38,9 @@ RUN set -eu; \
     rm /tmp/repokit-compose /tmp/repokit-buildx; \
     test "$(docker compose version --short)" = 5.5.1; \
     docker buildx version | grep -F ' v0.37.1 '
-# Tools the team's granted skills rely on: ast-grep (structural code search)
-# and ddgs (keyless web search). Pinned by checksum like the tools above.
+# Tools the team's granted skills rely on: ast-grep (structural code search),
+# pinned by checksum like the tools above; ddgs comes with Hermes's packages
+# below.
 RUN set -eu; \
     case "$(dpkg --print-architecture)" in \
       amd64) sg_arch=x86_64; sg_sha=f8ac830881339d1edee6b2652f54798c0f4da5a827f2db38a08ee31117783ce8 ;; \
@@ -85,14 +86,6 @@ RUN set -eu; \
     install -m 0555 /tmp/shellcheck-v0.11.0/shellcheck /usr/local/bin/shellcheck; \
     rm -rf /tmp/shellcheck-v0.11.0 /tmp/repokit-shellcheck.tar.gz; \
     shellcheck --version | grep -F 'version: 0.11.0'
-COPY repokit-ddgs-requirements.txt /tmp/repokit-ddgs-requirements.txt
-# --no-config and /tmp keep uv from applying Hermes's own project settings.
-RUN set -eu; cd /tmp; \
-    uv venv --no-config --python /usr/bin/python3 /opt/repokit-ddgs; \
-    uv pip install --no-config --python /opt/repokit-ddgs/bin/python --require-hashes --no-deps -r /tmp/repokit-ddgs-requirements.txt; \
-    ln -s /opt/repokit-ddgs/bin/ddgs /usr/local/bin/ddgs; \
-    rm /tmp/repokit-ddgs-requirements.txt; \
-    ddgs --help >/dev/null
 # browser-use is the CLI behind Hermes's browser tool; Hermes cannot install it
 # in this image (lazy installs are off), so ship it pinned by hash.
 COPY repokit-browser-use-requirements.txt /tmp/repokit-browser-use-requirements.txt
@@ -102,14 +95,18 @@ RUN set -eu; cd /tmp; \
     ln -s /opt/repokit-browser-use/bin/browser-use /usr/local/bin/browser-use; \
     rm /tmp/repokit-browser-use-requirements.txt; \
     browser-use --help >/dev/null
-# Text to speech: Hermes's default provider (Edge TTS, keyless) needs edge-tts,
-# which this sealed Hermes environment cannot install itself. Only the packages
-# it lacks are added to it, hash-pinned and resolved against its own versions.
-COPY repokit-tts-requirements.txt /tmp/repokit-tts-requirements.txt
+# Packages Hermes's own providers import but this sealed Hermes environment
+# cannot install: edge-tts (default text to speech, keyless Edge voices) and
+# ddgs (DuckDuckGo web search, keyless; its CLI serves the search skill too).
+# Only what Hermes lacks, hash-pinned and resolved against its own versions.
+# --no-config and /tmp keep uv from applying Hermes's own project settings.
+COPY repokit-hermes-requirements.txt /tmp/repokit-hermes-requirements.txt
 RUN set -eu; cd /tmp; \
-    uv pip install --no-config --python /opt/hermes/.venv/bin/python --require-hashes --no-deps -r /tmp/repokit-tts-requirements.txt; \
-    rm /tmp/repokit-tts-requirements.txt; \
-    /opt/hermes/.venv/bin/python -c 'import edge_tts'
+    uv pip install --no-config --python /opt/hermes/.venv/bin/python --require-hashes --no-deps -r /tmp/repokit-hermes-requirements.txt; \
+    rm /tmp/repokit-hermes-requirements.txt; \
+    /opt/hermes/.venv/bin/python -c 'import edge_tts, ddgs'; \
+    ln -s /opt/hermes/.venv/bin/ddgs /usr/local/bin/ddgs; \
+    ddgs --help >/dev/null
 # The base image ships Playwright's headless Chromium; agent-browser (under
 # browser-use) does not look there, so point it at that one build.
 RUN set -eu; \

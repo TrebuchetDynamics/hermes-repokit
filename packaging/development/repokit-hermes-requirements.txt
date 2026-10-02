@@ -1,14 +1,13 @@
-# ddgs (keyless web search) and its dependencies, pinned by hash for
-# `uv pip install --require-hashes`. Regenerate with:
-#   uv pip compile --generate-hashes --python-version 3.13 --universal
-click==8.5.0 \
-    --hash=sha256:255bc9599cf7748b4b1a446ccc735421bd08a2ae529a8b88597d3de5664ee360 \
-    --hash=sha256:ba0d2089de75ea0310e2dde03160e6ca10009947fb95a182f9b54021bb272e34
-    # via ddgs
+# Packages added to Hermes's own environment, which cannot install them itself:
+# edge-tts for its default text-to-speech provider (Edge) and ddgs for its
+# DuckDuckGo web search provider. Only what Hermes lacks, hash-pinned and
+# resolved against the pinned Hermes environment's own versions.
 ddgs==9.16.0 \
     --hash=sha256:161ca8e78ea08d40cd3f83fb12279b49322ffb342d981368bfa39bed9847d874 \
     --hash=sha256:175d9198c958a263f51a06a54368ba0b41294942c0cd29f4aa71be03dbcd5f4a
-    # via -r in.txt
+edge-tts==7.2.8 \
+    --hash=sha256:361fe48ce7ef613adbe30f664e3765dd71029c6cb57427279eff8ad6df2eb211 \
+    --hash=sha256:fcf185a0d527a0d2d003f9d5841facc1d5e0e7b3b88d5df9c32990402c6b8cd0
 lxml==6.1.3 \
     --hash=sha256:032a0a97eed428bd143c75a11118238546424ceb2fa311cca5f073aa44658dc4 \
     --hash=sha256:05f5bce9af14fd1506997594bd81cee6d9c6b58ea80a39c058327aa6371ed9e9 \
@@ -186,7 +185,6 @@ lxml==6.1.3 \
     --hash=sha256:fe91993149523aa59941b9e3c90e2eb45f57ad014697aef6c8b13339a59c019e \
     --hash=sha256:febd35ef45f603c2d74b74655efdbf45e14f55fc0aef4ac82b663ca829b283e0 \
     --hash=sha256:ff88a92cafde90888511242d1c54afcc1a8adbb6dc0a88fa7f87e29e92400d4a
-    # via ddgs
 primp==2.0.1 \
     --hash=sha256:0440d84854d1f9218277eef2c688a1774408e0d8a3805077eb6db432a4fa7970 \
     --hash=sha256:0b8af35eb64d61291b105479245c89ed1231a5fff1e9b75870515892ffabf054 \
@@ -219,4 +217,6 @@ primp==2.0.1 \
     --hash=sha256:e5f2e7b9fe557a440a929746a318074fd9989be318ce75411d01f1f3ed7bc85d \
     --hash=sha256:e5f8d170c69b4afbe61d854b3f0cf27a0c0e557f0e54ebe595dad4db0f72127d \
     --hash=sha256:f0806c7653ee05bbe3c7b28f97f19bd5d763d7da1366026d5cb85cd8713f5c33
-    # via ddgs
+tabulate==0.10.0 \
+    --hash=sha256:e2cfde8f79420f6deeffdeda9aaec3b6bc5abce947655d17ac662b126e48a60d \
+    --hash=sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3

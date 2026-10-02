@@ -317,7 +317,7 @@ func TestRecipePinsInputsAndChangesForGo(t *testing.T) {
 	if !strings.Contains(browser, "browser-use==") || !strings.Contains(browser, "--hash=sha256:") || !strings.Contains(string(goRecipe[".dockerignore"]), "!repokit-browser-use-requirements.txt") {
 		t.Fatal("browser-use not pinned by hash or not in the build context")
 	}
-	requirements := string(goRecipe["repokit-ddgs-requirements.txt"])
+	requirements := string(goRecipe["repokit-hermes-requirements.txt"])
 	for _, line := range strings.Split(requirements, "\n") {
 		if strings.Contains(line, "==") && !strings.HasSuffix(strings.TrimSpace(line), "\\") {
 			t.Fatalf("ddgs requirement without hashes: %s", line)
@@ -476,22 +476,27 @@ func TestRecipeStopsGatewaysBeforeS6Kills(t *testing.T) {
 	}
 }
 
-// Hermes's default text-to-speech provider works from first boot: edge-tts is
-// added to Hermes's own environment, hash-pinned, and imported at build time.
-func TestRecipeShipsHashPinnedTextToSpeech(t *testing.T) {
+// Hermes's default text-to-speech provider (Edge) and its DuckDuckGo search
+// provider work from first boot: edge-tts and ddgs are added to Hermes's own
+// environment, hash-pinned, and imported at build time; the ddgs CLI comes
+// from the same install.
+func TestRecipeShipsHashPinnedHermesPackages(t *testing.T) {
 	files, err := Recipe(Requirements{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	dockerfile := string(files["Dockerfile"])
-	for _, want := range []string{"COPY repokit-tts-requirements.txt", "--python /opt/hermes/.venv/bin/python --require-hashes --no-deps -r /tmp/repokit-tts-requirements.txt", "import edge_tts"} {
+	for _, want := range []string{"COPY repokit-hermes-requirements.txt", "--python /opt/hermes/.venv/bin/python --require-hashes --no-deps -r /tmp/repokit-hermes-requirements.txt", "import edge_tts, ddgs", "ln -s /opt/hermes/.venv/bin/ddgs /usr/local/bin/ddgs"} {
 		if !strings.Contains(dockerfile, want) {
 			t.Errorf("recipe missing %q", want)
 		}
 	}
-	reqs := string(files["repokit-tts-requirements.txt"])
-	if !strings.Contains(reqs, "edge-tts==") || !strings.Contains(string(files[".dockerignore"]), "!repokit-tts-requirements.txt") {
-		t.Fatal("edge-tts requirements not in the build context")
+	if strings.Contains(dockerfile, "/opt/repokit-ddgs") {
+		t.Error("ddgs still installed outside Hermes's environment")
+	}
+	reqs := string(files["repokit-hermes-requirements.txt"])
+	if !strings.Contains(reqs, "edge-tts==") || !strings.Contains(reqs, "ddgs==") || !strings.Contains(string(files[".dockerignore"]), "!repokit-hermes-requirements.txt") {
+		t.Fatal("Hermes packages not in the build context")
 	}
 	for _, line := range strings.Split(reqs, "\n") {
 		if strings.Contains(line, "==") && !strings.HasSuffix(strings.TrimSpace(line), "\\") {

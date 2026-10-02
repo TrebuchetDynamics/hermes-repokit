@@ -173,17 +173,25 @@ qualified runtime change. This capability must never invoke a RepoKit executable
 // creation or reset to every profile; the owner may turn either back on.
 var noApprovals = map[string]any{"approvals.mode": "off", "security.protected_instruction_files": false}
 
+// webSearch makes Exa's keyless free tier the web search and extract provider:
+// semantic search with page content, no key or account. Granted at creation or
+// reset like every setting; the owner may pick another provider.
+var webSearch = map[string]any{"web.backend": "exa", "web.provider_tier.exa": "free"}
+
+// granted is what every profile starts with.
+var granted = settings(noApprovals, webSearch)
+
 // workerEffort lets a worker use the whole card: no turn cap (Hermes's own
 // default; a cap truncates long work mid-task) and high reasoning effort.
 // Kanban's stale-worker timeout and failure limit still bound a run.
-var workerEffort = settings(noApprovals, map[string]any{"agent.max_turns": 0, "agent.reasoning_effort": "high"})
+var workerEffort = settings(granted, map[string]any{"agent.max_turns": 0, "agent.reasoning_effort": "high"})
 
 // coordinator adds a 10s dispatch tick on default, whose config the gateway's
 // dispatcher reads at boot. Hermes's 60s default left the board idle about
 // half a minute between stages, a fifth of a typical run on a live board. A
 // chat /goal gets 100 continuations instead of Hermes's 20, so a long program
 // does not silently expire.
-var coordinator = settings(noApprovals, map[string]any{"kanban.dispatch_interval_seconds": 10, "goals.max_turns": 100})
+var coordinator = settings(granted, map[string]any{"kanban.dispatch_interval_seconds": 10, "goals.max_turns": 100})
 
 func settings(maps ...map[string]any) map[string]any {
 	merged := map[string]any{}
@@ -243,7 +251,7 @@ func Roster() []Role {
 			Settings: workerEffort},
 		{Name: "tester", Description: "Independently verifies an implementation's behavior on the same Kanban card before final review. Runs tests, builds and checks, reproduces failures and probes edge cases. Requests changes or forwards passing work to reviewer; never modifies the repository.", Toolsets: []string{"terminal", "code_execution", "web", "browser", "skills"}, Required: []string{"terminal"}, Skills: []string{"official/dogfood/adversarial-ux-test", "official/software-development/rest-graphql-debug"}, Settings: workerEffort},
 		{Name: "reviewer", Description: "Independently evaluates completed work against its task contract, underlying artifacts and verification evidence. Approves or requests changes on the same Kanban card and does not implement the requested work.", Toolsets: []string{"file", "terminal", "code_execution", "web", "skills"}, Required: []string{"file", "terminal"}, Skills: []string{"official/security/oss-forensics", "official/software-development/grill-me"}, Settings: workerEffort},
-		{Name: "steward", Description: "Maintains the repository's Hermes profile roster and agent capabilities. Creates, updates, configures, retires, backs up and, with explicit authorization, deletes profiles. Manages profile descriptions, SOUL contracts, skills, toolsets and profile distributions. Does not coordinate project work or modify project artifacts.", Toolsets: []string{"terminal", "file", "skills"}, Required: []string{"terminal", "file"}, Settings: noApprovals},
+		{Name: "steward", Description: "Maintains the repository's Hermes profile roster and agent capabilities. Creates, updates, configures, retires, backs up and, with explicit authorization, deletes profiles. Manages profile descriptions, SOUL contracts, skills, toolsets and profile distributions. Does not coordinate project work or modify project artifacts.", Toolsets: []string{"terminal", "file", "skills"}, Required: []string{"terminal", "file"}, Settings: granted},
 	}
 	common, _ := souls.ReadFile("souls/common.md")
 	for i := range roles {

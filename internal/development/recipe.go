@@ -198,23 +198,19 @@ func recipeInputs(req Requirements) map[string][]byte {
 		}
 	}
 	content := strings.NewReplacer("{{HERMES_IMAGE}}", qualification.FoundationImage, "{{GO_INSTALL}}", goSteps).Replace(string(template))
-	requirements, err := assets.Assets.ReadFile("repokit-ddgs-requirements.txt")
-	if err != nil {
-		panic("missing embedded ddgs requirements")
-	}
 	browser, err := assets.Assets.ReadFile("repokit-browser-use-requirements.txt")
 	if err != nil {
 		panic("missing embedded browser-use requirements")
 	}
-	tts, err := assets.Assets.ReadFile("repokit-tts-requirements.txt")
+	hermesPackages, err := assets.Assets.ReadFile("repokit-hermes-requirements.txt")
 	if err != nil {
-		panic("missing embedded text-to-speech requirements")
+		panic("missing embedded Hermes package requirements")
 	}
 	stopGateways, err := assets.Assets.ReadFile("repokit-stop-gateways")
 	if err != nil {
 		panic("missing embedded gateway stop hook")
 	}
-	files := map[string][]byte{"Dockerfile": []byte(content), "repokit-docker-test": helper, "repokit-ddgs-requirements.txt": requirements, "repokit-browser-use-requirements.txt": browser, "repokit-tts-requirements.txt": tts, "repokit-stop-gateways": stopGateways, ".dockerignore": []byte("*\n!Dockerfile\n!repokit-docker-test\n!repokit-ddgs-requirements.txt\n!repokit-browser-use-requirements.txt\n!repokit-tts-requirements.txt\n!repokit-stop-gateways\n")}
+	files := map[string][]byte{"Dockerfile": []byte(content), "repokit-docker-test": helper, "repokit-browser-use-requirements.txt": browser, "repokit-hermes-requirements.txt": hermesPackages, "repokit-stop-gateways": stopGateways, ".dockerignore": []byte("*\n!Dockerfile\n!repokit-docker-test\n!repokit-browser-use-requirements.txt\n!repokit-hermes-requirements.txt\n!repokit-stop-gateways\n")}
 	return files
 }
 

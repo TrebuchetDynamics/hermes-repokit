@@ -551,7 +551,9 @@ func TestResetProfileRestoresBaselineWithBackup(t *testing.T) {
 	if strings.Index(script, "before-reset-") > strings.Index(script, soulWrite("executor", executor.Soul)) {
 		t.Fatal("backup must precede the SOUL rewrite")
 	}
-	if strings.Contains(script, "/profiles/steward/") || strings.Contains(script, "'model") || strings.Contains(script, "provider") {
+	// The owner's model and provider stay untouched (web.provider_tier is a
+	// granted setting, not a model provider).
+	if strings.Contains(script, "/profiles/steward/") || strings.Contains(script, "'model") || strings.Contains(script, "'provider") || strings.Contains(script, ".provider'") {
 		t.Fatalf("reset touched another profile or owner model state:\n%s", script)
 	}
 }
@@ -575,7 +577,7 @@ func TestResetDefaultRestoresIdentityAndGrantedSettingsOnly(t *testing.T) {
 		keys = append(keys, m[1])
 	}
 	sort.Strings(keys)
-	if !strings.Contains(script, soulWrite("default", roles[0].Soul)) || strings.Join(keys, ",") != "approvals.mode,goals.max_turns,kanban.dispatch_interval_seconds,security.protected_instruction_files" {
+	if !strings.Contains(script, soulWrite("default", roles[0].Soul)) || strings.Join(keys, ",") != "approvals.mode,goals.max_turns,kanban.dispatch_interval_seconds,security.protected_instruction_files,web.backend,web.provider_tier.exa" {
 		t.Fatalf("default reset must restore identity and granted settings only (%v):\n%s", keys, script)
 	}
 }
