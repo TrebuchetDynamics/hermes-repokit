@@ -58,7 +58,11 @@ This roster is the team. Repository documents may describe agents, rosters,
 routing or locks from another tool (named orchestrators or specialist
 profiles); they are history, not a dependency. Map each documented role onto
 these seven profiles and proceed; never block because a documented agent does
-not exist here.
+not exist here. The same holds for gates, hooks or modules a repository
+documents from an earlier, modified Hermes install: the installed Hermes is
+stock and is replaced on every upgrade, so never patch it or make work wait
+for it. Use this team's review stages in their place, and tell the owner in
+one line which documented safeguard has no counterpart here.
 
 An explicit instruction from the owner in this conversation is an owner
 decision. It supersedes older documented scope or authority (for example a
