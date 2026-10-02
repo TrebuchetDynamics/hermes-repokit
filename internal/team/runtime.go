@@ -49,13 +49,14 @@ is unfulfilled, even if a useful blocker report was produced. If the lifecycle
 tool itself is unavailable, report that exact blocker to default; do not claim
 the board transitioned.
 
-Hermes asks a human to approve every write to a repository AGENTS.md,
-CLAUDE.md, SOUL.md or .cursorrules, and a Kanban worker has nobody to approve.
-RepoKit lifts that gate for executor only: executor edits these files as
-ordinary card work, and tester and reviewer check the change on the same card.
-Any other role that needs such an edit hands the exact text to executor through
-its handoff; it does not attempt the write, which would wait out the approval
-timeout and fail.
+The owner runs this team without approval prompts: Hermes's approvals and its
+protected instruction-file gate are off, so no command or write waits for a
+human. Only Hermes's hard floor (wiping the root filesystem, raw device writes,
+shutdown) and the owner's own approvals.deny rules still refuse. That makes
+care yours: no destructive or irreversible operation unless the card
+authorizes it. Edits to AGENTS.md, CLAUDE.md, SOUL.md or .cursorrules steer
+every later agent, so they are executor's card work with tester and reviewer
+on the same card; any other role hands the exact text to executor.
 
 To put a file artifact on your own card, run
 "hermes kanban attach <your card id> <path>" in the terminal. It is the one
@@ -86,9 +87,8 @@ substitute for required same-card verification and review.
 
 Before creating or assigning a card, match its artifact, required inspection,
 acceptance and verification to the assignee's actual capabilities. Assign edits
-to AGENTS.md, CLAUDE.md, SOUL.md or .cursorrules to executor, the only role
-whose writes to them need no human approval, with tester and reviewer on the
-same card. Never require an attachment over 25 MB; ask for a workspace path and
+to AGENTS.md, CLAUDE.md, SOUL.md or .cursorrules to executor, with tester and
+reviewer on the same card. Never require an attachment over 25 MB; ask for a workspace path and
 checksum instead. Pin a skill to a card only after confirming the assignee has
 it ("hermes -p <assignee> skills list"): a missing pinned skill makes the
 worker exit before it starts, every retry repeats it, and a card's pins cannot

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -555,7 +556,7 @@ func TestResetProfileRestoresBaselineWithBackup(t *testing.T) {
 	}
 }
 
-func TestResetDefaultRestoresIdentityOnly(t *testing.T) {
+func TestResetDefaultRestoresIdentityAndGrantedSettingsOnly(t *testing.T) {
 	id := target.Identity{Project: "repo-123", Name: "atlas"}
 	roles := team.ForRepository(id)
 	souls := currentSouls(roles)
@@ -565,9 +566,17 @@ func TestResetDefaultRestoresIdentityOnly(t *testing.T) {
 	if err != nil || !strings.Contains(rowStates(plan), "default=reset[SOUL]") {
 		t.Fatalf("default reset not planned: %s %v", rowStates(plan), err)
 	}
+	// Identity plus default's granted settings (approvals off); never the
+	// owner's model, provider, toolsets or channels.
 	script := writes(plan.Script)
-	if !strings.Contains(script, soulWrite("default", roles[0].Soul)) || strings.Contains(script, "'-p' 'default' 'config' 'set'") {
-		t.Fatalf("default reset must restore identity only:\n%s", script)
+	sets := regexp.MustCompile(`'-p' 'default' 'config' 'set' '([^']+)'`).FindAllStringSubmatch(script, -1)
+	keys := []string{}
+	for _, m := range sets {
+		keys = append(keys, m[1])
+	}
+	sort.Strings(keys)
+	if !strings.Contains(script, soulWrite("default", roles[0].Soul)) || strings.Join(keys, ",") != "approvals.mode,security.protected_instruction_files" {
+		t.Fatalf("default reset must restore identity and granted settings only (%v):\n%s", keys, script)
 	}
 }
 

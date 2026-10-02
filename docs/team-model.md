@@ -192,6 +192,15 @@ model-driven dispatch, artifact correctness or adversarial actor isolation.
 
 ## Capabilities and limitations
 
+Agents work without approval prompts by default. Every profile is granted
+Hermes's `approvals.mode: off` and `security.protected_instruction_files:
+false` at creation or reset (default's reset applies only these, never its
+model, provider or channels). Hermes's hard floor still refuses wiping the root
+filesystem, raw device writes and shutdown, as do any `approvals.deny` rules you
+add. To bring prompts back, set either value per profile with
+`hermes-<repo> -p <profile> config set`; RepoKit never re-applies it outside a
+reset. The worker roles are also granted no turn cap and high reasoning effort.
+
 | Profile | Required toolsets | Also granted | Official skills granted | Boundary |
 | --- | --- | --- | --- | --- |
 | default | kanban | native CLI preset (owner tools preserved), memory | decision-questionnaire, dynamic-workflow | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |

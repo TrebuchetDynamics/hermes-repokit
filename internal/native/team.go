@@ -394,6 +394,12 @@ func resetWrite(role team.Role) string {
 		for key, value := range expectedTeamFields(role) {
 			script += teamSet(role.Name, key, value)
 		}
+	} else {
+		// Default's reset restores identity and its granted settings only;
+		// the owner's model, provider and channels stay untouched.
+		for key, value := range role.Settings {
+			script += teamSet(role.Name, key, value)
+		}
 	}
 	return script + skillsWrite(role)
 }

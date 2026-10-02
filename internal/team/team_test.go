@@ -125,20 +125,20 @@ func TestPreviousReleaseSoulsAreFrozen(t *testing.T) {
 	}
 }
 
-// Hermes requires a per-write human approval for protected instruction files,
-// which a Kanban worker can never obtain: only executor has the gate lifted,
-// default routes such edits to it, and every role knows how to attach files.
+// The owner runs the team without approval prompts: every profile is granted
+// approvals off and the protected instruction-file gate lifted, default still
+// routes instruction-file edits to executor, and every role can attach files.
 func TestProtectedInstructionWritesAreOwnerSteps(t *testing.T) {
 	for _, r := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {
-		if !strings.Contains(r.Soul, "RepoKit lifts that gate for executor only") || !strings.Contains(r.Soul, "hermes kanban attach <your card id> <path>") {
-			t.Errorf("%s lacks the protected instruction or attachment rule", r.Name)
+		if !strings.Contains(r.Soul, "runs this team without approval prompts") || !strings.Contains(r.Soul, "hermes kanban attach <your card id> <path>") {
+			t.Errorf("%s lacks the no-approval or attachment rule", r.Name)
 		}
 		if r.Name == "default" && (!strings.Contains(r.Soul, "Assign edits\nto AGENTS.md") || !strings.Contains(r.Soul, "tell them in one line")) {
 			t.Error("default does not route protected writes to executor")
 		}
-		settings := r.Settings["security.protected_instruction_files"]
-		if (r.Name == "executor") != (settings == false) {
-			t.Errorf("%s protected-instruction setting: %v", r.Name, settings)
+		// The owner's default: no approval prompts on any profile.
+		if r.Settings["approvals.mode"] != "off" || r.Settings["security.protected_instruction_files"] != false {
+			t.Errorf("%s approval settings: %v", r.Name, r.Settings)
 		}
 	}
 }
