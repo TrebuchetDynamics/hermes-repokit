@@ -31,6 +31,12 @@ var profileHome = regexp.MustCompile(`^(?:profiles/[^/]+/)?home/(.+)$`)
 // writes it, so a link inside cannot redirect anything RepoKit manages. Each
 // entry is checked itself, but its contents are not walked: repository copies
 // would otherwise exhaust the inspection limit.
+// maxNativeEntries bounds the native-state walk. Workers' tool caches, language
+// servers and homes grow with use: a live deployment passed 130,000 entries
+// outside worker scratch (which is not walked) in two days, and a scan of that
+// size takes a fraction of a second.
+const maxNativeEntries = 2000000
+
 var workerScratch = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/.+`)
 var workerScratchEntry = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/[^/]+$`)
 
@@ -115,7 +121,7 @@ func Inspect(id Identity, pathEnv string) []string {
 		count := 0
 		err = filepath.WalkDir(state, func(p string, d fs.DirEntry, e error) error {
 			count++
-			if count > 100000 {
+			if count > maxNativeEntries {
 				return fmt.Errorf("native state inspection limit exceeded")
 			}
 			info, e := walkedInfo(p, state, d, e)
