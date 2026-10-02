@@ -36,9 +36,10 @@ unmodified. Once the owner changes managed team state through normal Hermes
 usage, that state is owner-controlled: later installs may report it or offer
 newer defaults, but never silently overwrite it.
 
-RepoKit keeps no legacy support: it recognizes only its current generation and
-the previous release. An untouched previous-release SOUL (v0.2.3) is upgraded
-in place while no card runs, a v0.2.3 deployment gains the `/workspace/.hermes`
+RepoKit keeps no legacy support. Every SOUL it writes is recorded by digest
+(`.repokit-soul` beside it), so a SOUL still matching its record is upgraded in
+place while no card runs, from any earlier RepoKit build; the binary carries no
+copies of old SOULs. A v0.2.3 deployment gains the `/workspace/.hermes`
 mask, and a v0.2.0 Go deployment gains the toolchain-cache volume, each after
 its old Compose and recipe are backed up. Files from any earlier release, like edited or foreign ones, are
 preserved and refused, never migrated; the owner starts over by stopping that deployment,

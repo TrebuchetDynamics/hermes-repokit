@@ -159,8 +159,10 @@ exception is the previous release: `install` upgrades a v0.2.0 deployment in
 place, adding the toolchain-cache volume to a Go deployment after backing up its
 Compose and recipe as `compose.before-toolchain-cache-*`, upgrades a v0.2.3
 deployment to hide `.hermes` inside `/workspace` (old Compose kept as
-`compose.before-state-mask-*`), and rewrites untouched v0.2.3 SOULs to the
-current ones while no card is running. A deployment from any
+`compose.before-state-mask-*`), and rewrites any SOUL that still matches the
+digest RepoKit recorded when it wrote it (`.repokit-soul`) to the current one
+while no card is running. Profiles from v0.2.3, which predates records, are
+upgraded by installing v0.2.4 first. A deployment from any
 earlier release, like an edited or foreign one, is refused and never migrated. To start over, stop it with
 `docker compose -f .hermes/compose.yaml down`, move `.hermes` aside, and run
 `repokit install` again.

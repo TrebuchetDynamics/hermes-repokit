@@ -725,18 +725,23 @@ func TestMissingSkillReportsAreValidated(t *testing.T) {
 	}
 }
 
-// An untouched SOUL from the previous release is RepoKit's: it upgrades in
-// place unless that profile has a running card, and waits while it does. Any
-// other SOUL stays the owner's.
-func TestPreviousReleaseSoulUpgradesOnlyWhenIdle(t *testing.T) {
+// A SOUL an earlier RepoKit build wrote, still matching the digest it
+// recorded, is RepoKit's: it upgrades in place unless that profile has a
+// running card, and waits while it does. An edited SOUL stays the owner's,
+// whatever its record says.
+func TestRecordedEarlierSoulUpgradesOnlyWhenIdle(t *testing.T) {
 	id := target.Identity{Project: "repo-123", Name: "atlas"}
 	roles := team.ForRepository(id)
 	steward := roleNamed(roles, "steward")
-	if steward.PreviousSoul == "" || steward.PreviousSoul == steward.Soul {
-		t.Fatal("fixture needs a steward SOUL that changed since the previous release")
-	}
+	earlier := steward.Soul + "\nA line an earlier build had.\n"
 	souls := currentSouls(roles)
-	souls["steward"] = steward.PreviousSoul
+	souls["steward"] = earlier
+	record := func(root *os.Root, soul string) {
+		path := filepath.Join(root.Name(), ".hermes", "profiles", "steward", team.SoulRecord)
+		if err := os.WriteFile(path, []byte(team.SoulDigest(soul)+"\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
 	for _, c := range []struct {
 		stats, want string
 		writes      bool
@@ -746,6 +751,7 @@ func TestPreviousReleaseSoulUpgradesOnlyWhenIdle(t *testing.T) {
 		{`{"by_status":{"running":1},"by_assignee":{"steward":{"running":1}}}`, "steward=deferred[SOUL]", false},
 	} {
 		root, run := deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: c.stats})
+		record(root, earlier)
 		plan, err := teamScript(id, false, "", sectioned(run), root)
 		if err != nil || !strings.Contains(rowStates(plan), c.want) || len(plan.Customized)+len(plan.Drift) != 0 {
 			t.Fatalf("%s: %s %v", c.stats, rowStates(plan), err)
@@ -754,11 +760,34 @@ func TestPreviousReleaseSoulUpgradesOnlyWhenIdle(t *testing.T) {
 			t.Fatalf("%s: current steward SOUL written=%v:\n%s", c.stats, got, plan.Script)
 		}
 	}
-	souls["steward"] = steward.PreviousSoul + "\nowner edit"
+	souls["steward"] = earlier + "owner edit\n"
 	root, run := deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: `{"by_status":{}}`})
+	record(root, earlier)
 	plan, err := teamScript(id, false, "", sectioned(run), root)
 	if err != nil || strings.Join(plan.Customized, ",") != "steward" || strings.Contains(writes(plan.Script), "profiles/steward/SOUL.md") {
-		t.Fatalf("edited previous SOUL must stay the owner's: %s %v", rowStates(plan), err)
+		t.Fatalf("edited SOUL must stay the owner's: %s %v", rowStates(plan), err)
+	}
+	// Without any record, an unfamiliar SOUL is the owner's too.
+	souls["steward"] = earlier
+	root, run = deployTeam(t, roles, teamFixture{souls: souls, kanban: operationalKanban(), stats: `{"by_status":{}}`})
+	if plan, err := teamScript(id, false, "", sectioned(run), root); err != nil || strings.Join(plan.Customized, ",") != "steward" {
+		t.Fatalf("unrecorded SOUL must stay the owner's: %s %v", rowStates(plan), err)
+	}
+}
+
+// Every SOUL RepoKit writes is recorded, and a current SOUL that predates
+// records is claimed by recording it, so the next SOUL change upgrades it.
+func TestSoulWritesAreRecordedAndCurrentSoulsClaimed(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	tester := roleNamed(roles, "tester")
+	if w := soulWrite("tester", tester.Soul); !strings.Contains(w, team.SoulDigest(tester.Soul)) || !strings.Contains(w, "/opt/data/profiles/tester/"+team.SoulRecord) {
+		t.Fatalf("SOUL write not recorded:\n%s", w)
+	}
+	root, run := deployTeam(t, roles, teamFixture{souls: currentSouls(roles), kanban: operationalKanban(), stats: `{"by_status":{}}`})
+	plan, err := teamScript(id, false, "", sectioned(run), root)
+	if err != nil || !strings.Contains(plan.Script, recordWrite("tester", tester.Soul)) || strings.Contains(writes(plan.Script), soulWrite("tester", tester.Soul)) {
+		t.Fatalf("current unrecorded SOUL not claimed (or rewritten): %v\n%s", err, plan.Script)
 	}
 }
 

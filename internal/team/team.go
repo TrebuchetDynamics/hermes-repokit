@@ -2,38 +2,37 @@
 package team
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
-//go:embed souls/*.md souls/previous/*.md
+//go:embed souls/*.md
 var souls embed.FS
 
-// PreviousRelease is the one earlier release whose managed SOULs RepoKit still
-// recognizes, so an untouched profile from it upgrades in place instead of
-// reading as owner-customized. Nothing older is recognized.
-const PreviousRelease = "v0.2.3"
+// SoulRecord is the file beside a profile's SOUL.md in which RepoKit records
+// the SHA-256 of the SOUL it last wrote. A SOUL that still matches its record
+// is untouched, so install replaces it whichever RepoKit build wrote it; any
+// other SOUL is the owner's. Git keeps every earlier SOUL; the binary keeps
+// none.
+const SoulRecord = ".repokit-soul"
 
-// Placeholders in souls/previous: each template is the previous release's exact
-// rendered SOUL with the repository name and stable ID left open.
-const (
-	previousNameToken = "{{repository.name}}"
-	previousIDToken   = "{{repository.id}}"
-)
+// SoulDigest is the record RepoKit keeps for a SOUL it wrote.
+func SoulDigest(soul string) string {
+	sum := sha256.Sum256([]byte(soul))
+	return hex.EncodeToString(sum[:])
+}
 
 // Role is one permanent profile's current managed identity. A SOUL that is
-// neither Soul nor PreviousSoul is owner state.
+// neither Soul nor recorded as written by RepoKit is owner state.
 type Role struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Soul        string `json:"soul"`
-	// PreviousSoul is the exact SOUL PreviousRelease installed for this role
-	// and repository; install upgrades an untouched one to Soul.
-	PreviousSoul string `json:"previous_soul,omitempty"`
 	// Toolsets is the baseline RepoKit grants when it creates or resets the
 	// profile. Required is the subset the role needs to do its work; only
 	// Required is checked afterwards, so the owner may remove the rest.
@@ -57,19 +56,8 @@ func ForRepository(id target.Identity) []Role {
 			soul += defaultMaintenance
 		}
 		role.Soul = soul + role.Soul
-		role.PreviousSoul = previousSoul(id, role.Name)
 	}
 	return roles
-}
-
-// previousSoul renders PreviousRelease's SOUL for this repository, or "" when
-// the role did not exist then.
-func previousSoul(id target.Identity, name string) string {
-	tpl, err := souls.ReadFile("souls/previous/" + name + ".md")
-	if err != nil {
-		return ""
-	}
-	return strings.NewReplacer(previousNameToken, id.Name, previousIDToken, id.Project).Replace(string(tpl))
 }
 
 func repositoryHeader(id target.Identity, role Role) string {

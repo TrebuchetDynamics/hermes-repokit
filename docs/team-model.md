@@ -302,9 +302,10 @@ Every generated SOUL includes the repository basename, stable RepoKit project
 identity, profile role, permanent seven-profile roster and relationship to default.
 Hermes is the runtime, not the profile's repository identity. A persistent profile
 is distinct from a currently running worker. No absolute host path is embedded.
-RepoKit recognizes its current SOULs and the previous release's (v0.2.3)
-exact SOULs, and keeps no older history. An untouched previous-release SOUL
-is RepoKit's: `install` or `setup` rewrites it to the current one while no card
+Every SOUL RepoKit writes is recorded by its SHA-256 in `.repokit-soul` beside
+it, and a current SOUL written before records existed is recorded on the next
+install. A SOUL that still matches its record is untouched and RepoKit's,
+whichever build wrote it: `install` or `setup` rewrites it to the current one while no card
 is running (plan state `upgrade`), and waits while one is (`deferred`); `verify`
 reports it as `upgradable`, which does not fail core readiness. Any other SOUL
 is owner-customized and preserved, and is brought to the current baseline only

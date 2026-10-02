@@ -128,12 +128,23 @@ func readSoul(root *os.Root, name string) (string, error) {
 	return string(b), nil
 }
 
-// matchingSoul reports RepoKit's current managed SOUL; RepoKit recognizes no
-// earlier generation, so any other SOUL is owner state.
-// matchingSoul reports a RepoKit-managed SOUL: the current one, or the exact
-// SOUL the previous release installed (which install upgrades in place).
+// readRecord returns the digest RepoKit recorded for the SOUL it last wrote to
+// this profile, or "" when none was recorded (the profile predates records).
+func readRecord(root *os.Root, name string) string {
+	path := ".hermes/" + team.SoulRecord
+	if name != "default" {
+		path = filepath.Join(".hermes/profiles", name, team.SoulRecord)
+	}
+	b, err := root.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// matchingSoul reports RepoKit's current managed SOUL.
 func matchingSoul(soul string, role team.Role) bool {
-	return soul == role.Soul || previousSoul(soul, role)
+	return soul == role.Soul
 }
 
 // repositorySoul reports a RepoKit-generated SOUL for this repository from any
@@ -143,12 +154,6 @@ func matchingSoul(soul string, role team.Role) bool {
 // as customized unless its SOUL matches exactly.
 func repositorySoul(soul string, id target.Identity) bool {
 	return strings.Contains(soul, "\nStable repository ID: "+id.Project+"\n") && strings.Contains(soul, "\n# RepoKit Agent Identity\n")
-}
-
-// previousSoul reports an untouched SOUL from team.PreviousRelease that differs
-// from the current one.
-func previousSoul(soul string, role team.Role) bool {
-	return role.PreviousSoul != "" && soul == role.PreviousSoul && soul != role.Soul
 }
 
 // profileDescription reads the exact native description through the public
@@ -248,14 +253,19 @@ type roleCheck struct {
 	soulManaged bool
 	descManaged bool
 	config      []string
+	// untouched: an earlier RepoKit SOUL still matching its record, which
+	// install upgrades. unrecorded: the current SOUL without a record yet.
+	untouched  bool
+	unrecorded bool
 }
 
 // customized reports an owner-changed identity: a SOUL that is neither the
-// current nor the previous release's, or a different description.
+// current one nor an untouched one RepoKit recorded, or a different
+// description.
 func (c roleCheck) customized() bool { return !c.soulManaged || !c.descManaged }
 
-// previous reports an untouched previous-release SOUL awaiting upgrade.
-func (c roleCheck) previous(role team.Role) bool { return previousSoul(c.soul, role) }
+// previous reports an untouched earlier SOUL awaiting upgrade.
+func (c roleCheck) previous(team.Role) bool { return c.untouched }
 
 // compatible reports that every managed configuration value the team depends
 // on still holds.
@@ -282,7 +292,11 @@ func classifyRole(run teamCLI, root *os.Root, role team.Role) (roleCheck, error)
 	if err != nil {
 		return roleCheck{}, err
 	}
-	check := roleCheck{soul: soul, soulManaged: matchingSoul(soul, role), descManaged: desc == role.Description}
+	record := readRecord(root, role.Name)
+	current := matchingSoul(soul, role)
+	untouched := !current && record != "" && team.SoulDigest(soul) == record
+	check := roleCheck{soul: soul, soulManaged: current || untouched, descManaged: desc == role.Description,
+		untouched: untouched, unrecorded: current && record != team.SoulDigest(soul)}
 	fields := requiredTeamFields(role)
 	if role.Name == "default" {
 		// After activation default carries the complete managed dispatch
@@ -327,7 +341,17 @@ func soulWrite(name, soul string) string {
 	if name != "default" {
 		path = "/opt/data/profiles/" + name + "/SOUL.md"
 	}
-	return "printf '%s' " + shellQuote(base64.StdEncoding.EncodeToString([]byte(soul))) + " | base64 -d > " + shellQuote(path) + "\nchmod 600 " + shellQuote(path) + "\n"
+	return "printf '%s' " + shellQuote(base64.StdEncoding.EncodeToString([]byte(soul))) + " | base64 -d > " + shellQuote(path) + "\nchmod 600 " + shellQuote(path) + "\n" + recordWrite(name, soul)
+}
+
+// recordWrite records the digest of the SOUL RepoKit wrote, so a later install
+// can tell an untouched SOUL from an owner's.
+func recordWrite(name, soul string) string {
+	path := "/opt/data/" + team.SoulRecord
+	if name != "default" {
+		path = "/opt/data/profiles/" + name + "/" + team.SoulRecord
+	}
+	return "printf '%s\\n' " + shellQuote(team.SoulDigest(soul)) + " > " + shellQuote(path) + "\nchmod 600 " + shellQuote(path) + "\n"
 }
 
 // teamPlan is one convergence decision. Each roster profile is classified on
@@ -356,8 +380,8 @@ type RoleStatus struct {
 
 var roleActions = map[string]string{
 	"current":    "none",
-	"upgrade":    "rewrite the untouched " + team.PreviousRelease + " SOUL",
-	"deferred":   "upgrade the " + team.PreviousRelease + " SOUL after running work finishes",
+	"upgrade":    "rewrite the untouched SOUL an earlier RepoKit build wrote",
+	"deferred":   "upgrade the earlier RepoKit SOUL after running work finishes",
 	"missing":    "create",
 	"adopt":      "claim stock default",
 	"customized": "preserve",
@@ -632,6 +656,11 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 				changes += soulWrite(role.Name, role.Soul)
 			default:
 				plan.role(role.Name, "current", nil)
+				if check.unrecorded {
+					// A SOUL identical to RepoKit's current one is RepoKit's;
+					// record it so a later SOUL change upgrades it in place.
+					changes += recordWrite(role.Name, role.Soul)
+				}
 			}
 			skillDiscovery, e := configValue(run, role.Name, "skills.project_discovery")
 			if e != nil {
@@ -695,7 +724,7 @@ func teamStateGuard(root *os.Root, roles []team.Role) (string, error) {
 			base = filepath.Join(base, "profiles", role.Name)
 			container += "/profiles/" + role.Name
 		}
-		for _, name := range []string{"config.yaml", "SOUL.md", "profile.yaml"} {
+		for _, name := range []string{"config.yaml", "SOUL.md", "profile.yaml", team.SoulRecord} {
 			path := filepath.Join(base, name)
 			into := container + "/" + name
 			info, err := root.Lstat(path)

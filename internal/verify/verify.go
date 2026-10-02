@@ -31,8 +31,9 @@ const (
 	// Customized is a roster profile whose owner changed its identity. RepoKit
 	// preserves it; it is not a fault, but RepoKit no longer vouches for it.
 	Customized Status = "customized"
-	// Upgradable is a roster profile still holding the previous release's
-	// untouched SOUL. It works; install rewrites it when no card is running.
+	// Upgradable is a roster profile still holding an earlier RepoKit build's
+	// untouched SOUL (matching its record). It works; install rewrites it when
+	// no card is running.
 	Upgradable Status = "upgradable"
 )
 
@@ -170,9 +171,9 @@ func Profiles(id target.Identity) []Probe {
 				if e != nil {
 					probe.Status = Degraded
 					probe.Detail = "role SOUL unreadable"
-				} else if string(soul) != role.Soul && role.PreviousSoul != "" && string(soul) == role.PreviousSoul {
+				} else if string(soul) != role.Soul && untouchedSoul(root, dir, string(soul)) {
 					probe.Status = Upgradable
-					probe.Detail = "untouched " + team.PreviousRelease + " SOUL; repokit install upgrades it when no card is running"
+					probe.Detail = "untouched SOUL from an earlier RepoKit build; repokit install upgrades it when no card is running"
 				} else if string(soul) != role.Soul {
 					probe.Status = Customized
 					probe.Detail = "owner-customized SOUL preserved; RepoKit does not overwrite it (reset with install --reset-profile " + role.Name + ")"
@@ -243,4 +244,11 @@ func Readiness(probes []Probe) []Probe {
 // even if the loop has not yet been exercised.
 func CoreUsable(readiness []Probe) bool {
 	return len(readiness) > 0 && readiness[0].Component == "CORE_READY" && readiness[0].Status != Degraded
+}
+
+// untouchedSoul reports a SOUL that still matches the digest RepoKit recorded
+// when it wrote it.
+func untouchedSoul(root *os.Root, dir, soul string) bool {
+	record, err := root.ReadFile(filepath.Join(dir, team.SoulRecord))
+	return err == nil && strings.TrimSpace(string(record)) == team.SoulDigest(soul)
 }

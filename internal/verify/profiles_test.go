@@ -56,9 +56,9 @@ func TestAbsentProfilesPointAtRepoKitSetup(t *testing.T) {
 	}
 }
 
-// A profile still on the previous release's untouched SOUL works; verify names
-// it as upgradable without failing core readiness.
-func TestPreviousReleaseSoulIsUpgradableNotCustomized(t *testing.T) {
+// A profile on an earlier RepoKit build's untouched SOUL (still matching its
+// record) works; verify names it as upgradable without failing core readiness.
+func TestRecordedEarlierSoulIsUpgradableNotCustomized(t *testing.T) {
 	id := target.Identity{Name: "atlas", Project: "repokit-123", Root: t.TempDir()}
 	var steward team.Role
 	for _, r := range team.ForRepository(id) {
@@ -70,7 +70,8 @@ func TestPreviousReleaseSoulIsUpgradableNotCustomized(t *testing.T) {
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)
 	}
-	for name, data := range map[string]string{"config.yaml": "x", "profile.yaml": "x", "SOUL.md": steward.PreviousSoul} {
+	earlier := steward.Soul + "\nA line an earlier build had.\n"
+	for name, data := range map[string]string{"config.yaml": "x", "profile.yaml": "x", "SOUL.md": earlier, team.SoulRecord: team.SoulDigest(earlier) + "\n"} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(data), 0600); err != nil {
 			t.Fatal(err)
 		}
