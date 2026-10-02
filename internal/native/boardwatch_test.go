@@ -36,7 +36,7 @@ func (w *watchContainer) RunInput(_ context.Context, in io.Reader, _ string, arg
 	case slices.Contains(args, "create"):
 		os.MkdirAll(filepath.Join(w.state, "cron"), 0700)
 		want := boardwatch.Desired("telegram")
-		os.WriteFile(filepath.Join(w.state, "cron", "jobs.json"), []byte(`{"jobs":[{"id":"j1","name":"repokit-board-watch","prompt":`+quoteJSON(want.Prompt)+`,"schedule_display":"every 5m","monitor_script":"repokit-board-watch.py","workdir":"/workspace","deliver":"telegram","enabled":true,"state":"scheduled"}]}`), 0600)
+		os.WriteFile(filepath.Join(w.state, "cron", "jobs.json"), []byte(`{"jobs":[{"id":"j1","name":"repokit-board-watch","prompt":`+quoteJSON(want.Prompt)+`,"schedule_display":"every 5m","monitor_script":"repokit-board-watch.py","workdir":null,"deliver":"telegram","enabled":true,"state":"scheduled"}]}`), 0600)
 	}
 	return process.Result{}
 }
@@ -51,7 +51,10 @@ func TestEnsureBoardWatchCreatesOnceThenLeavesIt(t *testing.T) {
 		t.Fatalf("first run: %s %v\n%s", got, err, strings.Join(c.calls, "\n"))
 	}
 	created := strings.Join(c.calls, "\n")
-	for _, want := range []string{"cron create every 5m", "--name repokit-board-watch", "--monitor-script repokit-board-watch.py", "--workdir /workspace", "--deliver telegram", "--failure-deliver local"} {
+	if _, create, _ := strings.Cut(created, "cron create"); strings.Contains(create, "--workdir") {
+		t.Errorf("the job must not load the repository's context files:\n%s", created)
+	}
+	for _, want := range []string{"cron create every 5m", "--name repokit-board-watch", "--monitor-script repokit-board-watch.py", "--deliver telegram", "--failure-deliver local"} {
 		if !strings.Contains(created, want) {
 			t.Errorf("create call missing %q:\n%s", want, created)
 		}

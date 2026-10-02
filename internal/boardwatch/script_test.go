@@ -11,6 +11,12 @@ import (
 
 func decide(t *testing.T, tasks []map[string]any, lastChat, now float64) string {
 	t.Helper()
+	return decideWith(t, "", tasks, lastChat, now)
+}
+
+// decideWith runs the script with state kept in stateFile ("" for none).
+func decideWith(t *testing.T, stateFile string, tasks []map[string]any, lastChat, now float64) string {
+	t.Helper()
 	python, err := exec.LookPath("python3")
 	if err != nil {
 		t.Skip("python3 unavailable")
@@ -24,7 +30,7 @@ func decide(t *testing.T, tasks []map[string]any, lastChat, now float64) string 
 		t.Fatal(err)
 	}
 	cmd := exec.Command(python, filepath.Join(dir, "w.py"))
-	cmd.Env = append(os.Environ(), "REPOKIT_WATCH_SNAPSHOT="+filepath.Join(dir, "s.json"))
+	cmd.Env = append(os.Environ(), "REPOKIT_WATCH_SNAPSHOT="+filepath.Join(dir, "s.json"), "REPOKIT_WATCH_STATE="+stateFile)
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("script failed: %v", err)
@@ -52,10 +58,10 @@ func TestScriptDecisions(t *testing.T) {
 		{"ready assigned card", []map[string]any{goal, card("t_a", "work", "ready", "executor", now-3600)}, 0, "busy"},
 		{"chat active", []map[string]any{goal}, now - 60, "busy"},
 		{"idle under 30m", []map[string]any{card("t_goal", "Goal: ship it", "blocked", "default", now-10*60)}, 0, "busy"},
-		{"open goal idle 40m", []map[string]any{goal}, 0, `idle {"blocked": [], "goals": ["t_goal"], "idle": "30m", "triage": []}`},
-		{"triage card idle 3h", []map[string]any{card("t_t", "work", "triage", "executor", now-3*3600)}, 0, `idle {"blocked": [], "goals": [], "idle": "2h", "triage": ["t_t"]}`},
-		{"owner-blocked 50h", []map[string]any{card("t_b", "Owner inputs", "blocked", "default", now-50*3600)}, 0, `idle {"blocked": ["t_b"], "goals": [], "idle": "2d", "triage": []}`},
-		{"unassigned ready is not work", []map[string]any{goal, card("t_u", "note", "ready", "", now-3600)}, 0, `idle {"blocked": [], "goals": ["t_goal"], "idle": "30m", "triage": []}`},
+		{"open goal idle 40m", []map[string]any{goal}, 0, `idle {"blocked": [], "goals": ["t_goal"], "idle": "30m", "since": 997600, "triage": []}`},
+		{"triage card idle 3h", []map[string]any{card("t_t", "work", "triage", "executor", now-3*3600)}, 0, `idle {"blocked": [], "goals": [], "idle": "2h", "since": 989200, "triage": ["t_t"]}`},
+		{"owner-blocked 50h", []map[string]any{card("t_b", "Owner inputs", "blocked", "default", now-50*3600)}, 0, `idle {"blocked": ["t_b"], "goals": [], "idle": "2d", "since": 820000, "triage": []}`},
+		{"unassigned ready is not work", []map[string]any{goal, card("t_u", "note", "ready", "", now-3600)}, 0, `idle {"blocked": [], "goals": ["t_goal"], "idle": "30m", "since": 997600, "triage": []}`},
 		{"done cards only", []map[string]any{card("t_d", "work", "done", "executor", now-9000)}, 0, "busy"},
 	} {
 		if got := decide(t, tc.tasks, tc.lastChat, now); got != tc.want {
@@ -72,5 +78,27 @@ func TestScriptOutputStableWithinBucket(t *testing.T) {
 	c := decide(t, []map[string]any{goal}, 0, 61*60)
 	if a != b || a == c {
 		t.Fatalf("bucket stability: %q %q %q", a, b, c)
+	}
+}
+
+// Going busy again repeats the last output, so Hermes never wakes the model
+// for the board getting busy; a new idle period always differs.
+func TestScriptBusyRepeatsLastOutput(t *testing.T) {
+	state := filepath.Join(t.TempDir(), "last")
+	goal := card("t_goal", "Goal: ship it", "blocked", "default", 0)
+	running := card("t_a", "work", "running", "executor", 3000)
+	if got := decideWith(t, state, []map[string]any{goal, running}, 0, 4000); got != "busy" {
+		t.Fatalf("first busy: %q", got)
+	}
+	idle := decideWith(t, state, []map[string]any{goal}, 0, 40*60)
+	if !strings.HasPrefix(idle, "idle ") {
+		t.Fatalf("idle: %q", idle)
+	}
+	if got := decideWith(t, state, []map[string]any{goal, running}, 0, 50*60); got != idle {
+		t.Fatalf("busy after idle must repeat %q, got %q", idle, got)
+	}
+	later := card("t_b", "work", "done", "executor", 60*60)
+	if got := decideWith(t, state, []map[string]any{goal, later}, 0, 95*60); got == idle || !strings.HasPrefix(got, "idle ") {
+		t.Fatalf("a new idle period must differ: %q vs %q", got, idle)
 	}
 }

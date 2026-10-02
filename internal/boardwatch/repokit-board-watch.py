@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """RepoKit board watch: monitor script of the Hermes cron job repokit-board-watch.
 
-Hermes runs it every tick and wakes default only when the output changes. It
-prints exactly "busy" while nothing needs default, so a busy or settled board
-costs no model call; otherwise a stable digest of open goals and stuck cards
-plus an idle back-off bucket. It also subscribes each goal card's chat to the
-work cards linked to that goal, so their completions wake the chat coordinator.
+Hermes runs it every tick and wakes default only when the output changes.
+While nothing needs default it repeats its previous output ("busy" at first),
+so a busy or settled board, or the board getting busy again, costs no model
+call. Otherwise it prints a digest of open goals and stuck cards with the time
+the board went idle and an idle back-off bucket, which changes only when the
+stuck state, the idle period or the bucket does. It also subscribes each goal
+card's chat to the work cards linked to that goal, so their completions wake
+the chat coordinator.
 """
 import json
 import os
@@ -17,6 +20,7 @@ HERMES = os.environ.get("HERMES_BIN") or "/opt/hermes/.venv/bin/hermes"
 GOAL_PREFIX = "Goal:"
 CHAT_QUIET_SECONDS = 15 * 60
 BUCKETS = [(30 * 60, "30m"), (3600, "1h"), (2 * 3600, "2h"), (4 * 3600, "4h"), (8 * 3600, "8h")]
+STATE = "/opt/data/cache/repokit-board-watch.last"
 NOT_CHATS = {"cli", "cron", "kanban", "oneshot", "acp", "api_server", "tui", "webhook"}
 
 
@@ -50,7 +54,28 @@ def decide(tasks, last_chat, now):
     idle = bucket(now - last)
     if idle is None:
         return "busy"
-    return "idle " + json.dumps({"idle": idle, "goals": goals, "triage": triage, "blocked": blocked}, sort_keys=True)
+    return "idle " + json.dumps(
+        {"since": int(last), "idle": idle, "goals": goals, "triage": triage, "blocked": blocked}, sort_keys=True)
+
+
+def emit(decision, state):
+    """Print the decision; "busy" repeats the previous output so it never wakes Hermes."""
+    previous = None
+    if state:
+        try:
+            with open(state) as f:
+                previous = f.read().strip() or None
+        except OSError:
+            pass
+    out = previous if decision == "busy" and previous else decision
+    if state and out != previous:
+        try:
+            with open(state + ".tmp", "w") as f:
+                f.write(out)
+            os.replace(state + ".tmp", state)
+        except OSError:
+            pass
+    print(out)
 
 
 def hermes(*args):
@@ -95,24 +120,25 @@ def subscribe_goal_work(goals):
 
 
 def main():
+    os.umask(0o077)  # private state: RepoKit's safety scan refuses group-writable files
     snapshot = os.environ.get("REPOKIT_WATCH_SNAPSHOT")
     if snapshot:
         with open(snapshot) as f:
             s = json.load(f)
-        print(decide(s["tasks"] or [], s["last_chat"], s["now"]))
+        emit(decide(s["tasks"] or [], s["last_chat"], s["now"]), os.environ.get("REPOKIT_WATCH_STATE"))
         return
     try:
         tasks = json.loads(hermes("kanban", "list", "--json"))
     except Exception as exc:
         print("repokit-board-watch: %s" % exc, file=sys.stderr)
-        print("busy")
+        emit("busy", STATE)
         return
     out = decide(tasks, last_chat_activity(), time.time())
     try:
         subscribe_goal_work(sorted(t["id"] for t in tasks if is_goal(t) and t["status"] == "blocked"))
     except Exception as exc:
         print("repokit-board-watch: %s" % exc, file=sys.stderr)
-    print(out)
+    emit(out, STATE)
 
 
 if __name__ == "__main__":

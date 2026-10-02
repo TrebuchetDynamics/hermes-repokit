@@ -22,12 +22,12 @@ const (
 	ScriptName = "repokit-board-watch.py"
 	MarkerName = "repokit-board-watch.json"
 	Schedule   = "every 5m"
-	Workdir    = "/workspace"
 )
 
 // Prompt is what default reads when the watch wakes it; the monitor digest
 // follows it in the run context.
-const Prompt = `RepoKit board watch woke you: this board is idle and the digest below names open goal cards (title "Goal:"), cards in triage and blocked cards. Do one bounded pass, then stop.
+const Prompt = `If the monitor output below is exactly "busy", reply exactly [SILENT] and do nothing else.
+Otherwise RepoKit board watch woke you: this board is idle and the digest below names open goal cards (title "Goal:"), cards in triage and blocked cards. Do one bounded pass, then stop.
 1. A triage card whose cause is now resolved (an owner decision recorded on it, a capability added): return it with "hermes kanban specify <id>", then immediately restore its original title and body with "hermes kanban edit <id> --title <original title> --body <original body>". Otherwise leave it.
 2. Each goal card: read it and its comments. If its acceptance is met with evidence, complete it with that evidence. If its budget is spent, block it with one question for the owner. Otherwise create the next card toward it (after checking the board for one that already covers the work), then link it as a parent of the goal card with kanban_link.
 3. Blocked cards waiting on the owner: once a day, report them in one short message, skipping any whose comments snooze them past today.
@@ -73,9 +73,11 @@ const (
 func sha(b []byte) string { s := sha256.Sum256(b); return hex.EncodeToString(s[:]) }
 
 // Desired is the job this release installs, delivering to deliver ("local"
-// when the deployment has no messaging platform).
+// when the deployment has no messaging platform). It has no workdir: a
+// workdir would load the repository's AGENTS.md into every wake, doubling its
+// cost, and the coordinator manages cards through Kanban and its terminal.
 func Desired(deliver string) Spec {
-	return Spec{Prompt: Prompt, Schedule: Schedule, MonitorScript: ScriptName, Workdir: Workdir, Deliver: deliver, ScriptSHA: sha(Script)}
+	return Spec{Prompt: Prompt, Schedule: Schedule, MonitorScript: ScriptName, Deliver: deliver, ScriptSHA: sha(Script)}
 }
 
 // Decide never rewrites what the owner changed: a job RepoKit did not create,

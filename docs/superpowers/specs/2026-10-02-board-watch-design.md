@@ -49,18 +49,23 @@ in chat must be recorded on the affected goal or card.
 ### Watch job
 
 RepoKit installs one cron job on default named `repokit-board-watch`,
-scheduled every 5 minutes, with `--monitor-script repokit-board-watch`,
-`--workdir /workspace` and delivery to the home channel. The script lives in
+scheduled every 5 minutes, with `--monitor-script repokit-board-watch` and
+delivery to the home channel. It sets no workdir: one would load the
+repository's AGENTS.md into every wake (observed: about 209,000 prompt tokens
+instead of about 98,000). The script lives in
 default's `scripts/` and reads only the board and the session database.
 
-The script prints exactly `busy` when any of these hold:
+The script repeats its previous output (exactly `busy` at first) when any of
+these hold, so neither a busy board nor the board getting busy again wakes the
+model, and the job's prompt tells a run that sees `busy` (Hermes's first
+baseline run) to reply `[SILENT]`:
 
 - a card is running, or ready or todo with an assignee;
 - the owner's chat was active in the last 15 minutes;
 - there is no open goal card and no stuck card.
 
-Otherwise it prints a stable digest: open goal ids, triage card ids, cards
-blocked on the owner with any snooze, and an idle back-off bucket (30m, 1h,
+Otherwise it prints a digest: open goal ids, triage card ids, blocked card
+ids, the time the board went idle, and an idle back-off bucket (30m, 1h,
 2h, 4h, 8h, then one per day since the board went idle). The digest carries no
 timestamps, so the model runs only when the board's stuck state changes or the
 bucket advances: at most about six wakes in an idle day, none while busy.

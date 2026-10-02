@@ -38,7 +38,7 @@ func EnsureBoardWatch(ctx context.Context, id target.Identity, dc string, r Inpu
 	if err := writeState(ctx, id, dc, r, "/opt/data/scripts/"+boardwatch.ScriptName, boardwatch.Script); err != nil {
 		return "", err
 	}
-	fields := []string{"--prompt", want.Prompt, "--monitor-script", want.MonitorScript, "--workdir", want.Workdir, "--deliver", want.Deliver, "--failure-deliver", "local"}
+	fields := []string{"--prompt", want.Prompt, "--monitor-script", want.MonitorScript, "--deliver", want.Deliver, "--failure-deliver", "local"}
 	if decision == boardwatch.Create {
 		args := append([]string{"-p", "default", "cron", "create", want.Schedule, "--name", boardwatch.JobName}, fields[2:]...)
 		if _, err := run(append(args, want.Prompt)...); err != nil {
@@ -48,7 +48,8 @@ func EnsureBoardWatch(ctx context.Context, id target.Identity, dc string, r Inpu
 			return "", errors.New("board watch job not found after creation")
 		}
 	} else {
-		args := append([]string{"-p", "default", "cron", "edit", job.ID, "--schedule", want.Schedule}, fields...)
+		// An empty --workdir clears one an earlier release set.
+		args := append([]string{"-p", "default", "cron", "edit", job.ID, "--schedule", want.Schedule, "--workdir", want.Workdir}, fields...)
 		if _, err := run(args...); err != nil {
 			return "", errors.New("board watch job not upgraded")
 		}

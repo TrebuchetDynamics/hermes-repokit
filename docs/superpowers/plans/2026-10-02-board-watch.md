@@ -12,8 +12,8 @@
 
 ## Global Constraints
 
-- Job name `repokit-board-watch`; script `repokit-board-watch.py` in default's `scripts/`; schedule `every 5m`; workdir `/workspace`.
-- The script prints exactly `busy` unless a card is stuck or a goal is open and the board has been idle at least 30 minutes; chat activity in the last 15 minutes is busy.
+- Job name `repokit-board-watch`; script `repokit-board-watch.py` in default's `scripts/`; schedule `every 5m`; no workdir (amended after the live baseline run: a workdir doubled each wake's prompt).
+- While busy the script repeats its previous output (`busy` at first; amended so the board getting busy never wakes the model); it prints a new digest only when a card is stuck or a goal is open and the board has been idle at least 30 minutes; chat activity in the last 15 minutes is busy.
 - Idle buckets: 30m, 1h, 2h, 4h, 8h, then whole days (`1d`, `2d`, …). The digest carries no timestamps.
 - Goal cards: title begins `Goal:`, status `blocked` (created with `initial_status: "blocked"`), assignee default; work toward a goal is a parent of the goal card (`kanban_link parent=<work> child=<goal>`).
 - RepoKit never recreates or rewrites a job or script the owner paused, edited or removed.
