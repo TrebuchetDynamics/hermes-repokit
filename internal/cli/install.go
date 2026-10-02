@@ -283,6 +283,14 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 		u.fail("native initialization deferred: %v", err)
 		return 1
 	}
+	// The team step is silent while Hermes works; say what it is doing when
+	// it does the long work, so a quiet terminal does not look stuck.
+	switch {
+	case a.resetProfile != "":
+		u.working("Team", "returning "+a.resetProfile+" to RepoKit's baseline (up to a minute)")
+	case afterSetup:
+		u.working("Team", "setting up the seven profiles and installing their skills (a few minutes)")
+	}
 	teamReport, err := native.InitializeWith(context.Background(), id, dockerContext, afterSetup, a.resetProfile, autonomous, runner)
 	if err != nil {
 		if errors.Is(err, native.ErrTeamPending) && !afterSetup && a.resetProfile == "" {
