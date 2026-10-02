@@ -67,17 +67,18 @@ Install the bootstrap CLI from the latest release, [v0.2.5](https://github.com/T
 curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.5/install.sh | REPOKIT_REF=v0.2.5 sh
 ```
 
-From the repository you want to prepare, run the three-step path:
+From the repository you want to prepare:
 
 ```sh
 cd my-project
 repokit install
-repokit setup
 hermes-my-project
 ```
 
-`repokit` manages the environment: `install` builds and starts it, and `setup`
-opens Hermes's private provider setup in your terminal before preparing the team.
+`repokit` manages the environment: `install` builds and starts it, then in a
+terminal goes straight on into `setup`, which opens Hermes's private provider
+setup before preparing the team. `install --no-setup` stops after install; run
+`repokit setup` yourself later.
 Credentials are entered directly with Hermes; RepoKit does not read or store
 them. `hermes-my-project` opens that repository's Hermes team. Replace the name
 with the generated `hermes-<repo>` launcher for your repository.

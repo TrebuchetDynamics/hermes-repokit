@@ -235,6 +235,11 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 	switch {
 	case !ready:
 		u.next([2]string{self() + " start", "recreate the container once the running card finishes"})
+	case teamPending && !a.noSetup && a.resetProfile == "" && a.interactive():
+		// Nothing is left to decide between install and setup, so a terminal
+		// install goes straight on; setup asks its own questions.
+		fmt.Fprintln(stdout)
+		return a.setup(id, false, false, stdout, stderr)
 	case teamPending:
 		u.headline("Setup is still required.",
 			"If Hermes has no model yet, setup opens Hermes's own private setup in your terminal; RepoKit never sees it.",
@@ -399,4 +404,12 @@ func (a App) teamCommand(id target.Identity) string {
 		break // the first match shadows the rest
 	}
 	return tildePath(id.Launcher)
+}
+
+// interactive reports a terminal on stdin, where setup can ask its questions.
+func (a App) interactive() bool {
+	if a.Interactive != nil {
+		return a.Interactive()
+	}
+	return native.InteractiveInput(a.Stdin)
 }

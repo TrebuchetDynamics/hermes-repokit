@@ -28,13 +28,15 @@ reports the blocked name instead of replacing it.
 ```sh
 cd my-project
 repokit plan
-repokit install          # builds and starts the container, prepares native Kanban
-repokit setup            # private Hermes setup, then team, dispatch and canary
+repokit install          # builds and starts the container, then continues into setup:
+                         # private Hermes setup, team, dispatch and canary
 hermes-my-project        # or .hermes/bin/hermes-my-project
 ```
 
-`install` and `setup` are the whole first-time path; neither asks you to run
-Compose, rerun install or pass extra flags. `setup` ends with `RepoKit ready.`
+`install` is the whole first-time path: in a terminal it continues straight into
+`setup` (`--no-setup` stops after install; without a terminal it stops and
+points at `repokit setup`). Neither asks you to run Compose, rerun install or
+pass extra flags. `setup` ends with `RepoKit ready.`
 once the canary card has run through automatic dispatch.
 
 The default roster is default/researcher/planner/executor/tester/reviewer/steward.

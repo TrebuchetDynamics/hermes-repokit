@@ -41,6 +41,11 @@ type App struct {
 	Confirm func(prompt string) (string, error)
 	// ComposeExec replaces the streamed `docker compose` invocation in tests.
 	ComposeExec func(stdout, stderr io.Writer, args ...string) error
+	// Interactive replaces the terminal check that lets install continue
+	// straight into setup, in tests.
+	Interactive func() bool
+	// noSetup keeps install from continuing into setup.
+	noSetup bool
 	// Canary replaces the setup canary card in tests.
 	Canary func(id target.Identity, dockerContext string) (string, error)
 	// resetProfile names one roster profile install returns to RepoKit's
@@ -76,6 +81,9 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	}
 	if args[0] == "plan" || args[0] == "install" {
 		flags.BoolVar(&a.DockerTests, "docker-tests", false, "publish opt-in privileged isolated Docker acceptance service; never the host socket")
+		if args[0] == "install" {
+			flags.BoolVar(&a.noSetup, "no-setup", false, "stop after install even in a terminal; run setup yourself later")
+		}
 		flags.StringVar(&a.resetProfile, "reset-profile", "", "return one roster profile to RepoKit's baseline SOUL, description and managed configuration; prior files are backed up")
 	}
 	if args[0] == "setup" {
@@ -340,7 +348,7 @@ func usage(w io.Writer) {
 	me := self()
 	pad := strings.Repeat(" ", len("usage: "))
 	fmt.Fprintf(w, "usage: %s <plan|install|setup|verify|start|stop|remove> [--help]\n", me)
-	fmt.Fprintf(w, "%s%s install   then   %s setup   (the whole first-time path)\n", pad, me, me)
+	fmt.Fprintf(w, "%s%s install [--no-setup] (the whole first-time path: continues into setup in a terminal)\n", pad, me)
 	fmt.Fprintf(w, "%s%s setup [--no-canary] [--team] (--team: recovery without the private wizard)\n", pad, me)
 	fmt.Fprintf(w, "%s%s verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)\n", pad, me)
 	fmt.Fprintf(w, "%s%s <plan|install> [--docker-tests] [--reset-profile <role>]\n", pad, me)

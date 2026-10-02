@@ -28,7 +28,7 @@ func wizardMarker(t *testing.T) string {
 	return marker
 }
 
-// The happy path is install, then setup. A fresh install points only at setup.
+// Without a terminal a fresh install stops and points only at setup.
 func TestFreshInstallPointsOnlyAtSetup(t *testing.T) {
 	a, r := foundationApp(t)
 	a.ComposeExec = func(_, _ io.Writer, args ...string) error {
@@ -43,6 +43,30 @@ func TestFreshInstallPointsOnlyAtSetup(t *testing.T) {
 	for _, choreography := range []string{"--team", "rerun", "docker --context", "compose up"} {
 		if strings.Contains(out+diag, choreography) {
 			t.Fatalf("fresh install exposed %q:\n%s%s", choreography, out, diag)
+		}
+	}
+}
+
+// In a terminal, install goes straight on into setup; --no-setup stops after
+// install as before.
+func TestTerminalInstallContinuesIntoSetup(t *testing.T) {
+	for _, noSetup := range []bool{false, true} {
+		a, r := foundationApp(t)
+		a.ComposeExec = func(_, _ io.Writer, args ...string) error {
+			r.runtime = developmentRuntimeFixture(r.id)
+			return nil
+		}
+		a.Interactive = func() bool { return true }
+		a.Initializer = &gatewayInput{kanban: `{"dispatch_in_gateway":false}`, pid: 10, model: "provider/model", team: `REPOKIT_TEAM={"status":"configured","drift":[]}`}
+		a.Canary = func(target.Identity, string) (string, error) { return "t_canary", nil }
+		args := []string{"install"}
+		if noSetup {
+			args = append(args, "--no-setup")
+		}
+		code, out, diag := invoke(t, a, args...)
+		continued := strings.Contains(out, "RepoKit setup ·")
+		if code != 0 || continued == noSetup || noSetup != strings.Contains(out, "Setup is still required.") {
+			t.Fatalf("no-setup=%v: code=%d continued=%v\n%s%s", noSetup, code, continued, out, diag)
 		}
 	}
 }
