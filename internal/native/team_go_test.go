@@ -859,3 +859,26 @@ func TestNewProfileFollowsTheTeamsAutonomyPosture(t *testing.T) {
 }
 
 func ptr(b bool) *bool { return &b }
+
+// The team script numbers each profile it works on, so the installer can show
+// progress through a long setup.
+func TestTeamScriptNumbersItsProgress(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	souls := currentSouls(roles)
+	delete(souls, "tester")
+	delete(souls, "reviewer")
+	root, run := deployTeam(t, roles, teamFixture{souls: souls})
+	plan, err := teamScript(id, false, "", sectioned(run), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"'REPOKIT_PROGRESS=1/2 tester: create profile, settings and skills'", "'REPOKIT_PROGRESS=2/2 reviewer: create profile, settings and skills'"} {
+		if !strings.Contains(plan.Script, want) {
+			t.Errorf("script lacks %s", want)
+		}
+	}
+	if strings.Contains(plan.Script, progressPrefix) {
+		t.Error("an unnumbered progress mark reached the script")
+	}
+}

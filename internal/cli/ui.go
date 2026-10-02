@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 )
@@ -15,13 +16,18 @@ import (
 type ui struct {
 	out, err                                         io.Writer
 	reset, bold, dim, red, green, yellow, blue, cyan string
+	// live: out is an interactive terminal, so progress can redraw in place.
+	live bool
 }
 
 const uiLabel = 14
 
 func newUI(out, err io.Writer) ui {
 	u := ui{out: out, err: err}
-	if f, tty := out.(*os.File); tty && native.InteractiveInput(f) && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb" {
+	if f, tty := out.(*os.File); tty && native.InteractiveInput(f) && os.Getenv("TERM") != "dumb" {
+		u.live = true
+	}
+	if u.live && os.Getenv("NO_COLOR") == "" {
 		u.reset, u.bold, u.dim = "\033[0m", "\033[1m", "\033[2m"
 		u.red, u.green, u.yellow, u.blue, u.cyan = "\033[31m", "\033[32m", "\033[33m", "\033[34m", "\033[36m"
 	}
@@ -143,4 +149,41 @@ func (u ui) missingSkills(missing []string) {
 	}
 	u.warn("granted skills not installed (offline, or blocked by Hermes's security scan): %s", strings.Join(missing, ", "))
 	u.note("the team works without them; retry with " + self() + " install --reset-profile <profile>, or install one natively with -p <profile> skills install <identifier> --yes")
+}
+
+// progress renders the team script's REPOKIT_PROGRESS=<step>/<total> <what>
+// lines: one bar redrawn in place on a terminal, one line per step otherwise.
+// done clears a live bar before the step's result is printed.
+func (u ui) progress(label string) (onLine func(string), done func()) {
+	var mu sync.Mutex
+	drawn := false
+	onLine = func(line string) {
+		rest, ok := strings.CutPrefix(line, native.ProgressLine)
+		if !ok {
+			return
+		}
+		count, what, _ := strings.Cut(rest, " ")
+		var step, total int
+		if _, err := fmt.Sscanf(count, "%d/%d", &step, &total); err != nil || total <= 0 || step < 0 || step > total {
+			return
+		}
+		mu.Lock()
+		defer mu.Unlock()
+		if !u.live {
+			u.working(label, fmt.Sprintf("%d/%d %s", step, total, what))
+			return
+		}
+		const width = 20
+		bar := strings.Repeat("█", step*width/total) + strings.Repeat("░", width-step*width/total)
+		fmt.Fprintf(u.out, "\r\033[K  %s▸%s %-*s %s %d/%d %s", u.blue, u.reset, uiLabel, label, bar, step, total, what)
+		drawn = true
+	}
+	done = func() {
+		mu.Lock()
+		defer mu.Unlock()
+		if drawn {
+			fmt.Fprint(u.out, "\r\033[K")
+		}
+	}
+	return onLine, done
 }

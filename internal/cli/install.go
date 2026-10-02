@@ -291,7 +291,13 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 	case afterSetup:
 		u.working("Team", "setting up the seven profiles and installing their skills (a few minutes)")
 	}
+	onLine, done := u.progress("Team")
+	if streaming, ok := runner.(process.Runner); ok {
+		streaming.OnLine = onLine
+		runner = streaming
+	}
 	teamReport, err := native.InitializeWith(context.Background(), id, dockerContext, afterSetup, a.resetProfile, autonomous, runner)
+	done()
 	if err != nil {
 		if errors.Is(err, native.ErrTeamPending) && !afterSetup && a.resetProfile == "" {
 			u.ok("Kanban", "native board ready")

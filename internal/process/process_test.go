@@ -53,3 +53,14 @@ func TestProbeReapsDescendantAfterParentExits(t *testing.T) {
 	}
 	t.Fatal("descendant survived completed probe")
 }
+
+// OnLine streams each complete stdout line while the process runs; Output is
+// still the bounded whole.
+func TestRunnerStreamsLines(t *testing.T) {
+	var got []string
+	r := Runner{Timeout: 5 * time.Second, OnLine: func(line string) { got = append(got, line) }}
+	result := r.Run(context.Background(), "/bin/sh", "-c", "printf 'one\\ntwo\\npartial'")
+	if result.Err != nil || strings.Join(got, ",") != "one,two" || result.Output != "one\ntwo\npartial" {
+		t.Fatalf("streamed %q, output %q, err %v", got, result.Output, result.Err)
+	}
+}

@@ -609,6 +609,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 		}
 		if role.Name == "default" && adoptDefault {
 			plan.role(role.Name, "adopt", nil)
+			changes += progressMark(role.Name + ": identity, settings and skills")
 			for key, value := range expectedTeamFields(role) {
 				changes += teamSet(role.Name, key, value)
 			}
@@ -647,12 +648,14 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 			switch {
 			case role.Name == reset:
 				plan.role(role.Name, "reset", check.differs(role))
+				changes += progressMark(role.Name + ": back to RepoKit's baseline")
 				changes += resetWrite(role)
 			case check.customized():
 				plan.role(role.Name, "customized", check.differs(role))
 				continue
 			case check.previous(role):
 				plan.role(role.Name, "upgrade", []string{"SOUL"})
+				changes += progressMark(role.Name + ": new identity")
 				changes += soulWrite(role.Name, role.Soul)
 			default:
 				plan.role(role.Name, "current", nil)
@@ -676,6 +679,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 			continue
 		}
 		plan.role(role.Name, "missing", nil)
+		changes += progressMark(role.Name + ": create profile, settings and skills")
 		changes += teamCommand("profile", "create", role.Name, "--clone", "--clone-from", "default", "--no-alias", "--description", role.Description)
 		changes += soulWrite(role.Name, role.Soul)
 		for _, rel := range []string{"memories/MEMORY.md", "memories/USER.md", "MEMORY.md", "USER.md"} {
@@ -704,7 +708,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 	if guarded {
 		guard += runningGuard(plan.Roles, busyRoles)
 	}
-	plan.Script = bootstrapScript + "\n" + guard + changes
+	plan.Script = bootstrapScript + "\n" + guard + numberProgress(changes)
 	plan.Script += teamCommand("profile", "list")
 	for _, role := range roles {
 		plan.Script += teamCommand("profile", "show", role.Name)
@@ -857,4 +861,36 @@ func defaultChannelTools(run teamCLI) (string, error) {
 func stockSoul(soul string) bool {
 	sum := sha256.Sum256([]byte(strings.TrimSuffix(soul, "\n")))
 	return hex.EncodeToString(sum[:]) == qualification.NativeDefaultSoulSHA256
+}
+
+// progressPrefix marks where a role's writes begin while the script is built;
+// numberProgress turns each mark into a numbered REPOKIT_PROGRESS line the
+// installer streams, so a long team step shows which profile it is on.
+const progressPrefix = "#REPOKIT_PROGRESS "
+
+// ProgressLine is the prefix of a progress line the team script prints:
+// REPOKIT_PROGRESS=<step>/<total> <what>.
+const ProgressLine = "REPOKIT_PROGRESS="
+
+func progressMark(what string) string { return progressPrefix + what + "\n" }
+
+func numberProgress(script string) string {
+	lines := strings.SplitAfter(script, "\n")
+	total := 0
+	for _, line := range lines {
+		if strings.HasPrefix(line, progressPrefix) {
+			total++
+		}
+	}
+	step := 0
+	var out strings.Builder
+	for _, line := range lines {
+		if what, ok := strings.CutPrefix(line, progressPrefix); ok {
+			step++
+			out.WriteString("printf '%s\\n' " + shellQuote(fmt.Sprintf("%s%d/%d %s", ProgressLine, step, total, strings.TrimSuffix(what, "\n"))) + "\n")
+			continue
+		}
+		out.WriteString(line)
+	}
+	return out.String()
 }

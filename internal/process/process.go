@@ -2,6 +2,7 @@
 package process
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -21,7 +22,36 @@ type Result struct {
 type Runner struct {
 	Timeout time.Duration
 	Limit   int
+	// OnLine, when set, receives each complete stdout line as it arrives,
+	// for live progress; the bounded Output is unchanged.
+	OnLine func(string)
 }
+
+// lines calls fn for each complete line written to it.
+type lines struct {
+	mu      sync.Mutex
+	partial []byte
+	fn      func(string)
+}
+
+func (l *lines) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.partial = append(l.partial, p...)
+	for {
+		i := bytes.IndexByte(l.partial, '\n')
+		if i < 0 {
+			break
+		}
+		l.fn(string(l.partial[:i]))
+		l.partial = l.partial[i+1:]
+	}
+	if len(l.partial) > 64*1024 {
+		l.partial = l.partial[:0] // a runaway line is not progress
+	}
+	return len(p), nil
+}
+
 type bounded struct {
 	mu        sync.Mutex
 	data      []byte
@@ -84,6 +114,9 @@ func (r Runner) RunInput(parent context.Context, input io.Reader, program string
 	}
 	out := &bounded{limit: limit}
 	cmd.Stdout = out
+	if r.OnLine != nil {
+		cmd.Stdout = io.MultiWriter(out, &lines{fn: r.OnLine})
+	}
 	cmd.Stderr = out
 	err := cmd.Run()
 	if cmd.Process != nil {
