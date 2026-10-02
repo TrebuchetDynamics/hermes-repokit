@@ -189,6 +189,11 @@ var noApprovals = map[string]any{"approvals.mode": "off", "security.protected_in
 // Kanban's stale-worker timeout and failure limit still bound a run.
 var workerEffort = settings(noApprovals, map[string]any{"agent.max_turns": 0, "agent.reasoning_effort": "high"})
 
+// coordinator adds a 10s dispatch tick on default, whose config the gateway's
+// dispatcher reads at boot. Hermes's 60s default left the board idle about
+// half a minute between stages, a fifth of a typical run on a live board.
+var coordinator = settings(noApprovals, map[string]any{"kanban.dispatch_interval_seconds": 10})
+
 func settings(maps ...map[string]any) map[string]any {
 	merged := map[string]any{}
 	for _, m := range maps {
@@ -201,7 +206,7 @@ func settings(maps ...map[string]any) map[string]any {
 
 func Roster() []Role {
 	roles := []Role{
-		{Name: "default", Description: "Primary human-facing repository coordinator and orchestrator. Understands user goals, answers lightweight questions directly, designs bounded Kanban workflows, assigns the appropriate team roles, establishes shared decisions, follows progress, and verifies that completed work has passed required review.", Toolsets: []string{"kanban", "memory"}, Required: []string{"kanban"}, Skills: []string{"official/productivity/decision-questionnaire", "official/autonomous-ai-agents/dynamic-workflow"}, Settings: noApprovals},
+		{Name: "default", Description: "Primary human-facing repository coordinator and orchestrator. Understands user goals, answers lightweight questions directly, designs bounded Kanban workflows, assigns the appropriate team roles, establishes shared decisions, follows progress, and verifies that completed work has passed required review.", Toolsets: []string{"kanban", "memory"}, Required: []string{"kanban"}, Skills: []string{"official/productivity/decision-questionnaire", "official/autonomous-ai-agents/dynamic-workflow"}, Settings: coordinator},
 		{Name: "researcher", Description: "Investigates repository context, external sources and prior project knowledge. Resolves unknowns, compares alternatives and produces source-backed findings without changing the target artifact.", Toolsets: []string{"file", "web", "browser", "terminal", "skills", "memory"}, Required: []string{"file", "web"}, Skills: []string{"official/research/domain-intel", "official/software-development/code-wiki", "official/research/duckduckgo-search"}, Settings: workerEffort},
 		{Name: "planner", Description: "Turns goals, constraints and research into a bounded execution contract with scope, decisions, dependencies, acceptance criteria, verification requirements and known risks. Does not perform the planned work.", Toolsets: []string{"file", "web", "skills", "memory"}, Required: []string{"file"}, Skills: []string{"official/software-development/grill-me", "official/productivity/decision-questionnaire"}, Settings: workerEffort},
 		{Name: "executor", Description: "Produces one bounded repository artifact or change from an approved task contract, preserves unrelated state, performs appropriate verification and hands work to independent review when required.", Toolsets: []string{"file", "terminal", "code_execution", "web", "browser", "skills", "delegation", "memory"}, Required: []string{"file", "terminal", "code_execution", "skills"}, Skills: []string{"official/software-development/ast-grep", "official/software-development/rest-graphql-debug", "official/software-development/subagent-driven-development", "official/autonomous-ai-agents/agent-merge-conflict-arbiter"},

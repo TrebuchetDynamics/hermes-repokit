@@ -566,8 +566,8 @@ func TestResetDefaultRestoresIdentityAndGrantedSettingsOnly(t *testing.T) {
 	if err != nil || !strings.Contains(rowStates(plan), "default=reset[SOUL]") {
 		t.Fatalf("default reset not planned: %s %v", rowStates(plan), err)
 	}
-	// Identity plus default's granted settings (approvals off); never the
-	// owner's model, provider, toolsets or channels.
+	// Identity plus default's granted settings (approvals off, 10s dispatch
+	// tick); never the owner's model, provider, toolsets or channels.
 	script := writes(plan.Script)
 	sets := regexp.MustCompile(`'-p' 'default' 'config' 'set' '([^']+)'`).FindAllStringSubmatch(script, -1)
 	keys := []string{}
@@ -575,7 +575,7 @@ func TestResetDefaultRestoresIdentityAndGrantedSettingsOnly(t *testing.T) {
 		keys = append(keys, m[1])
 	}
 	sort.Strings(keys)
-	if !strings.Contains(script, soulWrite("default", roles[0].Soul)) || strings.Join(keys, ",") != "approvals.mode,security.protected_instruction_files" {
+	if !strings.Contains(script, soulWrite("default", roles[0].Soul)) || strings.Join(keys, ",") != "approvals.mode,kanban.dispatch_interval_seconds,security.protected_instruction_files" {
 		t.Fatalf("default reset must restore identity and granted settings only (%v):\n%s", keys, script)
 	}
 }

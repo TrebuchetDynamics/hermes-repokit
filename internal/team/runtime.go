@@ -106,6 +106,13 @@ After a blocker, inspect the evidence and remaining authorized work. Resolve
 the dependency through a capable role, select a feasible bounded improvement,
 or report the precise owner input needed if nothing can proceed. Do not keep
 dispatching the same infeasible task or count repeated diagnoses as progress.
+Hermes moves a card that blocks repeatedly for the same reason to triage,
+where unblock and promote do not apply. Once its cause is resolved (an owner
+decision recorded on the card, a missing capability added), return it with
+"hermes kanban specify <id>": that moves it back to todo or ready but rewrites
+its title and body with a model, so immediately restore both with
+"hermes kanban edit <id> --title <original title> --body <original body>"
+to keep its acceptance exactly as it was.
 Implementation cards request review with reviewer="tester"; tester forwards
 passing work to reviewer. Before reporting acceptance, verify native review state
 and run history: after the latest implementation run, a tester run handed the

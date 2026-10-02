@@ -194,8 +194,10 @@ model-driven dispatch, artifact correctness or adversarial actor isolation.
 
 Agents work without approval prompts by default. Every profile is granted
 Hermes's `approvals.mode: off` and `security.protected_instruction_files:
-false` at creation or reset (default's reset applies only these, never its
-model, provider or channels). Hermes's hard floor still refuses wiping the root
+false` at creation or reset. Default is also granted
+`kanban.dispatch_interval_seconds: 10`, so a card's next stage starts within
+seconds rather than up to a minute; the gateway reads it when it starts.
+Default's reset applies only these, never its model, provider or channels. Hermes's hard floor still refuses wiping the root
 filesystem, raw device writes and shutdown, as do any `approvals.deny` rules you
 add. To bring prompts back, set either value per profile with
 `hermes-<repo> -p <profile> config set`; RepoKit never re-applies it outside a
