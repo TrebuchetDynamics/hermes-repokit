@@ -288,3 +288,34 @@ func TestRemoveLeftoversRefusesAForeignContainer(t *testing.T) {
 		t.Fatalf("foreign container touched: %d %s %v", code, diag, r.mutations)
 	}
 }
+
+// State from another tool is refused, and the refusal tells the owner what it
+// found and the exact commands to remove it themselves; nothing is deleted.
+func TestRemoveGuidesTheOwnerThroughStateItDidNotCreate(t *testing.T) {
+	a, r := installedForRemoval(t)
+	a.Confirm = func(string) (string, error) { return r.id.Name, nil }
+	if err := os.WriteFile(r.id.Launcher, []byte("#!/bin/sh\nexec other-tool \"$@\"\n"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	home, _ := os.UserHomeDir()
+	extra := filepath.Join(home, ".local", "bin", r.id.Container+"-logs")
+	os.MkdirAll(filepath.Dir(extra), 0700)
+	if err := os.Symlink(filepath.Join(a.Directory, ".hermes", "bin", "logs"), extra); err != nil {
+		t.Fatal(err)
+	}
+	code, _, diag := invoke(t, a, "remove")
+	if code == 0 || len(r.mutations) != 0 {
+		t.Fatalf("foreign state removed: %s", diag)
+	}
+	for _, want := range []string{"was not created by RepoKit", "To remove it yourself", "'" + extra + "'", "rm -rf '" + filepath.Join(a.Directory, ".hermes") + "'", "provider logins", "install"} {
+		if !strings.Contains(diag, want) {
+			t.Errorf("guidance missing %q:\n%s", want, diag)
+		}
+	}
+	if _, err := os.Lstat(extra); err != nil {
+		t.Fatal("RepoKit removed a host command it did not create")
+	}
+	if _, err := os.Stat(filepath.Join(a.Directory, ".hermes")); err != nil {
+		t.Fatal("state deleted after refusal")
+	}
+}

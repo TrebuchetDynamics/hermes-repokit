@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -46,6 +47,10 @@ func (a App) remove(id target.Identity, stdout, stderr io.Writer) int {
 	plan, err := a.planRemoval(id)
 	if err != nil {
 		fmt.Fprintln(stderr, "remove refused:", err)
+		var foreign foreignState
+		if errors.As(err, &foreign) {
+			a.foreignGuidance(id, foreign, stderr)
+		}
 		return 1
 	}
 	fmt.Fprintf(stdout, "This permanently deletes the RepoKit deployment of %s:\n", id.Root)
@@ -118,6 +123,105 @@ func (a App) remove(id target.Identity, stdout, stderr io.Writer) int {
 	return 0
 }
 
+// foreignState refuses state RepoKit cannot prove it generated.
+type foreignState struct {
+	reason         string
+	earlierRelease bool // a RepoKit launcher with a Compose RepoKit no longer recognizes
+}
+
+func (f foreignState) Error() string { return f.reason }
+
+// foreignGuidance tells the owner what refused state contains and how to
+// remove it themselves; RepoKit never deletes state it cannot prove it made.
+func (a App) foreignGuidance(id target.Identity, f foreignState, w io.Writer) {
+	state := filepath.Join(id.Root, ".hermes")
+	if f.earlierRelease {
+		fmt.Fprintf(w, "If an earlier RepoKit release made it, run %s install to upgrade it, then %s remove.\n", self(), self())
+	}
+	fmt.Fprintln(w, "RepoKit never deletes state it cannot prove it created. To remove it yourself:")
+	step := 0
+	say := func(format string, args ...any) {
+		step++
+		fmt.Fprintf(w, "  %d. "+format+"\n", append([]any{step}, args...)...)
+	}
+	switch containers, err := a.containersMounting(state); {
+	case err != nil:
+		say("Check for containers that use it: docker ps -a (stop and remove any that mount %s)", shellQuote(state))
+	case len(containers) > 0:
+		say("Stop and remove its containers: docker rm -f %s", strings.Join(containers, " "))
+	}
+	if links := hostLinksInto(state); len(links) > 0 {
+		say("Remove its host commands: rm %s", strings.Join(quoteAll(links), " "))
+	}
+	files, size := 0, int64(0)
+	filepath.WalkDir(state, func(_ string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			files++
+			if fi, e := d.Info(); e == nil {
+				size += fi.Size()
+			}
+		}
+		return nil
+	})
+	say("Copy out anything you want to keep, then delete it: rm -rf %s (%d files, %.1f MB, including provider logins, sessions and memory)", shellQuote(state), files, float64(size)/1e6)
+	fmt.Fprintf(w, "Then start again with %s install.\n", self())
+}
+
+// containersMounting names the containers whose mounts include dir, read
+// through the default Docker context.
+func (a App) containersMounting(dir string) ([]string, error) {
+	ctx := context.Background()
+	listed := a.Runner.Run(ctx, "docker", "ps", "-a", "--format", "{{.Names}}")
+	if listed.Err != nil || listed.Truncated {
+		return nil, errors.New("docker unavailable")
+	}
+	var found []string
+	for _, name := range strings.Fields(listed.Output) {
+		mounts := a.Runner.Run(ctx, "docker", "inspect", "--format", "{{range .Mounts}}{{.Source}}\n{{end}}", name)
+		if mounts.Err != nil {
+			continue
+		}
+		for _, source := range strings.Split(mounts.Output, "\n") {
+			if source == dir || strings.HasPrefix(source, dir+"/") {
+				found = append(found, name)
+				break
+			}
+		}
+	}
+	return found, nil
+}
+
+// hostLinksInto lists ~/.local/bin symlinks that point inside dir.
+func hostLinksInto(dir string) []string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	bin := filepath.Join(home, ".local", "bin")
+	entries, err := os.ReadDir(bin)
+	if err != nil {
+		return nil
+	}
+	var links []string
+	for _, e := range entries {
+		path := filepath.Join(bin, e.Name())
+		if dest, err := os.Readlink(path); err == nil && strings.HasPrefix(dest, dir+"/") {
+			links = append(links, path)
+		}
+	}
+	return links
+}
+
+func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
+
+func quoteAll(items []string) []string {
+	out := make([]string, len(items))
+	for i, s := range items {
+		out[i] = shellQuote(s)
+	}
+	return out
+}
+
 // planRemoval proves every target is RepoKit's before anything is deleted.
 func (a App) planRemoval(id target.Identity) (removal, error) {
 	var plan removal
@@ -127,13 +231,13 @@ func (a App) planRemoval(id target.Identity) (removal, error) {
 	}
 	dc, err := launcher.Context(id)
 	if err != nil {
-		return plan, fmt.Errorf("the launcher is not RepoKit-generated; this .hermes was not created by RepoKit")
+		return plan, foreignState{reason: "the launcher is not RepoKit-generated; this .hermes was not created by RepoKit"}
 	}
 	plan.dockerContext = dc
 	// `down --volumes` runs with this file, so only RepoKit's exact current
 	// Compose qualifies: an edited or earlier one could name owner volumes.
 	if _, ok := compose.DevelopmentInstallSelected(id); !ok {
-		return plan, fmt.Errorf(".hermes/compose.yaml is not RepoKit's current generated Compose (edited, foreign or from an earlier release); nothing was removed")
+		return plan, foreignState{reason: ".hermes/compose.yaml is not RepoKit's current generated Compose (edited, foreign or from an earlier release); nothing was removed", earlierRelease: true}
 	}
 	data, err := os.ReadFile(id.Compose)
 	if err != nil {
