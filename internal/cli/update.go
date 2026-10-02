@@ -69,10 +69,19 @@ func (a App) update(toMain bool, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// runInstaller pipes the installer to sh, as `curl … | sh` does, so it builds
-// from the downloaded source of ref.
+// runInstaller pipes the installer to sh exactly as `curl … | sh` does, so it
+// builds from the downloaded source of ref: $0 must be plain "sh", not a
+// readable file, or the installer takes itself for a checkout. An empty
+// directory keeps a stray file named sh from doing the same.
 func runInstaller(script []byte, ref string, stdout, stderr io.Writer) error {
+	dir, err := os.MkdirTemp("", "repokit-update.")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
 	cmd := exec.Command("/bin/sh", "-s")
+	cmd.Args[0] = "sh"
+	cmd.Dir = dir
 	cmd.Stdin = bytes.NewReader(script)
 	cmd.Env = append(os.Environ(), "REPOKIT_REF="+ref)
 	cmd.Stdout, cmd.Stderr = stdout, stderr

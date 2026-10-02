@@ -67,3 +67,12 @@ func TestUpdateInstallsTheLatestReleaseOrMain(t *testing.T) {
 		t.Fatalf("version: %d %q", code, out)
 	}
 }
+
+// The installer sees itself piped (as from curl), not run from a checkout.
+func TestRunInstallerLooksPiped(t *testing.T) {
+	var out bytes.Buffer
+	script := []byte("#!/bin/sh\nif [ -f \"$0\" ]; then echo checkout; else echo piped \"$REPOKIT_REF\"; fi\n")
+	if err := runInstaller(script, "v9.9.9", &out, &out); err != nil || out.String() != "piped v9.9.9\n" {
+		t.Fatalf("installer saw %q (%v)", out.String(), err)
+	}
+}
