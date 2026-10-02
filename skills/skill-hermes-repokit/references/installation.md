@@ -61,7 +61,8 @@ repokit plan        # JSON report; writes nothing
 ```
 
 Check the target identity, container/launcher name, Docker context, detected
-development requirements, SELinux state, `existing_state` and `collisions`.
+development requirements, SELinux state, `existing_state`, `collisions` and the
+`team` section (the per-profile decision: create, upgrade, preserve customized).
 Refuse on foreign or symlinked state, unknown edits to generated files, name
 collisions or unresolved ownership. The owner's root Compose files stay as they
 are — never rename, merge, edit or start them.
@@ -89,6 +90,19 @@ Afterwards, `repokit stop` stops the deployment with all state kept and
 `repokit start` brings it back (Hermes restarts a gateway that was running).
 `repokit remove` deletes the deployment and its `.hermes` state after the owner
 types the repository name; never run it on the owner's behalf without that intent.
+If `.hermes` is already gone (deleted, or lost to an interrupted first install),
+`install` refuses and names the leftover container; `remove` then clears only what
+provably belongs to this path (matching container, project volumes and networks,
+its image and host link) behind the same typed confirmation, and `install` starts
+over.
+
+Detected toolchains: Go (`go.mod` at the root or up to three folders deep, plus
+`staticcheck`), Rust (`Cargo.toml`), Flutter/Dart (`pubspec.yaml`; Linux desktop
+toolchain when a `linux/` runner exists; x86_64 only), with Node/npm and Python
+from the base image. JVM, Android, iOS, macOS and Windows builds are not
+provisioned — report them as a gap rather than installing toolchains by hand
+inside the container. A repository that gains a manifest gets a republished
+recipe on the next `install`.
 
 Do not hand-write a competing Compose deployment or run an unqualified
 `docker compose up`.
@@ -108,7 +122,10 @@ cd '/abs/path/to/target' && repokit setup
 ```
 
 Ask only for a completion signal (`RepoKit ready.`) — never transcripts,
-screenshots, tokens or keys. `setup` is the last step of the first-time path. It
+screenshots, tokens or keys. Tell the owner up front that before creating a new
+team `setup` asks them to confirm the autonomy posture: workers run without
+approval prompts (Hermes's hard-deny floor still applies); answering no keeps
+Hermes's approval prompts. That answer is theirs. `setup` is the last step of the first-time path. It
 starts a stopped deployment, hands the terminal to Hermes's own private setup
 while default has no model (skipped once one is saved, including setup done
 natively through `hermes-<repo> setup`), reconciles the seven profiles, writes

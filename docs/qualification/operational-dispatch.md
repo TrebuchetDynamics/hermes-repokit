@@ -5,12 +5,13 @@
 > The initial blocked validation table is retained as historical evidence.
 
 RepoKit now separates bootstrap dispatch-off from operational automatic dispatch.
-Setup requires all six native identities, provider resolution, channel tool parity,
+The permanent roster has seven profiles: default plus six non-default workers.
+Setup requires all seven native identities, provider resolution, channel tool parity,
 default routing and initialized Kanban. Shared memory readiness is independent
 and does not block core dispatch. It activates only the default gateway, with
 review dispatch, concurrency one and no decomposition. Activation initially admits
-only researcher; the six-profile allowlist is released after the canary passes
-and its worker exits.
+only researcher; the six-worker allowlist (excluding default) is released after
+the canary passes and its worker exits.
 
 The implementation uses the selected Hermes source revision
 `749220ef0007f8d87bd1531f1c24b0fe93816385`:
@@ -27,7 +28,9 @@ The implementation uses the selected Hermes source revision
 Setup fences native board claims and refuses active/finalizing workers. A stopped
 previously operational gateway can recover. A failed canary saves dispatch-off
 and an empty temporary allowlist to prevent new claims; it does not interrupt an
-active worker. The next successful reconciliation restores the six-profile list.
+active worker. The next successful reconciliation restores the six non-default
+worker allowlist; default remains the seventh permanent profile and is not in
+that worker allowlist.
 Read-only verification checks configured versus live state, process identity,
 singleton ownership, startup evidence and canary qualification separately.
 
@@ -50,7 +53,7 @@ run history; v4 has a distinct native idempotency key.
 The executor/reviewer allowlist is not released while the canary is unqualified.
 After native gateway-spawned completion, RepoKit waits for worker exit, reacquires
 board claim fences, rechecks generation, gateway identity, singleton ownership
-and emergency pause, then hot-updates the allowlist to the six managed profiles
+and emergency pause, then hot-updates the allowlist to the six managed worker profiles
 and publishes the new generation. It does not run `kanban dispatch` or restart a
 second time merely to change the native hot-read allowlist. Any canary/release
 failure returns to dispatch-off/empty-list recovery.
@@ -65,8 +68,9 @@ owned `hermes-repokit` container after revalidating its concurrently updated nam
 Compose project and mounts. Preserved profile/config files and took a consistent
 private Kanban backup. Researcher canary `t_9ce082a8` ran through the native gateway,
 completed the first-line read and was archived. Read-only verification then
-reported the gateway generation, live dispatcher, six-profile policy and canary
-healthy. README card `t_b170ab94` was automatically claimed by executor as native
+reported the gateway generation, live dispatcher, the six non-default worker
+allowlist (excluding default, the seventh permanent profile) and canary healthy.
+README card `t_b170ab94` was automatically claimed by executor as native
 run `14`; it was observed running and subsequently requested review. The card
 then entered `review`, assigned to `reviewer`. The gateway automatically claimed
 reviewer run `15`, which completed and accepted the same card. No manual dispatch

@@ -1,8 +1,10 @@
 # Universal team acceptance — 2026-09-27
 
-The current directive is six permanent profiles: default, researcher, planner,
-executor, reviewer and steward. Earlier five-role and engineering-profile
-records are historical. **The complete team acceptance gate is not passed.**
+The current RepoKit roster has seven permanent profiles: default, researcher,
+planner, executor, tester, reviewer and steward. The default profile owns the
+gateway dispatcher; the six non-default profiles form its managed dispatch
+allowlist. Earlier five-/six-profile and engineering-profile records are
+historical. **The complete team acceptance gate is not passed.**
 The current deployment/setup evidence is in the
 [runtime observations record](runtime-observations.md). The older scaffold runs
 below are historical. This qualification did not deploy RepoKit to itself or perform self-dogfood.
@@ -41,7 +43,7 @@ the board. The test harness is an observer, not a generated runtime dependency.
 
 | Requirement | Historical evidence or remaining gate |
 | --- | --- |
-| Six roles, descriptions and SOULs | Passed native fixture |
+| Seven permanent profiles, descriptions and SOULs | Historical six-profile fixtures do not establish the current seven-profile gate |
 | Fresh curated memories and preserved rerun state | Passed sentinels |
 | Shared board, handoffs and review transitions | Passed separate-process native API fixture |
 | Shared memory connection | Native configuration/linking passed; live recall pending |

@@ -10,22 +10,35 @@
 
 # A dedicated Hermes team for every repository
 
-**RepoKit prepares the environment. Hermes runs the team.** Each repository gets
-its own isolated Hermes container, profiles, conversations and Kanban board—ready
-to work alongside your project without taking over its existing Docker Compose
-stack.
+**RepoKit prepares the environment. Hermes runs Hermes.** RepoKit is a small,
+per-repository bootstrapper: it gives a project its own persistent Hermes
+workspace and team, then gets out of the way. Hermes remains the agent runtime
+and owns profiles, conversations, channels and Kanban; RepoKit configures and
+launches that environment rather than replacing Hermes with another agent
+framework.
 
-- **Skip the hand-built glue:** RepoKit creates the container, launcher and native
-  Hermes team with repeatable commands.
-- **Keep projects apart:** each repository has its own Compose project and private
-  `.hermes` state.
-- **Stay in control:** credentials go directly into Hermes's private setup, never
-  through RepoKit.
-- **Use Hermes after bootstrap:** the generated launcher and ordinary Compose
-  manage the environment; RepoKit does not need to run in the background.
+The goal is simple: give every project a ready-to-use team without hand-building
+container glue, mixing project state, or taking over the application's existing
+Docker Compose stack. The generated launcher and ordinary Compose control the
+environment after setup; RepoKit does not need to stay running.
 
-> **Pre-v1:** the core loop has been live-tested, but broader platform support and
-> release testing are still in progress. See [what is and isn't validated](#status-and-limits).
+> **Pre-v1.** Linux amd64 is the documented end-to-end host target. Linux arm64
+> is a RepoKit CLI build target, but the current development image is pinned to
+> linux/amd64; macOS and ARM Linux are not qualified deployment hosts. See
+> [status and limits](#status-and-limits) and the linked qualification records.
+
+## Why RepoKit
+
+- **A workspace per project:** each repository gets its own Compose project and
+  private `.hermes` state, with the project mounted at `/workspace`.
+- **Keep your app's stack:** RepoKit uses `.hermes/compose.yaml` in a separate
+  Compose namespace. It does not merge with or manage the application's services.
+- **One front door:** a generated `hermes-<repo>` launcher opens the project's
+  Hermes team and forwards native Hermes commands.
+- **Use Hermes, not a replacement:** RepoKit provisions and configures; Hermes
+  runs the agents, channels and Kanban workflow.
+- **Credentials stay with you:** provider credentials are entered through
+  Hermes's private setup. RepoKit does not read or store them.
 
 ## One repository, one environment
 
@@ -36,13 +49,16 @@ stack.
 RepoKit writes deployment files and private state under `.hermes/`. The Hermes
 container mounts the project at `/workspace` and its private state at `/opt/data`.
 The generated `.hermes/compose.yaml` has its own project namespace: your
-application's Compose files and services stay separate and untouched. Memory
-provider setup is user-managed and outside RepoKit's scope.
+application's Compose files and services stay separate and untouched. RepoKit
+does not configure a memory provider. Optional memory setup is user-managed;
+memory recall and isolation are not qualified by RepoKit.
 
 ## Quickstart
 
-**Supported host:** Linux amd64, with Go 1.26+, Docker Compose, Git and a POSIX
-shell. macOS and Linux arm64 are not currently documented as supported hosts.
+**Documented deployment host:** Linux amd64, with Go 1.26+, Docker Compose, Git
+and a POSIX shell. The RepoKit CLI can be built for Linux amd64 and arm64, but
+the current development image is pinned to linux/amd64; Linux arm64 is not an
+end-to-end supported deployment target yet. macOS is not a documented host.
 The installer builds RepoKit from source, so Go is needed for this step.
 
 Install the bootstrap CLI from the latest release, [v0.2.3](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.3):
@@ -72,10 +88,38 @@ For example, you might ask:
 a safer token-refresh flow. Run the relevant tests and ask for an independent review.”
 
 A typical request may flow through **research → plan → execute → test → review**.
-The default profile coordinates and chooses the needed roles; a small question
-may use fewer steps, and not every request uses every role. The seven-role roster
-(default, researcher, planner, executor, tester, reviewer and steward) is RepoKit's
-opinionated default, not a requirement for every team.
+Conceptually, default routes the question to researcher, planner shapes bounded
+work, executor makes the change, tester checks it, and reviewer independently
+decides acceptance. This is an example of the intended flow, not a guarantee
+that every prompt invokes every role. Small questions may need only default.
+
+## What you get
+
+RepoKit's default team has seven permanent profiles. The profile is a persistent
+identity; a worker runs only while doing assigned work.
+
+| Profile | Role |
+| --- | --- |
+| default | User-facing assistant, coordinator and orchestrator |
+| researcher | Investigates questions and gathers evidence |
+| planner | Defines a bounded work plan |
+| executor | Produces the requested change or artifact |
+| tester | Checks behavior and verifies the change |
+| reviewer | Independently decides whether verified work is accepted |
+| steward | Maintains team profiles and capabilities |
+
+Kanban is the shared work board. The intended review loop keeps implementation,
+verification and independent acceptance on the same card. The default gateway
+dispatcher is configured during setup; actual model-driven work and channel
+delivery still have qualification limits described below.
+
+Where configured, Hermes channels use the same default profile, team and Kanban
+board as the launcher. The generated launcher provides a local command-line entry
+point and forwards native Hermes commands. Remote coding through a messaging
+channel is an intended way to use the team after channel setup, not a claim that
+Telegram task delivery or end-to-end remote coding is qualified today. Memory
+is yours to set up and manage in Hermes; RepoKit neither configures nor
+verifies it.
 
 ## Everyday commands
 
@@ -110,22 +154,42 @@ history. This deletion cannot be undone. Repository files and Git history are
 left alone. If `.hermes` is already gone, `remove` only cleans up the remaining
 resources it can attribute to that repository.
 
+## Lifecycle and safety
+
+RepoKit is a bootstrapper, not a persistent service: `repokit install` prepares
+and starts the container, `repokit setup` runs Hermes's private provider setup
+when needed and provisions the team, and the generated launcher plus ordinary
+Compose manage it afterward. Credentials go directly into Hermes; RepoKit does
+not read or store provider secrets. `repokit stop` and `repokit start` preserve
+the deployment state. See [removing a deployment](#removing-a-deployment) for
+the destructive removal behavior and the [setup and recovery guide](docs/bootstrap-quickstart.md).
+
 ## Status and limits
 
-Live testing validated the core team workflow; it does not prove every host,
-channel, provider or repository configuration. RepoKit is pre-v1, and Linux arm64
-host support and broader release testing remain open. `verify` reports the
-core environment, not memory-provider behavior or successful delivery to a human.
+RepoKit is pre-v1. Current qualification records establish selected bootstrap,
+runtime and dispatch behaviors, not every repository, provider, host or channel.
+In particular, Telegram delivery, fully model-driven team execution, memory
+recall and cross-repository memory isolation are not established acceptance
+claims. `verify` reports core environment readiness; it does not prove memory
+provider behavior or successful delivery to a human. Review the linked evidence
+before treating the deployment as qualified for a broader use case.
 
-For implementation details, see the [architecture](docs/architecture.md),
-[setup and recovery guide](docs/bootstrap-quickstart.md), [team model](docs/team-model.md),
-[development runtime](docs/qualification/development-runtime.md) and
-[remaining work](TODO.md).
+## Documentation
+
+- [Setup, usage and recovery](docs/bootstrap-quickstart.md)
+- [Architecture and ownership boundaries](docs/architecture.md)
+- [Team model](docs/team-model.md)
+- [Operational dispatch qualification](docs/qualification/operational-dispatch.md)
+- [Generic-team acceptance status](docs/qualification/generic-team.md)
+- [Development-runtime qualification](docs/qualification/development-runtime.md)
+- [Remaining work](TODO.md)
 
 ## Agent skill
 
-The [RepoKit agent skill](skills/skill-hermes-repokit/SKILL.md) guides agents through safe setup and operation; see its [installation instructions](skills/skill-hermes-repokit/references/installation.md).
+The [RepoKit agent skill](skills/skill-hermes-repokit/SKILL.md) guides agents
+through safe setup and operation; see its [installation instructions](skills/skill-hermes-repokit/references/installation.md).
 
 ## Contributing
 
-See the [build and development guide](docs/build.md) for local checks and contributor setup.
+See the [build and development guide](docs/build.md) for local checks and
+contributor setup.

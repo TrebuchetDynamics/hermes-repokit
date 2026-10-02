@@ -28,6 +28,25 @@ lifecycle (it prefers a task-scoped skill to a new specialist, and deleting a
 profile needs explicit approval). Role boundaries in SOULs are advisory, not
 operating-system isolation.
 
+Owner edits to a roster profile's SOUL or description are preserved and reported
+as `customized`. To deliberately return one profile to RepoKit's baseline, preview
+with `repokit plan --reset-profile <role>` and, with the owner's consent, apply
+with `repokit install --reset-profile <role>` (prior files are backed up).
+Owner-created profiles are never reset.
+
+## Project skills
+
+Skills every profile should share belong in the repository's own
+`.agents/skills/<name>/SKILL.md`; RepoKit trusts `/workspace` for native
+project-skill discovery in all seven profiles, and Hermes still scans them and
+honors disabled skills. A profile-specific skill goes under
+`/opt/data/profiles/<profile>/skills/` (steward's job). Start a fresh
+conversation after adding skills so the index refreshes.
+
+Inside the container the repository's `.hermes` is masked by an empty read-only
+mount at `/workspace/.hermes`; private state is reachable only at `/opt/data`.
+An empty `/workspace/.hermes` is expected, not data loss.
+
 Substantive work runs executor → tester → reviewer on the **same card**.
 Reviewer-requested changes go back to tester, which relays them to executor; the
 fix passes tester again. `done` alone does not prove independent review: inspect
@@ -68,6 +87,29 @@ runtime state is untouched.
 
 Memory is user-managed: it lives in the owner's own configuration and mounts,
 never gates engineering work, and is no reason to restart the runtime.
+
+## Troubleshooting
+
+Start from `repokit verify` and fix the components named in `CORE_READY`'s detail;
+when a probe's detail prints a command, prefer that one.
+
+| Symptom or probe | Likely cause | Next action |
+| --- | --- | --- |
+| `compose`, `config`, `kanban` `pending-setup` | Install not finished | `repokit install` |
+| `profile:<role>` degraded or missing | Team not reconciled, or drift | `repokit setup --team` (refuses while a card runs) |
+| `profile:<role>` `customized` | Owner edit | Leave it; reset only on owner request (see above) |
+| `kanban:dispatch-*` inactive/degraded | Setup incomplete or a card was running | `repokit setup`; never dispatch by hand |
+| `gateway` degraded, cards stay `ready` | Gateway stopped or crashed | `hermes-<repo> gateway status`, Compose `logs`, then `repokit setup` |
+| `channel:<name>` degraded, bot silent or tool-less | Default lacks the Kanban tool on that platform, or stale session | The native command in the probe detail (`hermes-<repo> -p default tools enable kanban --platform <name>`) or `repokit setup --team`, then `/new` in that chat |
+| `development:<tool>` degraded | Image predates a new manifest, or edited recipe | `repokit install`; an edited recipe is refused — report to owner |
+| `python-imports` degraded | Root module shadows a Hermes module (upstream Hermes defect) | Report; do not rename the owner's modules or patch Hermes |
+| `git` degraded | `.hermes` tracked or not ignored | `repokit install` restores the local exclude; tracked files need the owner to untrack them |
+| `selinux`/`access` degraded | Mounts lack private relabeling | `repokit install` (see [installation](installation.md#selinux-bind-mounts)) |
+| `review:evidence` unqualified | No reviewed card yet | `repokit verify --dispatch-check` (paid) or real reviewed work |
+
+A row that names Hermes behavior (model errors, provider auth, channel adapter
+outages) is a Hermes problem: use native `hermes-<repo>` commands and logs, not
+RepoKit changes.
 
 ## Readiness report
 

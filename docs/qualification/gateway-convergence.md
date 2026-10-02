@@ -28,7 +28,8 @@ its own singleton dispatcher lock and native startup logs showing concurrency on
 
 Fresh/incomplete installs keep dispatch off. After provider/profile/tool/routing
 gates pass, with optional memory reported independently, the default gateway
-runs automatic dispatch and review with the six-role allowlist. Confirmed stopped
+runs automatic dispatch and review with the six non-default worker profiles in
+its allowlist (the permanent roster is default plus those six). Confirmed stopped
 gateways can be prepared without restarting an absent process, then started through
 native Hermes. `setup --team` requires no credential wizard. A real researcher
 canary must be observed running as a child of this gateway, then complete with
@@ -73,10 +74,12 @@ it reports saved core categories and declared routes separately from live eviden
 Conditional profile routes are not reported as whole-channel reassignment.
 No effective credential/plugin/managed-overlay resolver is invoked by verify.
 
-The installer finalizer's external CLI restart is **not** the agent self-restart
-surface. The pinned gateway terminal tool blocks lifecycle calls, and the s6 CLI
-path sends termination rather than an after-turn request. No native registered
-model restart tool was found. The permitted minimal broker in
+The installer finalizer's external CLI `gateway restart` is an ordinary
+operator-initiated restart; it is **not** the agent self-restart surface and does
+not qualify an agent-initiated after-turn restart. The pinned gateway terminal
+tool blocks lifecycle calls, and the s6 CLI path sends termination rather than an
+after-turn request. No native registered model restart tool was found. The
+permitted minimal broker in
 `packaging/maintenance` calls native `pause-for-update` over the control socket.
 That native handler schedules drain/restart on the serving loop and acknowledges
 before the current turn finishes. Hermes owns drain, recovery and relaunch.
@@ -87,8 +90,11 @@ before sending; uncertain/pending outcomes cannot automatically repeat. Successo
 status requires replacement PID/start, native health and adapter ownership,
 registration-time loaded generation and unchanged current inputs. Source tests
 use injected native observations; they do not qualify an actual Telegram restart.
+`gateway_restart_after_turn` remains an unqualified/unknown maintenance capability
+unless separately installed and accepted against the selected native release.
 Scanner admission, native registry acceptance, channel reconnect and removal-first
-agent-initiated restart remain explicit live gates. There is no scanner bypass.
+agent-initiated restart remain explicit live gates. Ordinary CLI restart evidence
+must not be used as evidence for that capability. There is no scanner bypass.
 
 ## Current repair validation (2026-09-28)
 

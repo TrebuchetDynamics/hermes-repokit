@@ -1,12 +1,13 @@
 ---
 name: skill-hermes-repokit
-description: Use when installing, resuming, verifying or operating Hermes RepoKit in a repository — the repokit bootstrap CLI, the generated hermes-<repo> launcher, the seven-profile team, Kanban dispatch, the development runtime and channel parity. Not for unrelated Hermes installations, memory-provider setup, or developing RepoKit itself.
+description: Use when installing, resuming, verifying, repairing or operating Hermes RepoKit in a repository — the repokit bootstrap CLI, the generated hermes-<repo> launcher, the seven-profile team, Kanban dispatch, the development runtime and channel parity — including CORE_READY degraded/unqualified, a silent channel bot, a stopped gateway or a drifted profile. Not for unrelated Hermes installations, memory-provider setup, or developing RepoKit itself.
 ---
 
 # Hermes RepoKit in repositories
 
-RepoKit is a short-lived Go bootstrapper with four commands: `plan`, `install`,
-`setup` and `verify`. It prepares one Docker Compose Hermes container per
+RepoKit is a short-lived Go bootstrapper: `plan`, `install`, `setup` and
+`verify` bootstrap, and `start`, `stop` and `remove` manage the deployment's
+lifecycle. It prepares one Docker Compose Hermes container per
 repository, then gets out of the way: after bootstrap, the generated
 `hermes-<repo>` launcher and ordinary Compose own the runtime, and RepoKit can be
 removed.
@@ -19,14 +20,15 @@ memory stays user-managed; Git stays under owner control.**
 | Request | Read |
 | --- | --- |
 | Install or resume setup of a deployment | [installation](references/installation.md) |
-| Chat, profiles, Kanban, recovery, acceptance checks | [usage](references/usage.md) |
+| Chat, profiles, Kanban, project skills, acceptance checks | [usage](references/usage.md) |
+| A degraded component, silent bot, stuck dispatch | [usage: troubleshooting](references/usage.md#troubleshooting) |
 | "Is it working?" / status only | Stay observational: `repokit verify` plus [usage](references/usage.md#readiness-report) |
 
 Reading or installing this skill does not authorize deploying Hermes. An explicit
 installation request authorizes ordinary non-destructive bootstrap and starting
 the generated service for that one target repository. Private credential setup,
-destructive cleanup, legacy-state deletion, source changes to RepoKit, commit and
-push are each separately scoped.
+`remove`, `--reset-profile`, destructive cleanup, legacy-state deletion, source
+changes to RepoKit, commit and push are each separately scoped.
 
 ## Ground rules
 
@@ -49,8 +51,10 @@ push are each separately scoped.
    capture credentials, drive the wizard through a PTY, borrow unrelated host
    auth, or pick providers/models on the owner's behalf.
 6. **No bypasses.** Do not hand-edit `.hermes/compose.yaml`, managed SOULs,
-   platform tool checkboxes or other `.hermes` state to make a check pass. Durable
-   fixes belong in RepoKit source or native Hermes configuration.
+   platform tool checkboxes or other `.hermes` state to make a check pass. Classify
+   each blocker: a target-repository problem (the team or owner fixes it), a
+   Hermes problem (use native Hermes; do not reimplement it), or a RepoKit problem
+   (bad default, missing toolchain, broken upgrade — report it for RepoKit source).
 7. **Memory is user-managed.** RepoKit neither configures nor verifies a memory
    provider, and memory never gates core readiness. Do not set one up as part of
    this workflow; report it as operator-owned.
@@ -72,6 +76,8 @@ push are each separately scoped.
 | Native default chat | `hermes-<repo>` (no arguments) |
 | Other native Hermes commands | `hermes-<repo> kanban list`, `profile list`, `gateway status`, … |
 | Stop or start the deployment (state kept) | `repokit stop`, `repokit start` |
+| Return one roster profile to baseline (backs up first) | `repokit plan --reset-profile <role>`, then `repokit install --reset-profile <role>` |
+| Delete the deployment and `.hermes` (owner types the repo name) | `repokit remove` |
 
 `repokit` and `hermes-repokit` are the same bootstrap binary. Prefer `repokit`:
 in a repository whose name normalizes to `repokit`, the generated launcher owns
@@ -123,7 +129,11 @@ Memory is not reported; it is a Hermes feature RepoKit does not own. `CORE_READY
   channel Kanban tools are healthy **and** native card history shows same-card
   executor→tester→reviewer completion.
 - `unqualified` — configured, but that review loop has not been observed yet.
-- `degraded` — a core component is broken; the only nonzero exit.
+- `degraded` — a core component is broken; the only nonzero exit. Right after
+  `install`, before `setup`, `pending-setup` probes make this expected.
+
+`customized` (owner-edited profile) and `upgradable` (awaiting the next
+`install`/`setup`) are not faults; `CORE_READY` names customized profiles.
 
 Container health is not readiness, and passive `verify` proves no model work,
 channel delivery, reviewer independence or removal-first acceptance. Report
