@@ -10,6 +10,13 @@ profiles upgrade in place). The same-card
 executor → tester → reviewer loop is proven live; a reviewer request-changes
 correction cycle is not yet.
 
+## Next SOUL change
+
+- [ ] Freeze v0.2.4 as the previous release in the same commit that first changes
+      any managed SOUL after v0.2.4: render `souls/previous/*.md` from v0.2.4,
+      set `PreviousRelease = "v0.2.4"` and update the pinned hashes. Until then
+      main's SOULs equal v0.2.4's, so v0.2.4 profiles stay current.
+
 ## Released in v0.2.4
 
 - Toolchains from the repository's own manifests, including nested projects:
