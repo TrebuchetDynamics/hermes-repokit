@@ -192,9 +192,13 @@ model-driven dispatch, artifact correctness or adversarial actor isolation.
 
 ## Capabilities and limitations
 
-Agents work without approval prompts by default. Every profile is granted
-Hermes's `approvals.mode: off` and `security.protected_instruction_files:
-false` at creation or reset. Default is also granted
+Agents work without approval prompts by default, and setup says so before it
+creates a new team: it states the posture and asks to confirm. Answering no
+keeps Hermes's own approval prompts (`smart`) and protected instruction-file
+gate on every profile. On yes, every profile is granted Hermes's
+`approvals.mode: off` and `security.protected_instruction_files: false` at
+creation or reset. A profile created later follows the team's posture:
+autonomous only while default's `approvals.mode` is `off`. Default is also granted
 `kanban.dispatch_interval_seconds: 10`, so a card's next stage starts within
 seconds rather than up to a minute; the gateway reads it when it starts.
 Default's reset applies only these, never its model, provider or channels. Hermes's hard floor still refuses wiping the root

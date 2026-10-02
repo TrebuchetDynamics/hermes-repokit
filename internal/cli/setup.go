@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"bufio"
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -102,7 +104,8 @@ func (a App) setup(id target.Identity, teamOnly, noCanary bool, stdout, stderr i
 			}
 		}
 	}
-	if code := a.initialize(id, dc, true, stdout, stderr); code != 0 {
+	autonomous := a.autonomyChoice(id, dc, runner, u)
+	if code := a.initialize(id, dc, true, autonomous, stdout, stderr); code != 0 {
 		return code
 	}
 	code, gateway := a.finishSetup(id, dc, 0, stdout, stderr)
@@ -140,4 +143,31 @@ func (a App) canary(id target.Identity, dc string) (string, error) {
 		runner = process.Runner{Timeout: 2 * time.Minute}
 	}
 	return native.DispatchCheck(context.Background(), id, dc, runner, 150*time.Second, 6*time.Minute, 3*time.Second)
+}
+
+// autonomyChoice states the team's autonomy posture before a new team is
+// created and asks the owner to confirm it. RepoKit's default runs workers
+// without approval prompts; answering no keeps Hermes's prompts and its
+// protected instruction-file gate. An existing team keeps its posture (nil).
+func (a App) autonomyChoice(id target.Identity, dc string, runner native.InputRunner, u ui) *bool {
+	status, err := native.PlanTeam(context.Background(), id, dc, "", runner)
+	if err != nil || status.Status != "pending-setup" {
+		return nil
+	}
+	u.note("Agent autonomy: by default this team runs without approval prompts. Workers change this repository and run commands unattended, from any connected chat; Hermes's hard-deny floor and your approvals.deny rules still apply.")
+	autonomous := true
+	if native.InteractiveInput(a.Stdin) {
+		fmt.Fprint(u.out, "  Run the team without approval prompts? [Y/n] ")
+		answer, _ := bufio.NewReader(a.Stdin).ReadString('\n')
+		switch strings.ToLower(strings.TrimSpace(answer)) {
+		case "n", "no":
+			autonomous = false
+		}
+	}
+	if autonomous {
+		u.ok("Autonomy", "no approval prompts; to bring them back for a profile: "+id.Container+" -p <profile> config set approvals.mode smart")
+	} else {
+		u.ok("Autonomy", "Hermes approval prompts kept; workers wait for you to approve risky commands")
+	}
+	return &autonomous
 }

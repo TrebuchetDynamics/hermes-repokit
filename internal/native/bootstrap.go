@@ -70,12 +70,18 @@ func PlanTeam(ctx context.Context, id target.Identity, dockerContext, reset stri
 // reset names one roster profile the owner explicitly returns to RepoKit's
 // baseline; it is empty for ordinary convergence.
 func Initialize(ctx context.Context, id target.Identity, dockerContext string, afterSetup bool, reset string, r InputRunner) (TeamReport, error) {
+	return InitializeWith(ctx, id, dockerContext, afterSetup, reset, nil, r)
+}
+
+// InitializeWith is Initialize with the owner's autonomy choice from setup;
+// nil follows the posture the team already has.
+func InitializeWith(ctx context.Context, id target.Identity, dockerContext string, afterSetup bool, reset string, autonomous *bool, r InputRunner) (TeamReport, error) {
 	root, err := os.OpenRoot(id.Root)
 	if err != nil {
 		return TeamReport{}, fmt.Errorf("native team state unavailable")
 	}
 	defer root.Close()
-	plan, err := teamScript(id, afterSetup, reset, nativeTeamCLI(ctx, id, dockerContext, r), root)
+	plan, err := teamScriptWith(id, afterSetup, reset, autonomous, nativeTeamCLI(ctx, id, dockerContext, r), root)
 	if err != nil {
 		return TeamReport{}, err
 	}

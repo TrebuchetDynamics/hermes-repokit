@@ -70,6 +70,10 @@ func TestSetupSkipsWizardWhenConfiguredAndEndsReady(t *testing.T) {
 	if strings.Contains(out, "provider/model") {
 		t.Fatal("setup printed the configured model")
 	}
+	// A new team's autonomy posture is stated, never applied silently.
+	if !strings.Contains(out, "Agent autonomy") || !strings.Contains(out, "no approval prompts; to bring them back") {
+		t.Fatalf("setup did not state the autonomy posture:\n%s", out)
+	}
 }
 
 // setup starts a stopped deployment itself instead of printing Compose.

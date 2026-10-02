@@ -802,3 +802,31 @@ func TestEarlierBuildTeamIsRecognizedNotPendingSetup(t *testing.T) {
 		}
 	}
 }
+
+// A new profile follows the team's posture: the no-approval-prompt grants only
+// when default runs without prompts, and always when setup's owner chose it.
+func TestNewProfileFollowsTheTeamsAutonomyPosture(t *testing.T) {
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	roles := team.ForRepository(id)
+	souls := currentSouls(roles)
+	delete(souls, "tester")
+	grant := "'-p' 'tester' 'config' 'set' 'approvals.mode' 'off'"
+	for _, tc := range []struct {
+		mode       string
+		autonomous *bool
+		want       bool
+	}{
+		{"off", nil, true},
+		{"manual", nil, false},
+		{"manual", ptr(true), true},
+		{"off", ptr(false), false},
+	} {
+		root, run := deployTeam(t, roles, teamFixture{souls: souls, config: map[string]map[string]any{"default": {"approvals": map[string]any{"mode": tc.mode}}}})
+		plan, err := teamScriptWith(id, false, "", tc.autonomous, sectioned(run), root)
+		if err != nil || strings.Contains(plan.Script, grant) != tc.want {
+			t.Errorf("mode %s choice %v: grant=%v want %v (%v)", tc.mode, tc.autonomous, strings.Contains(plan.Script, grant), tc.want, err)
+		}
+	}
+}
+
+func ptr(b bool) *bool { return &b }

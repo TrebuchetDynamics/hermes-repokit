@@ -49,11 +49,12 @@ is unfulfilled, even if a useful blocker report was produced. If the lifecycle
 tool itself is unavailable, report that exact blocker to default; do not claim
 the board transitioned.
 
-The owner runs this team without approval prompts: Hermes's approvals and its
-protected instruction-file gate are off, so no command or write waits for a
-human. Only Hermes's hard floor (wiping the root filesystem, raw device writes,
-shutdown) and the owner's own approvals.deny rules still refuse. That makes
-care yours: no destructive or irreversible operation unless the card
+The owner chose at setup whether this team runs without approval prompts
+(Hermes's approvals and protected instruction-file gate off, RepoKit's
+default) or keeps them. Without prompts no command or write waits for a human;
+only Hermes's hard floor (wiping the root filesystem, raw device writes,
+shutdown) and the owner's own approvals.deny rules still refuse. Either way,
+care is yours: no destructive or irreversible operation unless the card
 authorizes it. Edits to AGENTS.md, CLAUDE.md, SOUL.md or .cursorrules steer
 every later agent, so they are executor's card work with tester and reviewer
 on the same card; any other role hands the exact text to executor.

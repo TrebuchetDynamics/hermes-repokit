@@ -130,15 +130,28 @@ func TestPreviousReleaseSoulsAreFrozen(t *testing.T) {
 // routes instruction-file edits to executor, and every role can attach files.
 func TestProtectedInstructionWritesAreOwnerSteps(t *testing.T) {
 	for _, r := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {
-		if !strings.Contains(r.Soul, "runs this team without approval prompts") || !strings.Contains(r.Soul, "hermes kanban attach <your card id> <path>") {
+		if !strings.Contains(r.Soul, "runs without approval prompts") || !strings.Contains(r.Soul, "hermes kanban attach <your card id> <path>") {
 			t.Errorf("%s lacks the no-approval or attachment rule", r.Name)
 		}
 		if r.Name == "default" && (!strings.Contains(r.Soul, "Assign edits\nto AGENTS.md") || !strings.Contains(r.Soul, "tell them in one line")) {
 			t.Error("default does not route protected writes to executor")
 		}
-		// The owner's default: no approval prompts on any profile.
+		// RepoKit's default posture: no approval prompts on any profile.
 		if r.Settings["approvals.mode"] != "off" || r.Settings["security.protected_instruction_files"] != false {
 			t.Errorf("%s approval settings: %v", r.Name, r.Settings)
+		}
+	}
+	// An owner who keeps prompts at setup gets no approval grants, and every
+	// other granted setting stays.
+	for _, r := range WithApprovalPrompts(ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"})) {
+		if _, ok := r.Settings["approvals.mode"]; ok {
+			t.Errorf("%s still granted approvals off", r.Name)
+		}
+		if _, ok := r.Settings["security.protected_instruction_files"]; ok {
+			t.Errorf("%s still lifts the protected-file gate", r.Name)
+		}
+		if r.Name == "default" && r.Settings["kanban.dispatch_interval_seconds"] != 10 {
+			t.Errorf("default lost its other grants: %v", r.Settings)
 		}
 	}
 }

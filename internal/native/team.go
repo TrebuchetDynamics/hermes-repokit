@@ -407,9 +407,27 @@ func resetWrite(role team.Role) string {
 // teamScript plans convergence. reset, when set, names one roster profile the
 // owner explicitly asked to return to RepoKit's baseline.
 func teamScript(id target.Identity, afterSetup bool, reset string, run teamCLI, root *os.Root) (teamPlan, error) {
+	return teamScriptWith(id, afterSetup, reset, nil, run, root)
+}
+
+// teamScriptWith plans with an explicit autonomy posture: autonomous grants
+// profiles RepoKit's no-approval-prompt settings. nil follows the posture the
+// team already has: autonomous only when default's approvals are off.
+func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomous *bool, run teamCLI, root *os.Root) (teamPlan, error) {
 	// Planning only reads native configuration; the plan's script writes later.
 	run = cachedConfig(run)
 	roles := team.ForRepository(id)
+	if autonomous == nil {
+		mode, err := configValue(run, "default", "approvals.mode")
+		if err != nil {
+			return teamPlan{}, err
+		}
+		on := mode == "off"
+		autonomous = &on
+	}
+	if !*autonomous {
+		roles = team.WithApprovalPrompts(roles)
+	}
 	if reset != "" && !knownRole(reset) {
 		return teamPlan{}, errors.New("reset target is not a roster profile")
 	}

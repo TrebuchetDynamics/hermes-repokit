@@ -215,7 +215,7 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 	if code := a.startDeployment(id, report.DockerContext, stdout, stderr); code != 0 {
 		return code
 	}
-	if code := a.initialize(id, report.DockerContext, false, stdout, stderr); code != 0 {
+	if code := a.initialize(id, report.DockerContext, false, nil, stdout, stderr); code != 0 {
 		return code
 	}
 	complete, teamPending, differs := profileProgress(verify.Profiles(id))
@@ -253,7 +253,9 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 	return 0
 }
 
-func (a App) initialize(id target.Identity, dockerContext string, afterSetup bool, stdout, stderr io.Writer) int {
+// initialize converges the team. autonomous is the owner's posture choice from
+// setup; nil keeps the posture the team already has.
+func (a App) initialize(id target.Identity, dockerContext string, afterSetup bool, autonomous *bool, stdout, stderr io.Writer) int {
 	u := newUI(stdout, stderr)
 	ready, err := a.nativeRuntimeReady(id, dockerContext)
 	if err != nil {
@@ -281,7 +283,7 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 		u.fail("native initialization deferred: %v", err)
 		return 1
 	}
-	teamReport, err := native.Initialize(context.Background(), id, dockerContext, afterSetup, a.resetProfile, runner)
+	teamReport, err := native.InitializeWith(context.Background(), id, dockerContext, afterSetup, a.resetProfile, autonomous, runner)
 	if err != nil {
 		if errors.Is(err, native.ErrTeamPending) && !afterSetup && a.resetProfile == "" {
 			u.ok("Kanban", "native board ready")

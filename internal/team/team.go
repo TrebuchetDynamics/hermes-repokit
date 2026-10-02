@@ -4,6 +4,7 @@ package team
 import (
 	"embed"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
@@ -204,6 +205,28 @@ func settings(maps ...map[string]any) map[string]any {
 		}
 	}
 	return merged
+}
+
+// approvalGrants are the granted settings that run a profile without approval
+// prompts.
+var approvalGrants = []string{"approvals.mode", "security.protected_instruction_files"}
+
+// WithApprovalPrompts returns roles whose granted settings keep Hermes's
+// approval prompts and protected instruction-file gate: the posture an owner
+// chooses at setup instead of RepoKit's autonomous default.
+func WithApprovalPrompts(roles []Role) []Role {
+	out := make([]Role, len(roles))
+	for i, role := range roles {
+		kept := map[string]any{}
+		for k, v := range role.Settings {
+			if !slices.Contains(approvalGrants, k) {
+				kept[k] = v
+			}
+		}
+		role.Settings = kept
+		out[i] = role
+	}
+	return out
 }
 
 func Roster() []Role {
