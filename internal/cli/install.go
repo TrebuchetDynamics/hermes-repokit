@@ -152,7 +152,7 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 		if len(current.Collisions) > 0 {
 			return fmt.Errorf("target changed: %s", strings.Join(current.Collisions, "; "))
 		}
-		if current.Development.Go != report.Development.Go || current.Development.Rust != report.Development.Rust || current.Development.Flutter != report.Development.Flutter {
+		if !development.SameToolchains(current.Development, report.Development) {
 			return fmt.Errorf("repository toolchain requirements changed during installation")
 		}
 		if current.DockerContext != report.DockerContext {

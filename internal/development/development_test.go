@@ -161,6 +161,29 @@ func TestDetectProvisionsFlutter(t *testing.T) {
 	}
 }
 
+// A Flutter app with a linux/ runner adds the Linux desktop toolchain; one
+// without it, or a linux/ folder beside no pubspec, does not.
+func TestDetectFlutterLinuxRunner(t *testing.T) {
+	for _, tc := range []struct {
+		files map[string]string
+		want  bool
+	}{
+		{map[string]string{"pubspec.yaml": "name: app\n", "linux/CMakeLists.txt": "project(app)\n"}, true},
+		{map[string]string{"app/pubspec.yaml": "name: app\n", "app/linux/CMakeLists.txt": "project(app)\n"}, true},
+		{map[string]string{"pubspec.yaml": "name: app\n", "web/index.html": ""}, false},
+		{map[string]string{"app/pubspec.yaml": "name: app\n", "linux/CMakeLists.txt": "project(other)\n"}, false},
+	} {
+		root := t.TempDir()
+		for rel, content := range tc.files {
+			os.MkdirAll(filepath.Join(root, filepath.Dir(rel)), 0700)
+			manifest(t, filepath.Join(root, filepath.Dir(rel)), filepath.Base(rel), content)
+		}
+		if r, err := Detect(root); err != nil || !r.Flutter || r.FlutterLinux != tc.want {
+			t.Fatalf("%v: %+v %v", tc.files, r, err)
+		}
+	}
+}
+
 func TestDetectLimitsRootManifestCount(t *testing.T) {
 	root := t.TempDir()
 	for i := 0; i <= maxManifests; i++ {
@@ -361,8 +384,38 @@ func TestFlutterRecipeIsPinnedAndWarmed(t *testing.T) {
 	if !RecipeRequirements(files).Flutter || RecipeRequirements(files).Go || RecipeRequirements(files).Rust {
 		t.Fatal("Flutter recipe misread")
 	}
-	if len(Toolchains()) != 8 {
+	if strings.Contains(dockerfile, "apt-get") || RecipeRequirements(files).FlutterLinux {
+		t.Fatal("web-only Flutter recipe installs the Linux desktop toolchain")
+	}
+	if len(Toolchains()) != 12 {
 		t.Fatal("toolchain selections incomplete")
+	}
+}
+
+// The Linux desktop toolchain comes from apt pointed only at a fixed,
+// signature-checked snapshot.debian.org date, and is proven by a Linux build
+// and a widget test under Xvfb.
+func TestFlutterLinuxRecipeIsSnapshotPinned(t *testing.T) {
+	files, err := Recipe(Requirements{Flutter: true, FlutterLinux: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := string(files["Dockerfile"])
+	for _, want := range []string{"snapshot.debian.org/archive/debian/20261001T000000Z", "snapshot.debian.org/archive/debian-security/20261001T000000Z", "Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg", "clang ninja-build libgtk-3-dev", "flutter build linux", "xvfb-run -a flutter test", "rm -rf /tmp/repokit-apt /var/lib/apt/lists/*"} {
+		if !strings.Contains(dockerfile, want) {
+			t.Errorf("Linux desktop recipe missing %s", want)
+		}
+	}
+	for _, line := range strings.Split(dockerfile, "\n") {
+		if strings.Contains(line, "apt-get") && !strings.Contains(line, "-o Dir::Etc::sourcelist=/dev/null -o Dir::Etc::sourceparts=/tmp/repokit-apt") {
+			t.Fatalf("apt not confined to the snapshot: %s", line)
+		}
+	}
+	if got := RecipeRequirements(files); !got.Flutter || !got.FlutterLinux || got.Go || got.Rust {
+		t.Fatalf("Linux desktop recipe misread: %+v", got)
+	}
+	if Fingerprint(Requirements{Flutter: true, FlutterLinux: true}) == Fingerprint(Requirements{Flutter: true}) {
+		t.Fatal("Linux desktop selection shares a fingerprint")
 	}
 }
 

@@ -275,7 +275,11 @@ checksum, with Cargo's registry on the toolchain-cache volume. A
 the checksum in Flutter's release manifest; the build warms `flutter analyze`
 and `flutter test` on a scratch project, and pub's cache lives on the same
 volume. Flutter publishes Linux SDKs for x86_64 only, so on arm64 it is reported
-missing. Android, iOS and desktop builds are not provisioned. A
+missing. An app with a `linux/` runner also gets the Linux desktop toolchain
+(clang, ninja, GTK 3 headers and Xvfb for headless widget tests) from Debian
+packages pinned to a fixed snapshot.debian.org date, warmed by a scratch
+`flutter build linux`. Android, iOS, macOS and Windows builds are not
+provisioned. A
 `rust-toolchain` file pinning another release, or a newer `rust-version`, is
 reported by `verify`. Vendored, generated and hidden trees are skipped and
 symlinks are never followed. Node/npm, Python and standard build utilities come

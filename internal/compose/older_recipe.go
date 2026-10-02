@@ -71,7 +71,7 @@ func DevelopmentInstallSelected(id target.Identity) (Options, bool) {
 				if expected, err := Render(id, o); err == nil && (bytes.Equal(data, expected) || bytes.Equal(data, WithoutStopGrace(expected))) {
 					return o, true
 				}
-				if generated && toolchain.Go == recipeTools.Go && toolchain.Rust == recipeTools.Rust && toolchain.Flutter == recipeTools.Flutter {
+				if generated && development.SameToolchains(toolchain, recipeTools) {
 					if expected, err := OlderRecipe(id, o, fingerprint); err == nil && (bytes.Equal(data, expected) || bytes.Equal(data, WithoutStopGrace(expected))) {
 						return o, true
 					}

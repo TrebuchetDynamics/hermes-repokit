@@ -18,11 +18,14 @@ const maxRootEntries = 4096
 const maxManifests = 64
 
 type Requirements struct {
-	Go          bool     `json:"go"`
-	Rust        bool     `json:"rust"`
-	Flutter     bool     `json:"flutter"`
-	Detected    []string `json:"detected"`
-	Unsupported []string `json:"unsupported"`
+	Go      bool `json:"go"`
+	Rust    bool `json:"rust"`
+	Flutter bool `json:"flutter"`
+	// FlutterLinux adds the Linux desktop toolchain for a Flutter app with a
+	// linux/ runner.
+	FlutterLinux bool     `json:"flutter_linux,omitempty"`
+	Detected     []string `json:"detected"`
+	Unsupported  []string `json:"unsupported"`
 }
 
 // Detect inspects root manifests strictly and, within bounds, those of nested
@@ -129,6 +132,7 @@ func Detect(path string) (Requirements, error) {
 			r.Unsupported = append(r.Unsupported, rustRequirements(root, "", string(data))...)
 		case "flutter":
 			r.Flutter = true
+			r.FlutterLinux = r.FlutterLinux || linuxRunner(root, "linux")
 			r.Unsupported = append(r.Unsupported, dartRequirements("", string(data))...)
 		case "jvm":
 			r.Unsupported = append(r.Unsupported, kind+" toolchain provisioning is not supported")
@@ -347,6 +351,13 @@ func compact(values []string) []string {
 // only recorded as detected: Node and Python come with the image, and nested
 // JVM builds (often an app's Android wrapper) are not provisioned and do not
 // mark the environment degraded.
+// linuxRunner reports whether a Flutter app beside dir has a Linux desktop
+// runner, which flutter create writes as linux/CMakeLists.txt.
+func linuxRunner(root *os.Root, dir string) bool {
+	info, err := root.Lstat(dir + "/CMakeLists.txt")
+	return err == nil && info.Mode().IsRegular()
+}
+
 const maxNestedDepth = 3
 const maxNestedEntries = 20000
 
@@ -403,6 +414,7 @@ func detectNested(root *os.Root, r *Requirements, found map[string]bool) {
 				}
 				found["flutter"] = true
 				r.Flutter = true
+				r.FlutterLinux = r.FlutterLinux || linuxRunner(root, dir+"/linux")
 				r.Unsupported = append(r.Unsupported, dartRequirements(dir+"/", string(data))...)
 			case name == "package.json":
 				found["node"] = true

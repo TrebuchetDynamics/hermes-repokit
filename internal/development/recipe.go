@@ -142,6 +142,39 @@ ENV PUB_CACHE=/var/cache/repokit/pub-cache \
     DASH__SUPPRESS_ANALYTICS=true
 `
 
+// flutterLinuxInstall adds what Flutter's Linux desktop target builds and
+// tests with (clang, ninja, GTK 3 headers) plus a virtual display, for Flutter
+// apps that carry a linux/ runner. Debian's packages come from apt pointed
+// only at a fixed snapshot.debian.org date, verified by Debian's archive key,
+// so a rebuild installs the same versions. A smoke project builds the Linux
+// bundle and runs its widget test under Xvfb.
+const flutterLinuxInstall = `RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) ;; \
+      *) echo 'Flutter publishes Linux SDKs for x86_64 only; the Linux desktop toolchain is not installed' >&2; exit 0 ;; \
+    esac; \
+    mkdir /tmp/repokit-apt; \
+    printf '%s\n' 'Types: deb' \
+      'URIs: https://snapshot.debian.org/archive/debian/20261001T000000Z' \
+      'Suites: trixie trixie-updates' 'Components: main' \
+      'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' '' \
+      'Types: deb' 'URIs: https://snapshot.debian.org/archive/debian-security/20261001T000000Z' \
+      'Suites: trixie-security' 'Components: main' \
+      'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' > /tmp/repokit-apt/snapshot.sources; \
+    apt-get -o Dir::Etc::sourcelist=/dev/null -o Dir::Etc::sourceparts=/tmp/repokit-apt \
+      -o Acquire::Check-Valid-Until=false -o Acquire::Retries=3 update; \
+    DEBIAN_FRONTEND=noninteractive apt-get -o Dir::Etc::sourcelist=/dev/null -o Dir::Etc::sourceparts=/tmp/repokit-apt \
+      -o Acquire::Check-Valid-Until=false -o Acquire::Retries=3 install -y --no-install-recommends \
+      clang ninja-build libgtk-3-dev liblzma-dev xvfb xauth; \
+    rm -rf /tmp/repokit-apt /var/lib/apt/lists/*; \
+    clang --version | head -1; ninja --version; \
+    export PUB_CACHE=/tmp/repokit-pub-cache FLUTTER_SUPPRESS_ANALYTICS=true DASH__SUPPRESS_ANALYTICS=true; \
+    cd /tmp; flutter create --project-name repokit_linux_smoke --platforms linux repokit_linux_smoke >/dev/null; \
+    cd /tmp/repokit_linux_smoke; flutter build linux >/dev/null; xvfb-run -a flutter test; \
+    cd /; rm -rf /tmp/repokit_linux_smoke /tmp/repokit-pub-cache /root/.config/flutter /root/.dart-tool /root/.flutter; \
+    chmod -R a+rwX /opt/flutter
+`
+
 func recipeInputs(req Requirements) map[string][]byte {
 	template, err := assets.Assets.ReadFile("Dockerfile")
 	if err != nil {
@@ -160,6 +193,9 @@ func recipeInputs(req Requirements) map[string][]byte {
 	}
 	if req.Flutter {
 		goSteps += flutterInstall
+		if req.FlutterLinux {
+			goSteps += flutterLinuxInstall
+		}
 	}
 	content := strings.NewReplacer("{{HERMES_IMAGE}}", qualification.FoundationImage, "{{GO_INSTALL}}", goSteps).Replace(string(template))
 	requirements, err := assets.Assets.ReadFile("repokit-ddgs-requirements.txt")
@@ -202,19 +238,29 @@ func hashRecipe(files map[string][]byte) string {
 // determine the selection its Compose was rendered with.
 func RecipeRequirements(files map[string][]byte) Requirements {
 	return Requirements{
-		Go:      bytes.Contains(files["Dockerfile"], []byte("https://go.dev/dl/go")),
-		Rust:    bytes.Contains(files["Dockerfile"], []byte("https://static.rust-lang.org/dist/")),
-		Flutter: bytes.Contains(files["Dockerfile"], []byte("https://storage.googleapis.com/flutter_infra_release/")),
+		Go:           bytes.Contains(files["Dockerfile"], []byte("https://go.dev/dl/go")),
+		Rust:         bytes.Contains(files["Dockerfile"], []byte("https://static.rust-lang.org/dist/")),
+		Flutter:      bytes.Contains(files["Dockerfile"], []byte("https://storage.googleapis.com/flutter_infra_release/")),
+		FlutterLinux: bytes.Contains(files["Dockerfile"], []byte("repokit_linux_smoke")),
 	}
 }
 
 // Toolchains lists every toolchain selection a generated Compose can carry.
 func Toolchains() []Requirements {
 	var all []Requirements
-	for i := 0; i < 8; i++ {
-		all = append(all, Requirements{Go: i&1 != 0, Rust: i&2 != 0, Flutter: i&4 != 0})
+	for i := 0; i < 16; i++ {
+		req := Requirements{Go: i&1 != 0, Rust: i&2 != 0, Flutter: i&4 != 0, FlutterLinux: i&8 != 0}
+		if req.FlutterLinux && !req.Flutter {
+			continue
+		}
+		all = append(all, req)
 	}
 	return all
+}
+
+// SameToolchains reports whether two selections install the same toolchains.
+func SameToolchains(a, b Requirements) bool {
+	return a.Go == b.Go && a.Rust == b.Rust && a.Flutter == b.Flutter && a.FlutterLinux == b.FlutterLinux
 }
 
 var recipeLabel = regexp.MustCompile(`org\.repokit\.development\.recipe=([0-9a-f]{64})`)

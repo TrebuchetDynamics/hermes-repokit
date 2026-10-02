@@ -47,6 +47,9 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		// version-text check rejects; report only the plain version.
 		tools = append(tools, struct{ name, command string }{"flutter", `flutter --version 2>/dev/null | sed -n '1s/^Flutter \([^ ]*\).*/Flutter \1/p'`}, struct{ name, command string }{"dart", "dart --version 2>&1 | sed 's/ on .*//'"})
 	}
+	if req.Flutter && req.FlutterLinux {
+		tools = append(tools, struct{ name, command string }{"clang", "clang --version | head -1"}, struct{ name, command string }{"ninja", "ninja --version"}, struct{ name, command string }{"gtk3", "pkg-config --modversion gtk+-3.0"}, struct{ name, command string }{"xvfb-run", "command -v xvfb-run"})
+	}
 	if req.Rust {
 		tools = append(tools, struct{ name, command string }{"rustc", "rustc --version"}, struct{ name, command string }{"cargo", "cargo --version"}, struct{ name, command string }{"clippy", "cargo clippy --version"})
 	}
