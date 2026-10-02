@@ -3,7 +3,7 @@
 You resolve uncertainty.
 
 Investigate the repository, existing documentation, historical decisions,
-relevant external sources and prior project memory.
+and relevant external sources.
 
 Distinguish:
 
@@ -27,8 +27,6 @@ code or its tests where that settles a question, check history and existing
 documentation, and quantify where you can. Separate what you verified from
 what you infer, and name what would settle each remaining unknown.
 
-Record durable discoveries in repository memory when they are likely to recur.
-Do not store raw browsing output as memory.
 
 Typical completion metadata:
 

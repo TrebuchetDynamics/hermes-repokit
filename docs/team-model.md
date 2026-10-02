@@ -205,13 +205,13 @@ reset. The worker roles are also granted no turn cap and high reasoning effort.
 
 | Profile | Required toolsets | Also granted | Official skills granted | Boundary |
 | --- | --- | --- | --- | --- |
-| default | kanban | native CLI preset (owner tools preserved), memory | decision-questionnaire, dynamic-workflow | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
-| researcher | file, web | browser, terminal, skills, memory | domain-intel, code-wiki, duckduckgo-search | Artifact writes prohibited by SOUL |
-| planner | file | web, skills, memory | grill-me, decision-questionnaire | Implementation prohibited by SOUL |
-| executor | file, terminal, code_execution, skills | web, browser, delegation, memory | ast-grep, rest-graphql-debug, subagent-driven-development, agent-merge-conflict-arbiter | Work limited to the card; sub-agents only for bounded help inside it |
-| tester | terminal | code_execution, web, browser, skills, memory | adversarial-ux-test, rest-graphql-debug | No file-editing toolset; repository writes prohibited by SOUL |
-| reviewer | file, terminal | code_execution, web, skills, memory | oss-forensics, grill-me | Artifact writes prohibited by SOUL; terminal permits verification |
-| steward | terminal, file | skills, memory | — | Profile administration only; project writes prohibited by SOUL |
+| default | kanban | native CLI preset (owner tools preserved) | decision-questionnaire, dynamic-workflow | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
+| researcher | file, web | browser, terminal, skills | domain-intel, code-wiki, duckduckgo-search | Artifact writes prohibited by SOUL |
+| planner | file | web, skills | grill-me, decision-questionnaire | Implementation prohibited by SOUL |
+| executor | file, terminal, code_execution, skills | web, browser, delegation | ast-grep, rest-graphql-debug, subagent-driven-development, agent-merge-conflict-arbiter | Work limited to the card; sub-agents only for bounded help inside it |
+| tester | terminal | code_execution, web, browser, skills | adversarial-ux-test, rest-graphql-debug | No file-editing toolset; repository writes prohibited by SOUL |
+| reviewer | file, terminal | code_execution, web, skills | oss-forensics, grill-me | Artifact writes prohibited by SOUL; terminal permits verification |
+| steward | terminal, file | skills | — | Profile administration only; project writes prohibited by SOUL |
 
 Each profile is powerful within its responsibility rather than identical:
 together the team can research, plan, implement, test and review, while each
@@ -282,7 +282,8 @@ No reconciliation weakens gateway authentication or sender authorization.
 SOUL defines identity and Kanban holds work state. Memory is user-managed: the
 operator chooses and configures any memory provider the repository needs, and
 RepoKit neither links nor certifies it. Built-in local memory remains a native
-Hermes concern.
+Hermes concern. RepoKit grants no profile the memory toolset; an owner who adds
+it keeps it, and the SOULs use memory only when the owner has configured it.
 
 `verify` reports scaffold readiness and native integration configuration, but it
 does not configure or verify a memory provider. Review remains `unqualified`
@@ -328,7 +329,7 @@ establishes Telegram delivery. See [setup and recovery](bootstrap-quickstart.md)
 Interactive channels and workers execute in the same generated Hermes development
 container at `/workspace`. Tool visibility and installed compiler/runtime readiness
 are checked separately. Executor's native coding tools include file, terminal,
-code_execution, skills and memory; tester and reviewer can run the same project
+code_execution and skills; tester and reviewer can run the same project
 checks. Default may perform a tiny authorized direct edit, but substantive
 artifact work, verification and review remain executor/tester/reviewer
 responsibilities.
@@ -349,7 +350,7 @@ its own authorized test environment. Terminal secrets are filtered, so missing
 shell variables cannot establish missing native provider authentication.
 
 Default supplies inspected Git/board facts to planner or routes inspection to a
-profile with the required tools. Planner's file/memory toolsets are unchanged.
+profile with the required tools. Planner's file, web and skills toolsets are unchanged.
 Known missing prerequisites should gate the acceptance card, while other feasible
 work can proceed. A completed diagnostic report is not completed acceptance.
 Workers use native blocking for unmet external prerequisites and native same-card

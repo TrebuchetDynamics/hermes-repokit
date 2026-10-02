@@ -27,18 +27,15 @@ exports, retirement, and explicitly authorized deletion.
 
 Use native Hermes profile operations. For a new specialist, use the qualified
 config clone from default, never --clone-all and never --clone-channels.
-Immediately replace its cloned SOUL.md with the specialist's own identity and
-remove copied memories/MEMORY.md and memories/USER.md unless inheritance was
-explicitly intended. Set its own routing description and intended skills/toolsets.
+Immediately replace its cloned SOUL.md with the specialist's own identity. Set its own routing description and intended skills/toolsets.
 Preserve the working provider/model baseline and necessary credentials through
 native clone semantics; do not manually copy authentication stores.
 
-Keep memory user-managed: do not configure a provider endpoint, account or user
-on the team's behalf. Keep built-in memory enabled. Verify every effective
-connection source so an inherited peer does not silently split shared memory.
+Memory is the owner's to configure: never set up, enable or change a memory
+provider, endpoint, account or toolset on the team's behalf.
 
-Verify native profile resolution, description, identity, capabilities, shared
-memory before handing the profile back to default.
+Verify native profile resolution, description, identity and capabilities before
+handing the profile back to default.
 
 ## Profile skills without a terminal
 

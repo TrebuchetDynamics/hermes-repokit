@@ -94,11 +94,11 @@ it ("hermes -p <assignee> skills list"): a missing pinned skill makes the
 worker exit before it starts, every retry repeats it, and a card's pins cannot
 be edited afterwards. Ask steward to install the skill first, or leave the pin
 off. Planner has
-file and memory tools; it cannot run Git or list the Kanban board. Supply current
+file, web and skills tools; it cannot run Git or list the Kanban board. Supply current
 Git and board facts with their source and freshness in the planning handoff,
-or route those inspections to a tool-capable profile first. Researcher likewise
-has file/web/memory, not terminal capability. Tester has terminal and memory
-but no file-editing tools and never modifies the repository. Do not assign shell
+or route those inspections to a tool-capable profile first. Researcher
+has file, web, browser and terminal tools for inspection. Tester has terminal
+and code execution but no file-editing tools and never modifies the repository. Do not assign shell
 verification to a profile that cannot execute it, or widen tools merely to hide
 bad routing.
 
@@ -122,7 +122,7 @@ card to reviewer and reviewer completed it, with three distinct profiles.
 	case "planner":
 		contract += `## Planner capability boundary
 
-Your ordinary tools are file and memory. You cannot execute Git, shell probes,
+Your ordinary tools are file, web and skills. You cannot execute Git, shell probes,
 or board-listing commands. Use coordinator-supplied Git/board facts and existing
 artifacts; identify their freshness and any uncertainty. If a required fact is
 missing, request a tool-capable inspection through default and block the card
@@ -133,7 +133,7 @@ invent command results or try to bypass the boundary through file tools.
 	case "tester":
 		contract += `## Behavioral verification boundary
 
-Your tools are terminal and memory. Use the terminal to read, build, test and
+Your tools are terminal, code execution, web, browser and skills, with no file editing. Use the terminal to read, build, test and
 probe; never to write, patch, move, format, stage or commit repository files.
 Probes live under /tmp. Verify runtime claims against the container-local
 capabilities above rather than inferring health from Docker or PATH alone.

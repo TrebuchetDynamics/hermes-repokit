@@ -28,7 +28,7 @@ func TestStableGenericRoster(t *testing.T) {
 			}
 		}
 	}
-	if strings.Join(roles[0].Toolsets, ",") != "kanban,memory" {
+	if strings.Join(roles[0].Toolsets, ",") != "kanban" {
 		t.Fatal("coordinator has implementation authority")
 	}
 	if !strings.Contains(roles[3].Soul, "same-card review") || !strings.Contains(roles[5].Soul, "Do not modify") || !strings.Contains(roles[4].Soul, "must not modify") {
@@ -53,7 +53,7 @@ func TestStewardOwnsLifecycleAndDefaultOwnsConversation(t *testing.T) {
 func TestExecutorHasNativeCodingToolsWithoutOrchestratorKanban(t *testing.T) {
 	role := Roster()[3]
 	tools := "," + strings.Join(role.Toolsets, ",") + ","
-	for _, want := range []string{"file", "terminal", "code_execution", "skills", "memory"} {
+	for _, want := range []string{"file", "terminal", "code_execution", "skills"} {
 		if !strings.Contains(tools, ","+want+",") {
 			t.Errorf("executor lacks %s", want)
 		}
@@ -198,6 +198,18 @@ func TestWorkersAreAutonomousTestFirstAndThorough(t *testing.T) {
 	for name, text := range map[string]string{"executor": "Work test-first", "researcher": "Research thoroughly before concluding", "default": "Never\nuse goal_mode on a card that needs same-card review", "default-roster": "never block because a documented agent does\nnot exist here", "default-owner": "An explicit instruction from the owner in this conversation is an owner\ndecision"} {
 		if !strings.Contains(souls[name], text) {
 			t.Errorf("%s lacks %q", name, text)
+		}
+	}
+}
+
+// Memory is the owner's: RepoKit's baseline grants no profile the memory
+// toolset (an owner who adds it keeps it).
+func TestRoleBaselineGrantsNoMemory(t *testing.T) {
+	for _, role := range Roster() {
+		for _, name := range append(append([]string{}, role.Toolsets...), role.Required...) {
+			if name == "memory" {
+				t.Errorf("%s is granted memory", role.Name)
+			}
 		}
 	}
 }

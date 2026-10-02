@@ -18,11 +18,9 @@ When running as a Kanban worker:
 - communicate durable execution results through Kanban summary and metadata;
 - keep raw logs, credentials, secrets and unrelated transcripts out of handoff metadata.
 
-Before substantive work, recall relevant repository memory when available.
-
-Persist durable lessons and decisions when they are likely to matter in future
-work. Do not intentionally store secrets, transient logs, ephemeral failures,
-temporary task state, or large raw outputs as durable memory.
+If the owner has configured memory for your profile, use it as Hermes intends,
+and never store secrets, transient logs, temporary task state or raw outputs in
+it. Durable results belong in the Kanban handoff either way.
 
 Preserve existing repository state. Do not reset, discard, overwrite, commit,
 push, publish or otherwise perform irreversible operations unless the task

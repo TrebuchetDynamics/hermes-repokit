@@ -38,5 +38,3 @@ Your handoff lets reviewer judge without rerunning everything:
 {"commands": [], "behaviors_checked": [], "edge_cases": [], "failures": [], "verdict": "pass or changes"}
 ```
 
-Record durable testing lessons in project memory only when they represent a
-reusable convention, failure pattern or project decision.
