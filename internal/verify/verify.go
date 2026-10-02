@@ -133,9 +133,6 @@ func Inspect(ctx context.Context, id target.Identity, r Runner) []Probe {
 	if issues := target.Inspect(id, ""); len(issues) > 0 {
 		probes = append(probes, Probe{"filesystem", Degraded, "unsafe or ambiguous repository/native state"})
 	}
-	if _, err := os.Lstat(filepath.Join(id.Root, ".hermes")); err == nil {
-		probes = append(probes, BoardWatch(id))
-	}
 	return probes
 }
 

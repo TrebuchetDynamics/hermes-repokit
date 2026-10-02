@@ -1,5 +1,11 @@
 # Board watch: keep committed work moving
 
+> **Withdrawn 2026-10-02.** Implemented, proven on the dogfood deployment, then
+> removed: it left a RepoKit-authored script running after install, which
+> breaks RepoKit's rule that it installs, configures and leaves (no sidecar,
+> helper or plugin on the operational path). Kept as a record of the Hermes
+> limits it established.
+
 The team acts only when something wakes default, the coordinator. Kanban wakes
 default in the owner's chat when a card it subscribed to completes, blocks or
 changes review stage. A quiet board raises no event, so live deployments
