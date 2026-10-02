@@ -56,12 +56,6 @@ correction cycle is not yet.
 - Fresh Node, Python and Go trial repositories: `plan`, `install`, `verify`,
   `stop`/`start` and `remove` (Node, Go) behaved as documented.
 
-## Proven in v0.2.0
-
-- OpenViking-era deployments (dogfood and s3upload) upgraded in place: Compose
-  and recipe backed up, six SOULs upgraded, `tester` created, dispatch check
-  passed on both ([record](docs/qualification/openviking-era-upgrade-2026-09-30.md)).
-
 ## Proven in v0.1.0
 
 - Live dogfood upgrade in place: profiles, Kanban, dispatch policy and launcher preserved ([record](docs/qualification/live-dogfood-2026-09-28.md)).
@@ -198,13 +192,6 @@ Live and Docker proof that has not been exercised yet.
 
 ## Cleanup (low priority)
 
-- [x] Retire legacy support (owner decision, 2026-09-30): RepoKit recognizes
-      only its current generation. Historical SOUL generations and the SOUL
-      archive, the six-profile policy upgrade, the readable-names, Laya and
-      OpenViking-era migrations are gone; an earlier deployment is refused with
-      steps to start over. Kept as current-deployment reconfiguration: a changed
-      self-certified recipe (a repository gaining a go.mod), the Docker test
-      opt-in and the pre-SELinux render.
 - [x] Remove the no-op `--engineering` flag.
 - [ ] `verify` review evidence reads `kanban list/show`; confirm those never
       migrate the board schema, or gate them on an initialized board.

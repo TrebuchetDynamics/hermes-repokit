@@ -1,27 +1,27 @@
 #!/bin/sh
-# Native OpenViking environment and s6 lifecycle inside the Hermes container.
+# Native Memory environment and s6 lifecycle inside the Hermes container.
 # This installed script has no dependency on the bootstrap executable.
 set -eu
-export HOME=/opt/data/openviking
-export OPENVIKING_CONFIG_FILE=/opt/data/openviking/ov.conf
-export OPENVIKING_CLI_CONFIG_FILE=/opt/data/openviking/ovcli.conf
-export OPENVIKING_WITH_BOT=0
-export OPENVIKING_SERVER_HOST=127.0.0.1
-export OPENVIKING_PENDING_HOST=127.0.0.1
-export OPENVIKING_SERVER_PORT=1933
-export LD_LIBRARY_PATH=/opt/openviking-python/lib
-export PATH=/app/.venv/bin:/opt/openviking-python/bin:/command:/usr/local/bin:/usr/bin:/bin
-unset PYTHONHOME PYTHONPATH VIRTUAL_ENV OPENVIKING_CONF_CONTENT
+export HOME=/opt/data/memory
+export MEMORY_CONFIG_FILE=/opt/data/memory/memory.conf
+export MEMORY_CLI_CONFIG_FILE=/opt/data/memory/memory-cli.conf
+export MEMORY_WITH_BOT=0
+export MEMORY_SERVER_HOST=127.0.0.1
+export MEMORY_PENDING_HOST=127.0.0.1
+export MEMORY_SERVER_PORT=1933
+export LD_LIBRARY_PATH=/opt/memory-python/lib
+export PATH=/app/.venv/bin:/opt/memory-python/bin:/command:/usr/local/bin:/usr/bin:/bin
+unset PYTHONHOME PYTHONPATH VIRTUAL_ENV MEMORY_CONF_CONTENT
 umask 077
 case "${1:-}" in
     serve)
-        cd /opt/data/openviking
-        exec /usr/local/bin/openviking-entrypoint --without-bot
+        cd /opt/data/memory
+        exec /usr/local/bin/memory-entrypoint --without-bot
         ;;
     server)
         shift
-        cd /opt/data/openviking
-        exec /app/.venv/bin/openviking-server "$@"
+        cd /opt/data/memory
+        exec /app/.venv/bin/memory-server "$@"
         ;;
     python)
         shift
@@ -47,8 +47,8 @@ except Exception:
         ;;
     restart)
         # Restart only memory, never the gateway or its active workers.
-        s6-svc -wD -T 15000 -d /run/service/repokit-openviking
-        exec s6-svc -wu -T 15000 -u /run/service/repokit-openviking
+        s6-svc -wD -T 15000 -d /run/service/repokit-memory
+        exec s6-svc -wu -T 15000 -u /run/service/repokit-memory
         ;;
-    *) echo 'Usage: repokit-openviking {server|python|health|restart}' >&2; exit 2 ;;
+    *) echo 'Usage: repokit-memory {server|python|health|restart}' >&2; exit 2 ;;
 esac

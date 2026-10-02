@@ -53,7 +53,7 @@ func TestRecipeUpgradeResumesOnlyKnownFileStates(t *testing.T) {
 				write("development-image/Dockerfile", current["Dockerfile"])
 			case "removed":
 				write(backup, prior)
-				if err := os.Remove(filepath.Join(state, "development-image/patch-openviking-entrypoint.py")); err != nil {
+				if err := os.Remove(filepath.Join(state, "development-image/patch-memory-entrypoint.py")); err != nil {
 					t.Fatal(err)
 				}
 			case "replaced-without-backup":
@@ -65,7 +65,7 @@ func TestRecipeUpgradeResumesOnlyKnownFileStates(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "recipe-drift":
-				write("development-image/repokit-openviking", []byte("owner helper"))
+				write("development-image/repokit-memory", []byte("owner helper"))
 			case "unknown-file":
 				write("development-image/owner", []byte("owner file"))
 			case "missing-file":
@@ -103,7 +103,7 @@ func TestRecipeUpgradeResumesOnlyKnownFileStates(t *testing.T) {
 						t.Fatalf("wrong upgraded %s: %v", name, err)
 					}
 				}
-				if _, err := os.Lstat(filepath.Join(state, "development-image/patch-openviking-entrypoint.py")); !os.IsNotExist(err) {
+				if _, err := os.Lstat(filepath.Join(state, "development-image/patch-memory-entrypoint.py")); !os.IsNotExist(err) {
 					t.Fatal("old-only recipe file not removed")
 				}
 				if scenario != "removed" {
@@ -166,13 +166,14 @@ func snapshotRecipeTree(t *testing.T, root string) map[string][]byte {
 	return out
 }
 
-// frozenRecipe is a real generated recipe from e0246ef, including a file the
-// current recipe no longer has.
+// frozenRecipe is a frozen generated recipe from e0246ef with its embedded
+// memory-provider names neutralized, including a file the current recipe no
+// longer has.
 func frozenRecipe(t *testing.T) map[string][]byte {
 	t.Helper()
 	dir := "../development/testdata/e0246ef"
 	files := map[string][]byte{}
-	for _, name := range []string{"Dockerfile-go", ".dockerignore", "repokit-docker-test", "repokit-openviking", "openviking-run", "openviking-finish", "patch-openviking-entrypoint.py"} {
+	for _, name := range []string{"Dockerfile-go", ".dockerignore", "repokit-docker-test", "repokit-memory", "memory-run", "memory-finish", "patch-memory-entrypoint.py"} {
 		data, err := os.ReadFile(filepath.Join(dir, name))
 		if err != nil {
 			t.Fatal(err)

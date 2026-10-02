@@ -83,7 +83,7 @@ func TestInstallUpgradesThePreMaskLayout(t *testing.T) {
 		t.Fatal(err)
 	}
 	old := map[string][]byte{}
-	for _, name := range []string{"Dockerfile-base", ".dockerignore", "repokit-docker-test", "repokit-openviking", "openviking-run", "openviking-finish", "patch-openviking-entrypoint.py"} {
+	for _, name := range []string{"Dockerfile-base", ".dockerignore", "repokit-docker-test", "repokit-memory", "memory-run", "memory-finish", "patch-memory-entrypoint.py"} {
 		data, err := os.ReadFile(filepath.Join("../development/testdata/e0246ef", name))
 		if err != nil {
 			t.Fatal(err)

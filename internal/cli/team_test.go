@@ -183,7 +183,7 @@ func TestInstallRefusesAnEarlierDeploymentWithStartOverSteps(t *testing.T) {
 		t.Fatal(diag)
 	}
 	data, _ := os.ReadFile(r.id.Compose)
-	earlier := strings.Replace(string(data), "      HERMES_HOME: /opt/data\n", "      HERMES_HOME: /opt/data\n      REPOKIT_OPENVIKING: \"1\"\n", 1)
+	earlier := strings.Replace(string(data), "      HERMES_HOME: /opt/data\n", "      HERMES_HOME: /opt/data\n      REPOKIT_OLD_GENERATION: \"1\"\n", 1)
 	if err := os.WriteFile(r.id.Compose, []byte(earlier), 0600); err != nil {
 		t.Fatal(err)
 	}

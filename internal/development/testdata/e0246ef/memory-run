@@ -1,0 +1,4 @@
+#!/command/with-contenv sh
+set -eu
+[ "${REPOKIT_MEMORY:-0}" = 1 ] || exit 0
+exec s6-setuidgid hermes /usr/local/bin/repokit-memory serve

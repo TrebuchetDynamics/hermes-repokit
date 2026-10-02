@@ -11,5 +11,5 @@ source = path.read_text()
 old = "trap 'forward_signal' INT TERM"
 new = "trap 'trap \"\" INT TERM; forward_signal; wait \"${SERVER_PID}\" || true; exit 0' INT TERM"
 if source.count(old) != 1:
-    raise SystemExit("Unqualified OpenViking entrypoint shutdown contract")
+    raise SystemExit("Unqualified memory entrypoint shutdown contract")
 path.write_text(source.replace(old, new))

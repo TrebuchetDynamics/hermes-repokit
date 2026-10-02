@@ -1,7 +1,7 @@
 *
 !Dockerfile
 !repokit-docker-test
-!repokit-openviking
-!openviking-run
-!openviking-finish
-!patch-openviking-entrypoint.py
+!repokit-memory
+!memory-run
+!memory-finish
+!patch-memory-entrypoint.py
