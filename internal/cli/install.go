@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/boardwatch"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
@@ -298,6 +299,11 @@ func (a App) initialize(id target.Identity, dockerContext string, afterSetup boo
 	}
 	u.ok("Kanban", "native board ready")
 	u.team(teamReport)
+	if decision, err := native.EnsureBoardWatch(context.Background(), id, dockerContext, runner); err != nil {
+		u.note("board watch not installed: " + err.Error())
+	} else if decision == boardwatch.Create || decision == boardwatch.Upgrade {
+		u.ok("Board watch", "default wakes when the board is quiet with an open goal or a stuck card")
+	}
 	// Per-profile lines already show each state; these add what to do next.
 	perRole := len(teamReport.Roles) > 0
 	if len(teamReport.Reset) > 0 {
