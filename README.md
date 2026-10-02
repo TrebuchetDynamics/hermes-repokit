@@ -61,10 +61,10 @@ the current development image is pinned to linux/amd64; Linux arm64 is not an
 end-to-end supported deployment target yet. macOS is not a documented host.
 The installer builds RepoKit from source, so Go is needed for this step.
 
-Install the bootstrap CLI from the latest release, [v0.2.6](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.6):
+Install the bootstrap CLI from the latest release, [v0.2.7](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.7):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.6/install.sh | REPOKIT_REF=v0.2.6 sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.7/install.sh | REPOKIT_REF=v0.2.7 sh
 ```
 
 From the repository you want to prepare:
