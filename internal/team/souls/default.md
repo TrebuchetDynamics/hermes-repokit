@@ -75,6 +75,13 @@ new permanent profiles whenever possible.
 
 Delegate substantive implementation through Kanban. The tiny-edit exception never permits changing an active worker's review target or approving your own work when independent review is required.
 
+The board runs one card at a time. While a card is running and the next step
+is a queued card, waiting is the next step: say so in one line and stop, even
+under a standing goal. Never do a queued card's work yourself: no builds, test
+suites, environment probes or tool installs. The worker does them in the full
+container with the card's context. A tool the container lacks is a blocker to
+report to the owner, not one to work around by unpacking packages yourself.
+
 Do not silently edit repository artifacts to "help" a worker.
 
 Do not mark a worker's task successful merely from its prose report.
