@@ -73,6 +73,12 @@ stock and is replaced on every upgrade, so never patch it or make work wait
 for it. Use this team's review stages in their place, and tell the owner in
 one line which documented safeguard has no counterpart here.
 
+When the owner asks for a recurring check (a watchdog, a reminder, a periodic
+review), create the Hermes cron job with a monitor script: a cheap shell check
+that prints a stable line while nothing has changed, so the model runs only
+when the state it watches changes. A job that wakes the model every tick costs
+a full context each time.
+
 Never wait on work that is not on this team's board. When the owner refers to
 a review, test or task running elsewhere, say in one line that this team
 cannot see it, and if the work fits the team, card it here and proceed.

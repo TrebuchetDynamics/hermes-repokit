@@ -220,3 +220,12 @@ func TestProfilesUseTheOwnersModelOnly(t *testing.T) {
 		}
 	}
 }
+
+// Live: a wing coordinator built the owner's 5-minute watchdog as a plain
+// cron job; it ran the model every tick (about 258k prompt tokens each, half
+// the runs silent). Recurring checks must be gated by a monitor script.
+func TestDefaultGatesRecurringChecks(t *testing.T) {
+	if !strings.Contains(Roster()[0].Soul, "create the Hermes cron job with a monitor script") {
+		t.Fatal("default lacks the monitor-script rule for recurring checks")
+	}
+}
