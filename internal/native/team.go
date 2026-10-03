@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -392,14 +391,16 @@ type RoleStatus struct {
 }
 
 var roleActions = map[string]string{
-	"current":    "none",
-	"upgrade":    "rewrite the untouched SOUL an earlier RepoKit build wrote",
-	"deferred":   "upgrade the earlier RepoKit SOUL after running work finishes",
-	"missing":    "create",
-	"adopt":      "claim stock default",
-	"customized": "preserve",
-	"drift":      "preserve; blocks this run",
-	"reset":      "replace with RepoKit baseline; back up prior files",
+	"current":      "none",
+	"upgrade":      "rewrite the untouched SOUL an earlier RepoKit build wrote",
+	"deferred":     "upgrade the earlier RepoKit SOUL after running work finishes",
+	"missing":      "create",
+	"adopt":        "claim stock default",
+	"customized":   "preserve",
+	"drift":        "preserve; blocks this run",
+	"reset":        "replace with RepoKit baseline; back up prior files",
+	"retired":      "export to .hermes/backups, then delete",
+	"retire-later": "wait for an idle board",
 }
 
 func (p *teamPlan) role(name, state string, differs []string) {
@@ -742,9 +743,12 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 	// Retire the six profiles of a seven-profile RepoKit deployment, once, on
 	// an idle board: reassign their open cards to default, export each to
 	// backups, delete it, and grant default what it now needs.
+	// Only RepoKit's own: a profile of that name holding this repository's
+	// RepoKit SOUL or RepoKit's SOUL record. An owner-made one is left alone.
 	var legacy []string
 	for _, name := range LegacyProfiles {
-		if _, err := root.Lstat(".hermes/profiles/" + name); err == nil {
+		soul, err := readSoul(root, name)
+		if err == nil && (repositorySoul(soul, id) || readRecord(root, name) != "") {
 			legacy = append(legacy, name)
 		}
 	}
@@ -764,16 +768,8 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 			changes += skillsWrite(roles[0])
 			changes += "install -d -m 700 /opt/data/backups\n"
 			for _, name := range legacy {
-				ids, err := openCards(run, name)
-				if err != nil {
-					return teamPlan{}, err
-				}
 				changes += progressMark("retire " + name)
-				for _, card := range ids {
-					changes += teamCommand("-p", "default", "kanban", "reassign", card, "default")
-				}
-				changes += teamCommand("profile", "export", name, "-o", "/opt/data/backups/profile-"+name+"-"+stamp+".tar.gz")
-				changes += teamCommand("profile", "delete", "-y", name)
+				changes += retireScript(name, stamp)
 				plan.role(name, "retired", nil)
 			}
 		}
@@ -984,28 +980,22 @@ func numberProgress(script string) string {
 // Kanban: memory for the owner's decisions and delegation for subagents.
 var defaultChannelExtras = []string{"memory", "delegation"}
 
-// openCards lists a profile's cards that are neither finished nor running,
-// from the plain listing: one card per line, its ID then its status. The
-// --json listing carries every card body and outgrows bounded output.
-func openCards(run teamCLI, profile string) ([]string, error) {
-	raw, err := run("-p", "default", "kanban", "list", "--assignee", profile)
-	if err != nil {
-		return nil, err
-	}
-	var ids []string
-	for line := range strings.SplitSeq(string(raw), "\n") {
-		m := cardLine.FindStringSubmatch(line)
-		if m == nil {
-			continue
-		}
-		switch m[2] {
-		case "done", "archived", "running":
-		default:
-			ids = append(ids, m[1])
-		}
-	}
-	return ids, nil
+// retireScript retires one legacy profile under the lock, against the board
+// as it is then: it refuses if the profile has a running card (the gateway
+// still dispatches to it until the gateway step rewrites the policy),
+// reassigns its open cards to default, exports it with the auth.json and
+// .env that Hermes's export leaves out, and only then deletes it.
+func retireScript(name, stamp string) string {
+	q := shellQuote(name)
+	base := "/opt/data/backups/profile-" + name + "-" + stamp
+	return "cards=$(hermes -p default kanban list --assignee " + q + " | awk '$2 ~ /^t_[0-9a-f]{8}$/ {print $2, $3}')\n" +
+		"if printf '%s\\n' \"$cards\" | awk '$2 == \"running\" {found=1} END {exit !found}'; then exit 3; fi\n" +
+		"for card in $(printf '%s\\n' \"$cards\" | awk '$2 != \"done\" && $2 != \"archived\" && $1 != \"\" {print $1}'); do\n" +
+		"    hermes -p default kanban reassign \"$card\" default >/dev/null\n" +
+		"done\n" +
+		teamCommand("profile", "export", name, "-o", base+".tar.gz") +
+		"for secret in auth.json .env; do\n" +
+		"    if [ -f " + shellQuote("/opt/data/profiles/"+name+"/") + "\"$secret\" ]; then install -m 600 " + shellQuote("/opt/data/profiles/"+name+"/") + "\"$secret\" " + shellQuote(base+".") + "\"$secret\"; fi\n" +
+		"done\n" +
+		teamCommand("profile", "delete", "-y", name)
 }
-
-// cardLine matches one plain `kanban list` line: marker, ID, status.
-var cardLine = regexp.MustCompile(`^\S+\s+(t_[0-9a-f]{8})\s+([a-z_]+)\s`)

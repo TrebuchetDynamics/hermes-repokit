@@ -240,6 +240,9 @@ func convergeGateway(ctx context.Context, id target.Identity, dc string, r Input
 		return "", errors.New("ambiguous native dispatch setting preserved")
 	}
 	if busy, err := runningWork(run); err != nil || busy {
+		if LegacyPolicy(kanban) {
+			return "", errors.New("a card is running or Kanban is unreadable; the seven-profile dispatch policy stays until install runs on an idle board")
+		}
 		return "", errors.New("a card is running or Kanban is unreadable; dispatch left off so active work is not interrupted")
 	}
 	script := bootstrapScript + "\n" + idleGuard
