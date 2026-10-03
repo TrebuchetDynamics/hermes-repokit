@@ -8,52 +8,42 @@
   <img src="https://img.shields.io/badge/status-pre--v1-D08A2E?style=flat-square" alt="Status: pre-v1">
 </p>
 
-# A dedicated Hermes team for every repository
+# Give every repository its own Hermes developer
 
-**RepoKit prepares the environment. Hermes runs Hermes.** RepoKit is a small,
-per-repository bootstrapper: it gives a project its own persistent Hermes
-workspace and team, then gets out of the way. Hermes remains the agent runtime
-and owns profiles, conversations, channels and Kanban; RepoKit configures and
-launches that environment rather than replacing Hermes with another agent
-framework.
+Run `repokit install` in a repository, then tell it what you want, from the
+terminal or any Hermes channel you have set up. One agent researches, builds
+the change on a Kanban card, and checks it in a separate fresh session (tests
+run, no weakened tests, nothing out of scope) before it reports back.
 
-The goal is simple: give every project a ready-to-use team without hand-building
-container glue, mixing project state, or taking over the application's existing
-Docker Compose stack. The generated launcher and ordinary Compose control the
-environment after setup; RepoKit does not need to stay running.
+**RepoKit sets up the environment. Hermes runs the agent.**
 
-> **Pre-v1.** Linux amd64 is the documented end-to-end host target. Linux arm64
-> is a RepoKit CLI build target, but the current development image is pinned to
-> linux/amd64; macOS and ARM Linux are not qualified deployment hosts. See
-> [status and limits](#status-and-limits) and the linked qualification records.
+> **Pre-v1.** Linux amd64 is the documented host. Some behaviors, such as
+> end-to-end remote coding over a messaging channel and memory recall, are not
+> yet qualified. See [status and limits](#status-and-limits).
 
-## Why RepoKit
+## 30 seconds
 
-- **A workspace per project:** each repository gets its own Compose project and
-  private `.hermes` state, with the project mounted at `/workspace`.
-- **Keep your app's stack:** RepoKit uses `.hermes/compose.yaml` in a separate
-  Compose namespace. It does not merge with or manage the application's services.
-- **One front door:** a generated `hermes-<repo>` launcher opens the project's
-  Hermes team and forwards native Hermes commands.
-- **Use Hermes, not a replacement:** RepoKit provisions and configures; Hermes
-  runs the agents, channels and Kanban workflow.
-- **Credentials stay with you:** provider credentials are entered through
-  Hermes's private setup. RepoKit does not read or store them.
+```sh
+cd my-project
+repokit install        # builds the environment, then Hermes's private setup and the team
+hermes-my-project      # talk to this repository's agent
+```
 
-## One repository, one environment
+Then give it real work:
 
-<p align="center">
-  <img src="./assets/readme/deployment.svg" width="100%" alt="RepoKit prepares a private .hermes deployment and a separate Compose-owned Hermes container for one repository; the repository's own Compose stack remains separate.">
-</p>
+> "Find why the token refresh test is flaky, fix it, and tell me what changed."
 
-RepoKit writes deployment files and private state under `.hermes/`. The Hermes
-container mounts the project at `/workspace` and its private state at `/opt/data`.
-The generated `.hermes/compose.yaml` has its own project namespace: your
-application's Compose files and services stay separate and untouched. RepoKit
-does not configure a memory provider. Optional memory setup is user-managed;
-memory recall and isolation are not qualified by RepoKit.
+```
+You → default ─┬─ research: parallel read-only subagents
+               └─ card: implement → fresh verification run → done → You
+```
 
-## Quickstart
+Small questions get a reply. Anything that changes the repository becomes a
+Kanban card that survives restarts. The run that implemented a change never
+approves it: a separate verification run, which never saw the implementer's
+reasoning, tries to break it first.
+
+## Install
 
 **Documented deployment host:** Linux amd64, with Go 1.26+, Docker Compose, Git
 and a POSIX shell. The RepoKit CLI can be built for Linux amd64 and arm64, but
@@ -67,52 +57,49 @@ Install the bootstrap CLI from the latest release, [v0.3.3](https://github.com/T
 curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.3.3/install.sh | REPOKIT_REF=v0.3.3 sh
 ```
 
-From the repository you want to prepare:
+`repokit install` builds and starts the environment, then in a terminal goes
+straight on into `repokit setup`: Hermes's own private provider setup (RepoKit
+never sees your credentials), the team, automatic dispatch and one canary card.
+`install --no-setup` stops after install. The launcher is named after your
+repository: `hermes-<repo>`.
 
-```sh
-cd my-project
-repokit install
-hermes-my-project
-```
+## How the agent works
 
-`repokit` manages the environment: `install` builds and starts it, then in a
-terminal goes straight on into `setup`, which opens Hermes's private provider
-setup before preparing the team. `install --no-setup` stops after install; run
-`repokit setup` yourself later.
-Credentials are entered directly with Hermes; RepoKit does not read or store
-them. `hermes-my-project` opens that repository's Hermes team. Replace the name
-with the generated `hermes-<repo>` launcher for your repository.
+RepoKit installs one Hermes profile, `default`, and it is the whole team:
 
-For example, you might ask:
+- **It talks with you** and decides, in plain language, and stays quiet while
+  work moves.
+- **It researches** through parallel, read-only Hermes subagents that run in
+  the background while the conversation continues.
+- **It builds on a card.** Each repository change is a Kanban card it
+  implements test-first, with the commands it ran as evidence.
+- **It verifies in a fresh run.** It checks four things: each acceptance
+  criterion is shown by command output; no test was deleted, weakened or
+  special-cased; nothing outside the card's scope changed; new probes find no
+  regression. Risky changes fan out up to four checking subagents. After two
+  rounds of requested changes it asks you instead of looping.
+- **It keeps your decisions** in Hermes's built-in memory, short itemized
+  entries created only from your own messages.
 
-> “Research how this project handles authentication, then propose and implement
-a safer token-refresh flow. Run the relevant tests and ask for an independent review.”
+Specialization comes from skills, not more profiles. Details:
+[team model](docs/team-model.md).
 
-default does this work itself. It researches through read-only subagents,
-turns the change into a Kanban card, implements it, and then checks it in a
-separate, fresh verification run that never saw the implementation's
-reasoning. Small questions need only a reply.
+## What RepoKit is, and is not
 
-## What you get
+RepoKit is a small per-repository bootstrapper. It installs, configures and
+leaves: nothing RepoKit-authored keeps running after install.
 
-RepoKit installs one Hermes profile, `default`. It is the whole team: it talks
-with you, researches through read-only subagents, implements Kanban cards
-assigned to itself, and verifies each card in a separate fresh run. Its memory
-keeps your decisions and preferences. Specialization comes from skills, not
-from more profiles. See the [team model](docs/team-model.md).
+| RepoKit owns | Hermes owns |
+| --- | --- |
+| The repository's isolated Docker environment and development toolchains | Models and providers |
+| The `default` profile's identity, grants and skills | Channels such as Telegram |
+| Kanban readiness and the dispatch policy | Sessions, memory and plugins |
+| Safe install, update, verify and remove | Running the agent |
+| The host launcher `hermes-<repo>` | |
 
-Kanban is the work board. Implementation and verification stay on the same
-card; the run that implemented a change never completes it. The default gateway
-dispatcher is configured during setup; actual model-driven work and channel
-delivery still have qualification limits described below.
-
-Where configured, Hermes channels use the same default profile and Kanban
-board as the launcher. The generated launcher provides a local command-line entry
-point and forwards native Hermes commands. Remote coding through a messaging
-channel is an intended way to use the team after channel setup, not a claim that
-Telegram task delivery or end-to-end remote coding is qualified today.
-RepoKit turns on Hermes's built-in memory tool for default; it configures no
-memory provider and does not verify recall.
+RepoKit configures no memory provider of its own; it only turns on Hermes's
+built-in memory tool. The [oh-my-hermes](#oh-my-hermes) setup it runs adds
+OMH's plugin and memory provider.
 
 ## oh-my-hermes
 
@@ -160,7 +147,28 @@ After install, the generated Hermes launcher forwards native Hermes commands,
 for example `hermes-my-project kanban list`. RepoKit does not create shell aliases
 or edit shell startup files. See [host command and recovery](docs/bootstrap-quickstart.md#host-command).
 
-## Removing a deployment
+## One repository, one isolated environment
+
+<p align="center">
+  <img src="./assets/readme/deployment.svg" width="100%" alt="RepoKit prepares a private .hermes deployment and a separate Compose-owned Hermes container for one repository; the repository's own Compose stack remains separate.">
+</p>
+
+RepoKit writes deployment files and private state under `.hermes/`. The Hermes
+container mounts the project at `/workspace` and its private state at `/opt/data`.
+The generated `.hermes/compose.yaml` has its own project namespace: your
+application's Compose files and services stay separate and untouched.
+
+## Lifecycle, safety and removal
+
+RepoKit is a bootstrapper, not a persistent service: `repokit install` prepares
+and starts the container, `repokit setup` runs Hermes's private provider setup
+when needed and provisions the team, and the generated launcher plus ordinary
+Compose manage it afterward. Credentials go directly into Hermes; RepoKit does
+not read or store provider secrets. `repokit stop` and `repokit start` preserve
+the deployment state. See [removing a deployment](#removing-a-deployment) below for
+the destructive removal behavior and the [setup and recovery guide](docs/bootstrap-quickstart.md).
+
+### Removing a deployment
 
 ```sh
 cd my-project
@@ -174,16 +182,6 @@ user-configured provider data stored there, profiles, conversations and Kanban
 history. This deletion cannot be undone. Repository files and Git history are
 left alone. If `.hermes` is already gone, `remove` only cleans up the remaining
 resources it can attribute to that repository.
-
-## Lifecycle and safety
-
-RepoKit is a bootstrapper, not a persistent service: `repokit install` prepares
-and starts the container, `repokit setup` runs Hermes's private provider setup
-when needed and provisions the team, and the generated launcher plus ordinary
-Compose manage it afterward. Credentials go directly into Hermes; RepoKit does
-not read or store provider secrets. `repokit stop` and `repokit start` preserve
-the deployment state. See [removing a deployment](#removing-a-deployment) for
-the destructive removal behavior and the [setup and recovery guide](docs/bootstrap-quickstart.md).
 
 ## Status and limits
 
