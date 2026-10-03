@@ -47,10 +47,16 @@ type Role struct {
 }
 
 // ForRepository binds each permanent role to the selected repository.
+// A single-shape deployment's default does every card itself; see Shape.
 func ForRepository(id target.Identity) []Role {
 	roles := Roster()
+	single := ShapeOf(id.Root) == Single
 	for i := range roles {
 		role := &roles[i]
+		if single && role.Name == "default" {
+			*role = singleDefault(id, *role)
+			continue
+		}
 		soul := runtimeContract(id, role.Name) + repositoryHeader(id, *role)
 		if role.Name == "default" {
 			soul += defaultMaintenance
@@ -257,6 +263,16 @@ func Roster() []Role {
 	for i := range roles {
 		role, _ := souls.ReadFile("souls/" + roles[i].Name + ".md")
 		roles[i].Soul = string(common) + "\n" + string(role)
+		if roles[i].Name == "default" {
+			roles[i].Soul += ownerSoul()
+		}
 	}
 	return roles
+}
+
+// ownerSoul is how the profile the owner talks to speaks with them and
+// reports Kanban progress, whatever the team's shape.
+func ownerSoul() string {
+	owner, _ := souls.ReadFile("souls/owner.md")
+	return string(owner)
 }

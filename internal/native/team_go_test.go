@@ -147,7 +147,7 @@ func TestDefaultChannelToolsCompletesOnlyMissingHumanChannels(t *testing.T) {
 	run := func(args ...string) ([]byte, error) {
 		return []byte(`{"cli":["file"],"telegram":["file","terminal"],"discord":["kanban"],"api_server":["file"]}`), nil
 	}
-	script, err := defaultChannelTools(run)
+	script, err := defaultChannelTools(run, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,8 +156,22 @@ func TestDefaultChannelToolsCompletesOnlyMissingHumanChannels(t *testing.T) {
 		t.Fatalf("unexpected channel reconciliation:\n%s", script)
 	}
 	bad := func(args ...string) ([]byte, error) { return []byte(`{"tele gram":["file"]}`), nil }
-	if _, err := defaultChannelTools(bad); err == nil {
+	if _, err := defaultChannelTools(bad, nil); err == nil {
 		t.Fatal("unsafe channel name accepted")
+	}
+	// When default is the whole team it also needs memory and delegation on
+	// every human channel that lists its tools without them.
+	single, err := defaultChannelTools(run, []string{"memory", "delegation"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"'enable' 'memory' '--platform' 'telegram'", "'enable' 'delegation' '--platform' 'telegram'", "'enable' 'memory' '--platform' 'discord'", "'enable' 'kanban' '--platform' 'telegram'"} {
+		if !strings.Contains(single, want) {
+			t.Errorf("single-shape channels missing %s:\n%s", want, single)
+		}
+	}
+	if strings.Contains(single, "'enable' 'kanban' '--platform' 'discord'") || strings.Contains(single, "api_server") {
+		t.Fatalf("single-shape reconciliation touched a channel it should not:\n%s", single)
 	}
 }
 

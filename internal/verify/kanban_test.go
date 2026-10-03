@@ -3,10 +3,13 @@ package verify
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
 
 // hermesRunner answers public `hermes -p default ...` reads by suffix.
@@ -203,6 +206,54 @@ func TestEnvOnlyChannelsUseEffectiveTools(t *testing.T) {
 	} {
 		if enabled, known := kanbanEnabled(out); enabled != want[0] || known != want[1] {
 			t.Errorf("%q: enabled=%v known=%v", out, enabled, known)
+		}
+	}
+}
+
+// When default is the whole team, a card it completed counts only after a
+// separate default run requested review: implementation and verification are
+// distinct runs. Seven-profile history still counts until the first one lands.
+func TestReviewEvidenceInTheSingleShape(t *testing.T) {
+	id, base := integrationFixture(t)
+	if err := os.WriteFile(filepath.Join(id.Root, ".hermes", team.ShapeFile), []byte("single\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	r := &hermesRunner{integrationRunner: base, replies: map[string]string{
+		"kanban list --status done --assignee default --sort completed-desc":  "✓ t_0000000c  done  default  self only\n✓ t_0000000d  done  default  verified\n",
+		"kanban runs t_0000000c --json":                                       `[{"profile":"default","outcome":"completed"}]`,
+		"kanban runs t_0000000d --json":                                       `[{"profile":"default","outcome":"review_requested"},{"profile":"default","outcome":"changes_requested"},{"profile":"default","outcome":"review_requested"},{"profile":"default","outcome":"completed"}]`,
+		"kanban list --status done --assignee reviewer --sort completed-desc": "",
+	}}
+	if p := ReviewEvidence(context.Background(), id, r); p.Status != Healthy || !strings.Contains(p.Detail, "t_0000000d") || !strings.Contains(p.Detail, "separate default run") {
+		t.Fatal(p)
+	}
+	// Only a self-completed card: not independent.
+	r.replies["kanban list --status done --assignee default --sort completed-desc"] = "✓ t_0000000c  done  default  self only\n"
+	if p := ReviewEvidence(context.Background(), id, r); p.Status != Unqualified {
+		t.Fatal(p)
+	}
+	// The seven-profile history still proves review until a single-shape card lands.
+	r.replies["kanban list --status done --assignee reviewer --sort completed-desc"] = "✓ t_0000000b  done  reviewer  second\n"
+	r.replies["kanban runs t_0000000b --json"] = `[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]`
+	if p := ReviewEvidence(context.Background(), id, r); p.Status != Healthy || !strings.Contains(p.Detail, "t_0000000b") {
+		t.Fatal(p)
+	}
+}
+
+func TestSingleShapeChain(t *testing.T) {
+	type runs = []struct{ Profile, Outcome string }
+	for name, c := range map[string]struct {
+		runs runs
+		ok   bool
+	}{
+		"verified":                     {runs{{"default", "review_requested"}, {"default", "completed"}}, true},
+		"self-completed":               {runs{{"default", "completed"}}, false},
+		"other profile completed":      {runs{{"default", "review_requested"}, {"executor", "completed"}}, false},
+		"revision not re-verified":     {runs{{"default", "review_requested"}, {"default", "changes_requested"}, {"default", "completed"}}, false},
+		"crashed verification retried": {runs{{"default", "review_requested"}, {"default", "crashed"}, {"default", "completed"}}, true},
+	} {
+		if got := singleChain(c.runs) != ""; got != c.ok {
+			t.Errorf("%s: accepted=%v", name, got)
 		}
 	}
 }

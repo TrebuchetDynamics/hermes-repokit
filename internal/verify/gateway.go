@@ -9,6 +9,7 @@ import (
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
 
 // hermesCLI runs one read-only public Hermes command in the verified runtime.
@@ -170,9 +171,26 @@ func ReviewEvidence(ctx context.Context, id target.Identity, r Runner) Probe {
 	// the evidence out of view. The newest reviewEvidenceWindow are read.
 	// The plain listing carries only IDs and titles; --json includes every
 	// card body and outgrows the bounded output on a busy board (sdrhf: 120 KB).
-	out, ok := hermesCLI(ctx, r, dc, container, "kanban", "list", "--status", "done", "--assignee", "reviewer", "--sort", "completed-desc")
+	// A single-shape default completes its own verified cards; until the
+	// first one lands, the seven-profile history still proves review.
+	if team.ShapeOf(id.Root) == team.Single {
+		if p, ok := evidenceFrom(ctx, r, dc, container, "default", singleChain); ok && p.Status == Healthy {
+			return p
+		}
+	}
+	p, ok := evidenceFrom(ctx, r, dc, container, "reviewer", acceptanceChain)
 	if !ok {
 		return probe
+	}
+	return p
+}
+
+// evidenceFrom reads the newest cards completed by assignee and reports the
+// first whose run history satisfies chain.
+func evidenceFrom(ctx context.Context, r Runner, dc, container, assignee string, chain func([]struct{ Profile, Outcome string }) string) (Probe, bool) {
+	out, ok := hermesCLI(ctx, r, dc, container, "kanban", "list", "--status", "done", "--assignee", assignee, "--sort", "completed-desc")
+	if !ok {
+		return Probe{}, false
 	}
 	// One card per line; its ID comes first, and a title may name others.
 	var ids []string
@@ -190,11 +208,33 @@ func ReviewEvidence(ctx context.Context, id target.Identity, r Runner) Probe {
 		if !ok || json.Unmarshal([]byte(out), &runs) != nil {
 			continue
 		}
-		if chain := acceptanceChain(runs); chain != "" {
-			return Probe{"review:evidence", Healthy, "card " + task + ": " + chain + " on the same card"}
+		if described := chain(runs); described != "" {
+			return Probe{"review:evidence", Healthy, "card " + task + ": " + described + " on the same card"}, true
 		}
 	}
-	return Probe{"review:evidence", Unqualified, "no same-card executor→tester→reviewer completion among recent reviewer-completed cards; run real reviewed work"}
+	return Probe{"review:evidence", Unqualified, "no same-card independent review among recent completed cards; run real reviewed work"}, true
+}
+
+// singleChain describes a single-shape default card: default completed it in
+// a run that followed, apart from crashed or reclaimed attempts, a separate
+// default run requesting review. The implementing run never completes it.
+func singleChain(runs []struct{ Profile, Outcome string }) string {
+	n := len(runs)
+	if n < 2 || runs[n-1].Profile != "default" || runs[n-1].Outcome != "completed" {
+		return ""
+	}
+	for i := n - 2; i >= 0; i-- {
+		switch runs[i].Outcome {
+		case "crashed", "timed_out", "reclaimed", "gave_up", "spawn_failed":
+			continue
+		case "review_requested":
+			if runs[i].Profile == "default" {
+				return "default implemented it, and a separate default run verified and completed it"
+			}
+		}
+		return ""
+	}
+	return ""
 }
 
 // taskID matches a native Kanban task ID in listing output.

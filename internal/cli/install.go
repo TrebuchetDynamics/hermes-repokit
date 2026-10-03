@@ -9,6 +9,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -21,6 +22,7 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/selinux"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/verify"
 )
 
@@ -214,6 +216,15 @@ func (a App) install(id target.Identity, report Plan, stdout, stderr io.Writer) 
 	}
 	if code := a.startDeployment(id, report.DockerContext, stdout, stderr); code != 0 {
 		return code
+	}
+	if a.teamShape != "" {
+		if err := recordShape(id, team.Shape(a.teamShape)); err != nil {
+			u.fail("team shape not recorded: %v", err)
+			return 1
+		}
+	}
+	if team.ShapeOf(id.Root) == team.Single {
+		u.ok("Team shape", "single: default runs and verifies every card itself; the other six profiles stay installed but idle")
 	}
 	if code := a.initialize(id, report.DockerContext, false, nil, stdout, stderr); code != 0 {
 		return code
@@ -412,4 +423,32 @@ func (a App) interactive() bool {
 		return a.Interactive()
 	}
 	return native.InteractiveInput(a.Stdin)
+}
+
+// recordShape writes the deployment's team shape into its .hermes, through a
+// root that cannot escape it; seven, the default, removes the record.
+func recordShape(id target.Identity, shape team.Shape) error {
+	root, err := os.OpenRoot(filepath.Join(id.Root, ".hermes"))
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	if shape == team.Seven {
+		if err := root.Remove(team.ShapeFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
+		return nil
+	}
+	if info, err := root.Lstat(team.ShapeFile); err == nil && !info.Mode().IsRegular() {
+		return errors.New(team.ShapeFile + " is not a regular file")
+	}
+	f, err := root.OpenFile(team.ShapeFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	if _, err := f.WriteString(string(shape) + "\n"); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }

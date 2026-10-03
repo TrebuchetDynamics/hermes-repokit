@@ -26,6 +26,35 @@ card, acceptance criteria and task skills answer **what expertise is required**
 and **what success means**. Default owns project priorities and orchestration;
 steward owns team changes and reports back to default.
 
+## Single-profile shape (trial)
+
+`repokit install --team single` records, in `.hermes/repokit-team`, that this
+deployment runs as one working profile; later installs keep it, and
+`--team seven` returns to the seven-profile team. `default` then does every
+card itself, in three kinds of fresh session:
+
+- the owner's conversation, where it talks, decides and coordinates, and
+  researches through Hermes subagents (`delegate_task`, in the background,
+  never for repository changes that must survive a restart);
+- an implementation run of a card assigned to `default`, which requests
+  same-card review with `reviewer="default"`;
+- a separate verification run, which tries to break the change and either
+  completes the card or requests changes. The implementing run never
+  completes its own card.
+
+Memory is on for `default` (RepoKit enables `memory` and `delegation` on every
+human channel that lists its tools without them), and holds the owner's
+decisions and preferences, never task status. The other six profiles stay
+installed but idle; `default` reassigns any open card still assigned to them.
+`verify` accepts a default-completed card that followed a separate default
+review request as independent review, and keeps counting the seven-profile
+history until the first such card lands. Its [SOUL](../internal/team/souls/single.md)
+replaces `default.md`; the conversation rules in `owner.md` are shared.
+
+The trial runs on hermes-wing and is judged against its seven-profile history:
+the rate at which verification requests changes, minutes and tokens per card,
+and blocks.
+
 ## Team evolution
 
 Skills first: an existing profile plus a card-specific skill is preferred for

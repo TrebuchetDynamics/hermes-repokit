@@ -526,7 +526,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 				plan.role(role.Name, "current", nil)
 			}
 		}
-		channels, err := defaultChannelTools(run)
+		channels, err := defaultChannelTools(run, channelExtras(id))
 		if err != nil {
 			return teamPlan{}, err
 		}
@@ -594,7 +594,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 	if !holdsTeamValue(configured["cli"], []string{"kanban"}) {
 		changes += teamCommand("-p", "default", "tools", "enable", "kanban", "--platform", "cli")
 	}
-	channelTools, err := defaultChannelTools(run)
+	channelTools, err := defaultChannelTools(run, channelExtras(id))
 	if err != nil {
 		return teamPlan{}, err
 	}
@@ -835,10 +835,11 @@ func teamResult(output string) (TeamReport, error) {
 	return TeamReport{}, errors.New("native team provisioning result missing; inspect existing profiles before retrying")
 }
 
-// defaultChannelTools enables Kanban for default on every saved human-facing
-// channel that lacks it, through native `tools enable`. Other tools on the
-// channel, memory included, are the owner's and are left alone.
-func defaultChannelTools(run teamCLI) (string, error) {
+// defaultChannelTools enables Kanban, and each extra tool, for default on
+// every saved human-facing channel that lacks it, through native `tools
+// enable`. Other tools on the channel are the owner's and are left alone.
+// The extras are what a single-shape default needs (memory, delegation).
+func defaultChannelTools(run teamCLI, extra []string) (string, error) {
 	value, err := configValue(run, "default", "platform_toolsets")
 	if err != nil {
 		return "", err
@@ -867,8 +868,10 @@ func defaultChannelTools(run teamCLI) (string, error) {
 				have[s] = true
 			}
 		}
-		if !have["kanban"] {
-			script += teamCommand("-p", "default", "tools", "enable", "kanban", "--platform", channel)
+		for _, tool := range append([]string{"kanban"}, extra...) {
+			if !have[tool] {
+				script += teamCommand("-p", "default", "tools", "enable", tool, "--platform", channel)
+			}
 		}
 	}
 	return script, nil
@@ -909,4 +912,13 @@ func numberProgress(script string) string {
 		out.WriteString(line)
 	}
 	return out.String()
+}
+
+// channelExtras are the tools default needs on its channels beyond Kanban in
+// this deployment's team shape.
+func channelExtras(id target.Identity) []string {
+	if team.ShapeOf(id.Root) == team.Single {
+		return team.SingleChannelTools
+	}
+	return nil
 }

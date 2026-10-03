@@ -59,6 +59,9 @@ type App struct {
 	// resetProfile names one roster profile install returns to RepoKit's
 	// baseline, and plan previews.
 	resetProfile string
+	// teamShape, when set, is the team shape install records for the
+	// deployment ("single" or "seven"); later installs keep it.
+	teamShape string
 }
 
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -113,6 +116,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		flags.BoolVar(&a.DockerTests, "docker-tests", false, "publish opt-in privileged isolated Docker acceptance service; never the host socket")
 		if args[0] == "install" {
 			flags.BoolVar(&a.noSetup, "no-setup", false, "stop after install even in a terminal; run setup yourself later")
+			flags.StringVar(&a.teamShape, "team", "", "record the team shape: single (default runs and verifies every card itself) or seven (the seven-profile team); later installs keep it")
 		}
 		flags.StringVar(&a.resetProfile, "reset-profile", "", "return one roster profile to RepoKit's baseline SOUL, description and managed configuration; prior files are backed up")
 	}
@@ -135,6 +139,10 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	}
 	if a.resetProfile != "" && !rosterProfile(a.resetProfile) {
 		fmt.Fprintf(stderr, "--reset-profile takes a RepoKit roster profile (%s); owner-created profiles are never reset\n", strings.Join(rosterNames(), ", "))
+		return 2
+	}
+	if a.teamShape != "" && a.teamShape != string(team.Single) && a.teamShape != string(team.Seven) {
+		fmt.Fprintln(stderr, "--team takes single or seven")
 		return 2
 	}
 	if dispatchCheck {
@@ -386,6 +394,7 @@ func usage(w io.Writer) {
 	fmt.Fprintf(w, "%s%s setup [--no-canary] [--team] (--team: recovery without the private wizard)\n", pad, me)
 	fmt.Fprintf(w, "%s%s verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)\n", pad, me)
 	fmt.Fprintf(w, "%s%s <plan|install> [--docker-tests] [--reset-profile <role>]\n", pad, me)
+	fmt.Fprintf(w, "%s%s install --team <single|seven>\n", pad, me)
 	fmt.Fprintf(w, "%s%s start | stop (start or stop the deployment; state is kept)\n", pad, me)
 	fmt.Fprintf(w, "%s%s remove (deletes the deployment and .hermes after typed confirmation)\n", pad, me)
 	fmt.Fprintf(w, "%s%s update [--main] (replace this binary with the latest release, or main) | version\n", pad, me)
