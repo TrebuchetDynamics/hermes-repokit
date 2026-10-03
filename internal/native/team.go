@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -259,6 +260,9 @@ type roleCheck struct {
 	// install upgrades. unrecorded: the current SOUL without a record yet.
 	untouched  bool
 	unrecorded bool
+	// oldDesc: an earlier RepoKit build's description, which install
+	// replaces with the current one.
+	oldDesc bool
 }
 
 // customized reports an owner-changed identity: a SOUL that is neither the
@@ -297,8 +301,9 @@ func classifyRole(run teamCLI, root *os.Root, role team.Role) (roleCheck, error)
 	record := readRecord(root, role.Name)
 	current := matchingSoul(soul, role)
 	untouched := !current && record != "" && team.SoulDigest(soul) == record
-	check := roleCheck{soul: soul, soulManaged: current || untouched, descManaged: desc == role.Description,
-		untouched: untouched, unrecorded: current && record != team.SoulDigest(soul)}
+	oldDesc := slices.Contains(team.PreviousDescriptions, desc)
+	check := roleCheck{soul: soul, soulManaged: current || untouched, descManaged: desc == role.Description || oldDesc,
+		untouched: untouched, unrecorded: current && record != team.SoulDigest(soul), oldDesc: oldDesc}
 	fields := requiredTeamFields(role)
 	if role.Name == "default" {
 		// After activation default carries the complete managed dispatch
@@ -307,8 +312,14 @@ func classifyRole(run teamCLI, root *os.Root, role team.Role) (roleCheck, error)
 		if err != nil {
 			return roleCheck{}, err
 		}
-		if kanban, ok := value.(map[string]any); ok && OperationalPolicy(kanban) {
-			for _, field := range DispatchPolicy() {
+		if kanban, ok := value.(map[string]any); ok && (OperationalPolicy(kanban) || LegacyPolicy(kanban)) {
+			// A seven-profile deployment's policy is RepoKit's too; the
+			// gateway step rewrites its allowlist.
+			policy := DispatchPolicy()
+			if !OperationalPolicy(kanban) {
+				policy = legacyPolicy()
+			}
+			for _, field := range policy {
 				fields["kanban."+field.Key] = field.Value
 			}
 		}
@@ -680,8 +691,14 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 				plan.role(role.Name, "upgrade", []string{"SOUL"})
 				changes += progressMark(role.Name + ": new identity")
 				changes += soulWrite(role.Name, role.Soul)
+				if check.oldDesc {
+					changes += teamCommand("profile", "describe", role.Name, "--text", role.Description)
+				}
 			default:
 				plan.role(role.Name, "current", nil)
+				if check.oldDesc {
+					changes += teamCommand("profile", "describe", role.Name, "--text", role.Description)
+				}
 				if check.unrecorded {
 					// A SOUL identical to RepoKit's current one is RepoKit's;
 					// record it so a later SOUL change upgrades it in place.

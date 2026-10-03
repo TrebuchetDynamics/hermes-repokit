@@ -53,11 +53,18 @@ var LegacyProfiles = []string{"researcher", "planner", "executor", "tester", "re
 // LegacyPolicy reports the managed dispatch policy of a seven-profile RepoKit
 // deployment: RepoKit's own, to be rewritten, not owner drift.
 func LegacyPolicy(kanban map[string]any) bool {
+	return holdsPolicy(kanban, legacyPolicy())
+}
+
+func legacyPolicy() []struct {
+	Key   string
+	Value any
+} {
 	profiles := []any{"default"}
 	for _, name := range LegacyProfiles {
 		profiles = append(profiles, name)
 	}
-	return holdsPolicy(kanban, dispatchPolicy(profiles))
+	return dispatchPolicy(profiles)
 }
 
 // OperationalPolicy reports whether a decoded native `kanban` config section

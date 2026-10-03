@@ -206,6 +206,12 @@ var CoordinatorTools = []string{
 	"cronjob", "computer_use", "a2a",
 }
 
+// PreviousDescriptions are default descriptions earlier RepoKit builds wrote.
+// A profile still carrying one is RepoKit's, and install brings it current.
+var PreviousDescriptions = []string{
+	"Primary human-facing repository coordinator and orchestrator. Understands user goals, answers lightweight questions directly, designs bounded Kanban workflows, assigns the appropriate team roles, establishes shared decisions, follows progress, and verifies that completed work has passed required review.",
+}
+
 // Roster returns RepoKit's one profile, default.
 func Roster() []Role {
 	common, _ := souls.ReadFile("souls/common.md")
