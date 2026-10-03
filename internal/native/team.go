@@ -493,7 +493,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 	if err != nil {
 		return teamPlan{}, err
 	}
-	observe, busy, guarded := false, false, false
+	observe, busy, guarded, operational := false, false, false, false
 	busyRoles := map[string]bool{}
 	if dispatch == true {
 		value, err := configValue(run, "default", "kanban")
@@ -505,7 +505,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 		// are created and a requested reset applies. An owner-changed policy,
 		// or a busy board, is only observed. A seven-profile deployment's
 		// policy is RepoKit's own and counts as operational.
-		operational := OperationalPolicy(kanban) || LegacyPolicy(kanban)
+		operational = OperationalPolicy(kanban) || LegacyPolicy(kanban)
 		if operational {
 			// A profile is rewritten only while it has no running card; the
 			// rest of a busy board keeps working. Default's own card, or an
@@ -547,8 +547,14 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 		if err != nil {
 			return teamPlan{}, err
 		}
-		if channels != "" {
-			plan.Script = bootstrapScript + "\n" + channels
+		// default's card is running, but a retired profile with nothing
+		// running can still go: the script rechecks each one under the lock.
+		retire := ""
+		if operational {
+			retire = retirement(&plan, legacyProfiles(id, root), busyRoles)
+		}
+		if channels != "" || retire != "" {
+			plan.Script = bootstrapScript + "\n" + guard + channels + numberProgress(retire)
 		}
 		return plan, nil
 	}
@@ -741,39 +747,15 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 		}
 		changes += skillsWrite(role)
 	}
-	// Retire the six profiles of a seven-profile RepoKit deployment, once, on
-	// an idle board: reassign their open cards to default, export each to
-	// backups, delete it, and grant default what it now needs.
-	// Only RepoKit's own: a profile of that name holding this repository's
-	// RepoKit SOUL or RepoKit's SOUL record. An owner-made one is left alone.
-	var legacy []string
-	for _, name := range LegacyProfiles {
-		soul, err := readSoul(root, name)
-		if err == nil && (repositorySoul(soul, id) || readRecord(root, name) != "") {
-			legacy = append(legacy, name)
+	// Retire the six profiles of a seven-profile RepoKit deployment: grant
+	// default what it now needs, then retire each one with nothing running.
+	if legacy := legacyProfiles(id, root); len(legacy) > 0 {
+		changes += progressMark("default: grants for doing every card")
+		for key, value := range roles[0].Settings {
+			changes += teamSet("default", key, value)
 		}
-	}
-	retiring := false
-	if len(legacy) > 0 {
-		if busyBoard, err := runningWork(run); err != nil || busyBoard {
-			for _, name := range legacy {
-				plan.role(name, "retire-later", nil)
-			}
-		} else {
-			retiring = true
-			stamp := time.Now().UTC().Format("20060102T150405Z")
-			changes += progressMark("default: grants for doing every card")
-			for key, value := range roles[0].Settings {
-				changes += teamSet("default", key, value)
-			}
-			changes += skillsWrite(roles[0])
-			changes += "install -d -m 700 /opt/data/backups\n"
-			for _, name := range legacy {
-				changes += progressMark("retire " + name)
-				changes += retireScript(name, stamp)
-				plan.role(name, "retired", nil)
-			}
-		}
+		changes += skillsWrite(roles[0])
+		changes += retirement(&plan, legacy, busyRoles)
 	}
 	if readOMH(root) != development.OMHVersion {
 		changes += progressMark("default: oh-my-hermes " + development.OMHVersion)
@@ -787,9 +769,6 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 	}
 	if guarded {
 		guard += runningGuard(plan.Roles, busyRoles)
-	}
-	if retiring {
-		guard += idleGuard
 	}
 	plan.Script = bootstrapScript + "\n" + guard + numberProgress(changes)
 	plan.Script += teamCommand("profile", "list")
@@ -984,6 +963,39 @@ func numberProgress(script string) string {
 // defaultChannelExtras are what default needs on every human channel beyond
 // Kanban: memory for the owner's decisions and delegation for subagents.
 var defaultChannelExtras = []string{"memory", "delegation"}
+
+// legacyProfiles names the six retired roles still present as RepoKit's own:
+// a profile of that name holding this repository's RepoKit SOUL or RepoKit's
+// SOUL record. An owner-made one is left alone.
+func legacyProfiles(id target.Identity, root *os.Root) []string {
+	var legacy []string
+	for _, name := range LegacyProfiles {
+		soul, err := readSoul(root, name)
+		if err == nil && (repositorySoul(soul, id) || readRecord(root, name) != "") {
+			legacy = append(legacy, name)
+		}
+	}
+	return legacy
+}
+
+// retirement plans retiring each legacy profile with no running card; one
+// whose worker runs waits for a later install.
+func retirement(plan *teamPlan, legacy []string, busy map[string]bool) string {
+	script := ""
+	stamp := time.Now().UTC().Format("20060102T150405Z")
+	for _, name := range legacy {
+		if busy[name] {
+			plan.role(name, "retire-later", nil)
+			continue
+		}
+		if script == "" {
+			script = "install -d -m 700 /opt/data/backups\n"
+		}
+		script += progressMark("retire "+name) + retireScript(name, stamp)
+		plan.role(name, "retired", nil)
+	}
+	return script
+}
 
 // retireScript retires one legacy profile under the lock, against the board
 // as it is then: it refuses if the profile has a running card (the gateway
