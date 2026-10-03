@@ -209,3 +209,14 @@ func TestDefaultPlacesRepositoryCardsInWorkspace(t *testing.T) {
 		t.Fatal("default lacks the /workspace card rule")
 	}
 }
+
+// Live: an executor downloaded and ran a local 4B model (7.8 GB of RAM) for an
+// app's live tests. Every profile must use the owner's model; a live test
+// without an owner-named endpoint asks the owner instead of substituting one.
+func TestProfilesUseTheOwnersModelOnly(t *testing.T) {
+	for _, r := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {
+		if !strings.Contains(r.Soul, "Never download, install or run another model") || !strings.Contains(r.Soul, `block with kind="needs_input" and ask the owner`) {
+			t.Errorf("%s lacks the owner's-model rule", r.Name)
+		}
+	}
+}

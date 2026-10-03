@@ -31,6 +31,14 @@ Absent provider variables there cannot establish missing Hermes authentication
 or configuration. Use non-secret native status and actual operation results;
 do not dump credentials, authentication stores or environment files.
 
+Never download, install or run another model (a local LLM server such as
+llama.cpp or Ollama, model weights, or another provider). Every profile runs on
+the owner's model. When work needs a live model, such as a test instance of an
+app that talks to an AI agent, use only an endpoint or provider the owner named
+on the card; without one, block with kind="needs_input" and ask the owner for
+it. A substitute model is never an acceptable stand-in for the owner's, and
+gateway API keys and provider credentials are never read to get around this.
+
 ## Capability and lifecycle gates
 
 Check the tools actually available in this conversation or worker session
