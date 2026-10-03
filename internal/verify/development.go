@@ -85,7 +85,7 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 			tool.name == "rustc" && !strings.HasPrefix(version, "rustc "+development.RustVersion+" ") ||
 			tool.name == "flutter" && version != "Flutter "+development.FlutterVersion ||
 			tool.name == "godot" && !strings.HasPrefix(version, newestGodot(req.Godot)+".stable.official.") ||
-			tool.name == "godot-templates" && version != godotTemplateDirs(req.Godot) ||
+			tool.name == "godot-templates" && !sameFields(version, godotTemplateDirs(req.Godot)) ||
 			tool.name == "java" && version != strings.SplitN(development.JDKVersion, "+", 2)[0] ||
 			tool.name == "android-build-tools" && version != development.AndroidBuildTools {
 			status = Degraded
@@ -178,4 +178,13 @@ func godotTemplateDirs(minor string) string {
 		dirs = append(dirs, v+".stable")
 	}
 	return strings.Join(dirs, " ")
+}
+
+// sameFields reports whether two space-separated listings name the same
+// entries, whatever order ls printed them in.
+func sameFields(a, b string) bool {
+	x, y := strings.Fields(a), strings.Fields(b)
+	sort.Strings(x)
+	sort.Strings(y)
+	return slices.Equal(x, y)
 }

@@ -114,3 +114,13 @@ func TestRuntimeMountsRequireTheExactToolchainVolume(t *testing.T) {
 		}
 	}
 }
+
+// ls lists 4.5.stable after 4.5.2.stable; the installed set is what counts.
+func TestGodotTemplateListingIgnoresOrder(t *testing.T) {
+	if want := godotTemplateDirs("4.5"); want != "4.5.stable 4.5.1.stable 4.5.2.stable" || !sameFields("4.5.1.stable 4.5.2.stable 4.5.stable", want) {
+		t.Fatalf("listing %q", want)
+	}
+	if sameFields("4.5.1.stable 4.5.2.stable", godotTemplateDirs("4.5")) {
+		t.Fatal("a missing patch's templates passed")
+	}
+}
