@@ -119,6 +119,7 @@ func (a App) remove(id target.Identity, stdout, stderr io.Writer) int {
 	}
 	lock.Close()
 	os.Remove(filepath.Join(id.Root, ".hermes-repokit.lock"))
+	forgetDeployment(id.Root)
 	fmt.Fprintf(stdout, "RepoKit deployment removed. Run %s install to start over.\n", self())
 	return 0
 }

@@ -75,6 +75,15 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "repokit "+Version)
 		return 0
 	}
+	if len(args) >= 1 && args[0] == "list" {
+		switch {
+		case len(args) == 1:
+			return a.listDeployments(false, stdout, stderr)
+		case len(args) == 2 && args[1] == "--json":
+			return a.listDeployments(true, stdout, stderr)
+		}
+		return usageError(stderr)
+	}
 	if len(args) >= 1 && args[0] == "update" {
 		switch {
 		case len(args) == 1:
@@ -181,7 +190,9 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			}
 			return 0
 		}
-		return a.install(id, report, stdout, stderr)
+		code := a.install(id, report, stdout, stderr)
+		a.recordInstall(id, report, code)
+		return code
 	}
 	return 2
 }
@@ -372,6 +383,7 @@ func usage(w io.Writer) {
 	fmt.Fprintf(w, "%s%s start | stop (start or stop the deployment; state is kept)\n", pad, me)
 	fmt.Fprintf(w, "%s%s remove (deletes the deployment and .hermes after typed confirmation)\n", pad, me)
 	fmt.Fprintf(w, "%s%s update [--main] (replace this binary with the latest release, or main) | version\n", pad, me)
+	fmt.Fprintf(w, "%s%s list [--json] (every repository RepoKit installed into on this machine, with live state)\n", pad, me)
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }
 

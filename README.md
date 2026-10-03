@@ -130,6 +130,7 @@ repokit verify     # check whether the core environment is ready
 repokit stop       # stop it; keep all state
 repokit start      # start it again
 repokit update     # replace this binary with the latest release (--main: latest main)
+repokit list       # every repository RepoKit installed into here, with live state (--json)
 ```
 
 `verify` is an observational readiness check; it does not send a test task.
