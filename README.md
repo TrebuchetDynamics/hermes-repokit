@@ -105,8 +105,8 @@ yourself is kept.
 ## oh-my-hermes
 
 Every image ships [oh-my-hermes](https://github.com/rlaope/oh-my-hermes) (OMH)
-3.0.0, pinned by checksum. Install runs OMH's own setup for `default` once per
-OMH version:
+3.0.0, pinned by checksum. Install runs OMH's own setup for `default` once, and
+again only when RepoKit's OMH setup changes:
 
 - its core workflow skills, planner, handoff-guide, tracker and guide (about
   3.5k tokens of context per request; the full set adds about 50k);
