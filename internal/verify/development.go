@@ -37,7 +37,7 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		{"node", "node --version"}, {"npm", "npm --version"}, {"make", "make --version"},
 		{"gcc", "gcc --version"}, {"g++", "g++ --version"}, {"docker", "docker --version"},
 		{"compose", "docker compose version --short"}, {"buildx", "docker buildx version"},
-		{"shellcheck", "shellcheck --version | grep -F version:"},
+		{"shellcheck", "shellcheck --version | grep -F version:"}, {"gh", "gh --version | head -1"},
 		{"browser-use", "browser-use --version"}, {"chromium", "\"$AGENT_BROWSER_EXECUTABLE_PATH\" --version"},
 	}
 	if req.Go {
@@ -80,6 +80,7 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 			status, version = Degraded, "unavailable"
 		} else if tool.name == "compose" && strings.TrimPrefix(version, "v") != development.ComposeVersion ||
 			tool.name == "buildx" && !containsVersionToken(version, "v"+development.BuildxVersion) ||
+			tool.name == "gh" && !strings.HasPrefix(version, "gh version "+development.GHVersion+" ") ||
 			tool.name == "go" && !strings.HasPrefix(version, "go version go"+development.GoVersion+" ") ||
 			tool.name == "staticcheck" && !strings.HasPrefix(version, "staticcheck "+development.StaticcheckVersion+" ") ||
 			tool.name == "rustc" && !strings.HasPrefix(version, "rustc "+development.RustVersion+" ") ||
@@ -95,6 +96,7 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		}
 		result = append(result, Probe{"development:" + tool.name, status, version})
 	}
+	result = append(result, githubPush(ctx, dc, container, r))
 	if len(missing) > 0 {
 		sort.Strings(missing)
 		result[0] = Probe{"development_environment", Degraded, strings.Join(missing, "; ")}
@@ -102,6 +104,16 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		result[0] = Probe{"development_environment", Unqualified, "required tools resolve by name in a worker-style login shell; live coding behavior is proved by reviewed work"}
 	}
 	return append(result, dockerAcceptance(ctx, id, r))
+}
+
+// githubPush reports whether agents can push to GitHub: gh signed in by the
+// owner through `repokit github-login`. Optional, like any remote credential.
+func githubPush(ctx context.Context, dc, container string, r Runner) Probe {
+	out := r.Run(ctx, "docker", "--context", dc, "exec", "--user", "hermes", "--workdir", "/workspace", container, "/usr/bin/bash", "-lc", "gh auth status --hostname github.com >/dev/null 2>&1 && echo signed-in")
+	if out.Err == nil && strings.TrimSpace(out.Output) == "signed-in" {
+		return Probe{"github_push", Healthy, "gh is signed in to github.com; agents push over HTTPS"}
+	}
+	return Probe{"github_push", Inactive, "not signed in; agents hand you pushes. Run repokit github-login to let them push"}
 }
 
 func dockerAcceptance(ctx context.Context, id target.Identity, r Runner) Probe {

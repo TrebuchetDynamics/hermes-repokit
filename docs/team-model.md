@@ -230,7 +230,9 @@ granted toolset or skill is not drift and RepoKit never re-adds it.
 Skills come from the official Nous Research catalog only (`official/<category>/<name>`),
 chosen because they need no API key or paid service. The development image
 ships the binaries two of them rely on (`ast-grep`/`sg`, pinned by checksum, and
-`ddgs`), along with `shellcheck` for the shell scripts agents write, the
+`ddgs`), along with `shellcheck` for the shell scripts agents write, the GitHub CLI
+`gh` (pinned by checksum; agents push through the login the owner gives it
+with `repokit github-login`), the
 `browser-use` CLI behind Hermes's browser tool (pinned by hash and pointed at the
 base image's headless Chromium, since Hermes cannot install it lazily there),
 `edge-tts`, `ddgs` and `faster-whisper` added to Hermes's own environment by

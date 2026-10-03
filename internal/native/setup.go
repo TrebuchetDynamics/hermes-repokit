@@ -61,3 +61,24 @@ func runTerminal(cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	return 1
 }
+
+// GitHubLogin runs gh's own interactive sign-in inside the deployment, in the
+// owner's terminal, so agents can push over HTTPS. gh stores the login under
+// /opt/data/gh; RepoKit never sees the token.
+func GitHubLogin(compose, dockerContext string, stdin io.Reader, stdout, stderr io.Writer) int {
+	cmd := exec.Command("docker", "--context", dockerContext, "compose", "--env-file", "/dev/null", "-f", compose,
+		"exec", "--user", "hermes", "--env", "HOME=/opt/data", "hermes",
+		"gh", "auth", "login", "--hostname", "github.com", "--git-protocol", "https")
+	cmd.Env = cleanComposeEnv(os.Environ())
+	return runTerminal(cmd, stdin, stdout, stderr)
+}
+
+func cleanComposeEnv(env []string) []string {
+	out := make([]string, 0, len(env))
+	for _, v := range env {
+		if len(v) < 8 || v[:8] != "COMPOSE_" {
+			out = append(out, v)
+		}
+	}
+	return out
+}

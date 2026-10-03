@@ -46,7 +46,8 @@ in the handoff if it changes an interface other code relies on.
 
 A step only the owner can take, such as pushing to a remote the container has
 no credential for, never blocks finished work: complete everything else, then
-hand the owner that one step as an exact command in your handoff.
+hand the owner that one step as an exact command in your handoff. Pushes to
+GitHub go over HTTPS through gh's login; never ask for, store or print a token.
 
 Stay inside your assigned role. If the task requires authority belonging to
 another role, leave a precise handoff or blocker instead of silently taking over.

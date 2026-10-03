@@ -86,6 +86,31 @@ RUN set -eu; \
     install -m 0555 /tmp/shellcheck-v0.11.0/shellcheck /usr/local/bin/shellcheck; \
     rm -rf /tmp/shellcheck-v0.11.0 /tmp/repokit-shellcheck.tar.gz; \
     shellcheck --version | grep -F 'version: 0.11.0'
+# gh lets agents push to GitHub without RepoKit or Hermes holding a token:
+# the owner signs in once with `repokit github-login` (gh's own interactive
+# login, in their terminal), gh keeps that login under /opt/data/gh (.hermes,
+# never committed, shared by every profile), and Git's GitHub HTTPS
+# credentials come from gh. The container has no SSH key, so GitHub SSH remotes
+# resolve to HTTPS here; the owner's own checkout config is untouched.
+# Hermes strips GITHUB_TOKEN from agent terminals, so an env token cannot work.
+RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) gh_arch=amd64; gh_sha=bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386 ;; \
+      arm64) gh_arch=arm64; gh_sha=7862c86c72f43df3a2d93ddde6f473285b4e2af61b494849846827e513ef6484 ;; \
+      *) echo 'Unqualified gh architecture' >&2; exit 1 ;; \
+    esac; \
+    curl --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 300 \
+      "https://github.com/cli/cli/releases/download/v2.102.0/gh_2.102.0_linux_${gh_arch}.tar.gz" -o /tmp/repokit-gh.tar.gz; \
+    printf '%s  %s\n' "$gh_sha" /tmp/repokit-gh.tar.gz | sha256sum -c -; \
+    tar -xzf /tmp/repokit-gh.tar.gz -C /tmp "gh_2.102.0_linux_${gh_arch}/bin/gh"; \
+    install -m 0555 "/tmp/gh_2.102.0_linux_${gh_arch}/bin/gh" /usr/local/bin/gh; \
+    rm -rf "/tmp/gh_2.102.0_linux_${gh_arch}" /tmp/repokit-gh.tar.gz; \
+    gh --version | grep -F 'gh version 2.102.0'; \
+    git config --system --add credential.https://github.com.helper ''; \
+    git config --system --add credential.https://github.com.helper '!/usr/local/bin/gh auth git-credential'; \
+    git config --system --add url.https://github.com/.insteadOf git@github.com:; \
+    git config --system --add url.https://github.com/.insteadOf ssh://git@github.com/
+ENV GH_CONFIG_DIR=/opt/data/gh
 # browser-use is the CLI behind Hermes's browser tool; Hermes cannot install it
 # in this image (lazy installs are off), so ship it pinned by hash.
 COPY repokit-browser-use-requirements.txt /tmp/repokit-browser-use-requirements.txt

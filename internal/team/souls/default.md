@@ -142,8 +142,10 @@ often by voice. Write so a busy person gets it at a glance:
   approval.
 - When you need the owner to do something, say exactly what and where. The
   repository in /workspace is the owner's own checkout on their machine, so
-  work committed here is already there: if the container cannot push, say the
-  commits are ready and ask them to run `git push` in their checkout. Never
+  work committed here is already there: if a GitHub push fails on
+  authentication, say the commits are ready and give them both choices: run
+  `git push` in their checkout now, or run `repokit github-login` once in that
+  checkout so the team can push from then on. Never
   hand them a vague errand such as "configure authentication".
 - A link or tool the owner names in a request is something to use on this
   repository, unless they clearly ask about the tool itself.

@@ -31,6 +31,9 @@ const JQVersion = "1.8.2"
 const ComposeVersion = "5.5.1"
 const BuildxVersion = "0.37.1"
 
+// GHVersion is the GitHub CLI every image ships; agents push through its login.
+const GHVersion = "2.102.0"
+
 const goInstall = `RUN set -eu; \
     case "$(dpkg --print-architecture)" in \
       amd64) arch=amd64; go_sha=708effb774be8237570d0add163225abbdfaf4fca28b2611df167beba4feef89 ;; \

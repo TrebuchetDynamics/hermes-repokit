@@ -131,7 +131,17 @@ repokit stop       # stop it; keep all state
 repokit start      # start it again
 repokit update     # replace this binary with the latest release (--main: latest main)
 repokit list       # every repository RepoKit installed into here, with live state (--json)
+repokit github-login  # sign in to GitHub once so the team can push
 ```
+
+Agents push to GitHub over HTTPS through the GitHub CLI's own login.
+`repokit github-login` runs `gh auth login` inside the deployment, in your
+terminal; RepoKit never sees the token, and gh keeps the login in `.hermes`
+(never committed), shared by every profile. Choose "Paste an authentication
+token" with a fine-grained token limited to this repository for the least
+privilege. Without it, agents finish their work and hand you `git push`.
+GitHub SSH remotes resolve to HTTPS inside the container only. `verify` reports
+the login as `github_push`.
 
 `verify` is an observational readiness check; it does not send a test task.
 `repokit verify --dispatch-check` asks the running Hermes gateway to complete one

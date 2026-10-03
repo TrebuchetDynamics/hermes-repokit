@@ -23,7 +23,7 @@ import (
 	"time"
 )
 
-var commands = [...]string{"plan", "install", "setup", "verify", "start", "stop", "remove"}
+var commands = [...]string{"plan", "install", "setup", "verify", "start", "stop", "remove", "github-login"}
 
 func Commands() []string { return append([]string(nil), commands[:]...) }
 
@@ -50,6 +50,8 @@ type App struct {
 	// update in tests.
 	Fetch        func(url string) ([]byte, error)
 	RunInstaller func(script []byte, ref string, stdout, stderr io.Writer) error
+	// GitHubLogin replaces gh's interactive sign-in in tests.
+	GitHubLogin func(compose, dockerContext string, stdin io.Reader, stdout, stderr io.Writer) int
 	// Canary replaces the setup canary card in tests.
 	Canary func(id target.Identity, dockerContext string) (string, error)
 	// resetProfile names one roster profile install returns to RepoKit's
@@ -170,6 +172,8 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		return 0
+	case "github-login":
+		return a.githubLogin(id, stdout, stderr)
 	case "start":
 		return a.start(id, stdout, stderr)
 	case "stop":
@@ -384,6 +388,7 @@ func usage(w io.Writer) {
 	fmt.Fprintf(w, "%s%s remove (deletes the deployment and .hermes after typed confirmation)\n", pad, me)
 	fmt.Fprintf(w, "%s%s update [--main] (replace this binary with the latest release, or main) | version\n", pad, me)
 	fmt.Fprintf(w, "%s%s list [--json] (every repository RepoKit installed into on this machine, with live state)\n", pad, me)
+	fmt.Fprintf(w, "%s%s github-login (sign in to GitHub inside the deployment so agents can push; gh's own login)\n", pad, me)
 }
 func usageError(w io.Writer) int { fmt.Fprintln(w, "usage error"); usage(w); return 2 }
 

@@ -34,7 +34,7 @@ func TestHelpListsOnlyInstallerCommands(t *testing.T) {
 
 func TestCommandsReturnsIndependentNames(t *testing.T) {
 	first := Commands()
-	if got, want := strings.Join(first, ","), "plan,install,setup,verify,start,stop,remove"; got != want {
+	if got, want := strings.Join(first, ","), "plan,install,setup,verify,start,stop,remove,github-login"; got != want {
 		t.Fatalf("commands = %q, want %q", got, want)
 	}
 	first[0] = "changed"

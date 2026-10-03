@@ -124,3 +124,21 @@ func TestGodotTemplateListingIgnoresOrder(t *testing.T) {
 		t.Fatal("a missing patch's templates passed")
 	}
 }
+
+type ghRunner string
+
+func (r ghRunner) Run(context.Context, string, ...string) process.Result {
+	return process.Result{Output: string(r)}
+}
+
+// github_push is healthy only when gh reports a github.com login, and
+// otherwise points the owner at github-login without failing core readiness.
+func TestGitHubPushReportsGhLogin(t *testing.T) {
+	if p := githubPush(context.Background(), "ctx", "c", ghRunner("signed-in\n")); p.Status != Healthy {
+		t.Fatalf("signed-in gh not healthy: %+v", p)
+	}
+	p := githubPush(context.Background(), "ctx", "c", ghRunner(""))
+	if p.Status != Inactive || !strings.Contains(p.Detail, "repokit github-login") {
+		t.Fatalf("signed-out gh: %+v", p)
+	}
+}
