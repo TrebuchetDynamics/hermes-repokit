@@ -111,6 +111,20 @@ RUN set -eu; \
     git config --system --add url.https://github.com/.insteadOf git@github.com:; \
     git config --system --add url.https://github.com/.insteadOf ssh://git@github.com/
 ENV GH_CONFIG_DIR=/opt/data/gh
+# oh-my-hermes (OMH): a Hermes plugin with workflow skills and a memory
+# provider. The release wheel (no dependencies) is pinned by checksum and
+# installed in its own environment; install runs `omh setup` once per OMH
+# version against .hermes, where the plugin lives.
+RUN set -eu; \
+    curl --fail --show-error --silent --location --retry 3 --connect-timeout 15 --max-time 300 \
+      "https://github.com/rlaope/oh-my-hermes/releases/download/v3.0.0/oh_my_hermes-3.0.0-py3-none-any.whl" -o /tmp/oh_my_hermes-3.0.0-py3-none-any.whl; \
+    printf '%s  %s\n' 6a05f40a89d4c35927855c4e477099097656c878027efc753a598202e6d1974f /tmp/oh_my_hermes-3.0.0-py3-none-any.whl | sha256sum -c -; \
+    python3 -m venv /opt/omh; \
+    printf '%s\n' 'oh-my-hermes @ file:///tmp/oh_my_hermes-3.0.0-py3-none-any.whl --hash=sha256:6a05f40a89d4c35927855c4e477099097656c878027efc753a598202e6d1974f' > /tmp/repokit-omh.txt; \
+    /opt/omh/bin/pip install --disable-pip-version-check --no-cache-dir --no-index --no-deps --require-hashes -q -r /tmp/repokit-omh.txt; \
+    rm /tmp/oh_my_hermes-3.0.0-py3-none-any.whl /tmp/repokit-omh.txt; \
+    ln -s /opt/omh/bin/omh /usr/local/bin/omh; \
+    omh --version | grep -F 'omh 3.0.0'
 # browser-use is the CLI behind Hermes's browser tool; Hermes cannot install it
 # in this image (lazy installs are off), so ship it pinned by hash.
 COPY repokit-browser-use-requirements.txt /tmp/repokit-browser-use-requirements.txt

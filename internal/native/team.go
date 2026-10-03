@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
@@ -774,6 +775,10 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 			}
 		}
 	}
+	if readOMH(root) != development.OMHVersion {
+		changes += progressMark("default: oh-my-hermes " + development.OMHVersion)
+		changes += omhWrite()
+	}
 	if len(plan.Drift) > 0 {
 		// Missing managed configuration means the roster can no longer be
 		// proved. Preserve all state and let the owner inspect it first.
@@ -1001,4 +1006,29 @@ func retireScript(name, stamp string) string {
 		// fails while the running gateway holds it; the gateway step purges
 		// again after its restart. A removed profile is retired.
 		"hermes 'profile' 'delete' '-y' " + q + " >/dev/null 2>&1 || [ ! -e " + shellQuote("/opt/data/profiles/"+name) + " ]\n"
+}
+
+// omhRecord names the file recording the oh-my-hermes version whose setup
+// install last ran; setup runs once per version, so an owner who changes or
+// disables OMH afterwards keeps that choice until the next OMH release.
+const omhRecord = ".repokit-omh"
+
+func readOMH(root *os.Root) string {
+	data, err := root.ReadFile(".hermes/" + omhRecord)
+	if err != nil || len(data) > 32 {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
+}
+
+// omhWrite runs OMH's own setup for default: the lightweight core skills
+// (the full set adds about 50k tokens to every request), Hermes as the coding
+// executor so cards never stop to ask, and no OMH TUI or menubar. Its gateway
+// restarts to load the plugin only while no card runs; otherwise OMH loads at
+// the next restart.
+func omhWrite() string {
+	return "if command -v omh >/dev/null 2>&1 && (cd /opt/data && omh setup --yes --no-interactive --no-omh-tui --no-menubar --core --default-executor hermes >/opt/data/.repokit-omh.log 2>&1); then\n" +
+		"  printf '%s\\n' " + shellQuote(development.OMHVersion) + " > /opt/data/" + omhRecord + "\n" +
+		"  if hermes -p default gateway status 2>/dev/null | grep -q 'Gateway is running' && ! hermes -p default kanban stats --json | grep -Eq '\"running\": *[1-9]'; then hermes -p default gateway restart >/dev/null 2>&1 || true; fi\n" +
+		"else\n  echo 'oh-my-hermes setup did not finish; see .hermes/.repokit-omh.log' >&2\nfi\n"
 }

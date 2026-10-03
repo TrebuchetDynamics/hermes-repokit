@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/TrebuchetDynamics/hermes-repokit/internal/development"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
@@ -489,5 +490,31 @@ func TestCoordinatorToolsAreGrantedOnResetOnly(t *testing.T) {
 	plan, err = teamScript(id, false, "", sectioned(run), root)
 	if err != nil || strings.Contains(plan.Script, "'tools' 'enable' 'web'") {
 		t.Fatalf("an ordinary run re-granted default's toolset: %v\n%s", err, plan.Script)
+	}
+}
+
+// oh-my-hermes setup runs once per OMH version: a deployment already recorded
+// at the current version keeps whatever the owner did with OMH since.
+func TestTeamRunsOMHSetupOncePerVersion(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, ".hermes"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	id := target.Identity{Project: "repo-123", Name: "atlas"}
+	plan, err := teamScript(id, true, "", sectioned(fakeTeamConfig), root)
+	if err != nil || !strings.Contains(plan.Script, "omh setup --yes --no-interactive --no-omh-tui --no-menubar --core --default-executor hermes") {
+		t.Fatalf("first install did not set up OMH: err=%v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".hermes", omhRecord), []byte(development.OMHVersion+"\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	plan, err = teamScript(id, true, "", sectioned(fakeTeamConfig), root)
+	if err != nil || strings.Contains(plan.Script, "omh setup") {
+		t.Fatalf("recorded OMH set up again: err=%v", err)
 	}
 }

@@ -114,6 +114,22 @@ Telegram task delivery or end-to-end remote coding is qualified today.
 RepoKit turns on Hermes's built-in memory tool for default; it configures no
 memory provider and does not verify recall.
 
+## oh-my-hermes
+
+Every image ships [oh-my-hermes](https://github.com/rlaope/oh-my-hermes) (OMH)
+3.0.0, pinned by checksum. Install runs OMH's own setup for `default` once per
+OMH version:
+
+- its core workflow skills (about 3.5k tokens of context per request; the full
+  set adds about 50k);
+- Hermes as the coding executor, so cards never stop to ask which one to use;
+- its Hermes plugin and memory provider.
+
+The gateway restarts to load the plugin only while no card runs. RepoKit records
+the version in `.hermes/.repokit-omh` and leaves OMH alone after that, so your
+own changes stay until the next OMH release. Run `omh setup --full` inside the
+container for every OMH workflow, or `omh doctor` to check it.
+
 ## Everyday commands
 
 ```sh

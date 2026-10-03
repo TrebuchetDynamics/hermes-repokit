@@ -157,7 +157,7 @@ plugin stay optional Hermes configuration for the owner.
 The development image ships the binaries those skills and tools rely on:
 `ast-grep`/`sg` (pinned by checksum), `ddgs`, `shellcheck`, the GitHub CLI
 `gh` (pinned by checksum; agents push through the login the owner gives it
-with `repokit github-login`), the `browser-use` CLI behind Hermes's browser
+with `repokit github-login`), oh-my-hermes (OMH, below), the `browser-use` CLI behind Hermes's browser
 tool (pinned by hash and pointed at the base image's headless Chromium),
 `edge-tts`, `ddgs` and `faster-whisper` in Hermes's own environment by hash
 (text to speech, DuckDuckGo search, and local speech to text whose ~145 MB

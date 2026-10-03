@@ -37,7 +37,7 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		{"node", "node --version"}, {"npm", "npm --version"}, {"make", "make --version"},
 		{"gcc", "gcc --version"}, {"g++", "g++ --version"}, {"docker", "docker --version"},
 		{"compose", "docker compose version --short"}, {"buildx", "docker buildx version"},
-		{"shellcheck", "shellcheck --version | grep -F version:"}, {"gh", "gh --version | head -1"},
+		{"shellcheck", "shellcheck --version | grep -F version:"}, {"gh", "gh --version | head -1"}, {"omh", "omh --version"},
 		{"browser-use", "browser-use --version"}, {"chromium", "\"$AGENT_BROWSER_EXECUTABLE_PATH\" --version"},
 	}
 	if req.Go {
@@ -81,6 +81,7 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 		} else if tool.name == "compose" && strings.TrimPrefix(version, "v") != development.ComposeVersion ||
 			tool.name == "buildx" && !containsVersionToken(version, "v"+development.BuildxVersion) ||
 			tool.name == "gh" && !strings.HasPrefix(version, "gh version "+development.GHVersion+" ") ||
+			tool.name == "omh" && !strings.HasPrefix(version, "omh "+development.OMHVersion) ||
 			tool.name == "go" && !strings.HasPrefix(version, "go version go"+development.GoVersion+" ") ||
 			tool.name == "staticcheck" && !strings.HasPrefix(version, "staticcheck "+development.StaticcheckVersion+" ") ||
 			tool.name == "rustc" && !strings.HasPrefix(version, "rustc "+development.RustVersion+" ") ||
