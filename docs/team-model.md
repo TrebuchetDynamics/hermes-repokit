@@ -1,408 +1,377 @@
-# Universal repository team
+# Repository team
 
-RepoKit scaffolds a small repository organization, not a collection of
-technology-specific bots. Its seven permanent identities are defined in
-[the roster](../internal/team/team.go) and [SOUL contracts](../internal/team/souls/).
+RepoKit installs one Hermes profile per repository, `default`, and it is the
+whole team. Its identity is defined in [the profile definition](../internal/team/team.go)
+and [SOUL contracts](../internal/team/souls/): the shared contract
+(`common.md`), the one-profile role (`single.md`) and the owner-conversation
+rules (`owner.md`), after a runtime contract and a repository identity header.
 
-| Profile | Responsibility |
-| --- | --- |
-| default | Primary user-facing assistant, coordinator, orchestrator and decision owner |
-| researcher | Resolve unknowns and gather evidence |
-| planner | Define a bounded execution contract |
-| executor | Produce the requested artifact or change |
-| tester | Prove the change's behavior without modifying the repository |
-| reviewer | Decide whether the verified change is accepted |
-| steward | Maintain profile identities and capabilities |
+Repository artifacts can be code, books, datasets, experiments, designs,
+infrastructure or mixed work. The bare standalone launcher selects `default`;
+explicit native arguments still pass through.
 
-Normally the user talks to `default`. It answers lightweight questions and
-handles discussion directly. It uses Kanban for bounded work when useful,
-without requiring ceremonial research/planning stages. Repository artifacts
-can be code, books, datasets, experiments, designs, infrastructure or mixed work.
-The bare standalone launcher explicitly selects `default`; explicit native
-arguments still pass through, including `-p steward` for deliberate direct use.
+## The profile and what it does
 
-The permanent profile answers **who is responsible**. The repository context,
-card, acceptance criteria and task skills answer **what expertise is required**
-and **what success means**. Default owns project priorities and orchestration;
-steward owns team changes and reports back to default.
+`default` talks with the owner, researches, plans, implements and verifies.
+It works in three kinds of session, and each starts fresh:
 
-## Single-profile shape (trial)
+- the owner's conversation, where it answers, inspects, decides and
+  coordinates;
+- an implementation run, when Kanban dispatches a card to it;
+- a verification run, when Kanban dispatches one of its cards for review.
 
-`repokit install --team single` records, in `.hermes/repokit-team`, that this
-deployment runs as one working profile; later installs keep it, and
-`--team seven` returns to the seven-profile team. `default` then does every
-card itself, in three kinds of fresh session:
+The card, its handoffs, the repository and memory are all a session knows of
+the others, so handoffs are written for a fresh session.
 
-- the owner's conversation, where it talks, decides and coordinates, and
-  researches through Hermes subagents (`delegate_task`, in the background,
-  never for repository changes that must survive a restart);
-- an implementation run of a card assigned to `default`, which requests
-  same-card review with `reviewer="default"`;
-- a separate verification run, which tries to break the change and either
-  completes the card or requests changes. The implementing run never
-  completes its own card.
+There is no roster of roles. Specialization comes from skills: a
+card-specific or project skill is how `default` takes on translation,
+security review, research or another specialty. Creating, retiring or
+changing profiles is the owner's decision; `default` asks first. RepoKit adds
+no runtime profile registry, and owner-created profiles are left untouched.
 
-Memory is on for `default` (RepoKit enables `memory` and `delegation` on every
-human channel that lists its tools without them), and holds the owner's
-decisions and preferences, never task status. The other six profiles stay
-installed but idle; `default` reassigns any open card still assigned to them.
-`verify` accepts a default-completed card that followed a separate default
-review request as independent review, and keeps counting the seven-profile
-history until the first such card lands. Its [SOUL](../internal/team/souls/single.md)
-replaces `default.md`; the conversation rules in `owner.md` are shared.
+## Work flow
 
-The trial runs on hermes-wing and is judged against its seven-profile history:
-the rate at which verification requests changes, minutes and tokens per card,
-and blocks.
+**Conversation.** `default` answers questions and inspects the repository
+itself. A small edit the owner asked for it may make and verify directly.
+Research, comparisons and plans go to subagents through `delegate_task`, in
+the background, each with a brief: objective, output format and size cap
+(a page at most), allowed tools, and what it must not touch. Subagents never
+change the repository, and they stop when the gateway restarts, an install
+runs, or the owner sends `/new` or `/stop`. Their summaries are self-reports;
+`default` checks the evidence that matters before relying on it.
 
-## Team evolution
+**Cards.** Every repository change beyond a small owner-asked edit is a card
+assigned to `default`, with `workspace_kind: dir` and
+`workspace_path: /workspace`. One card runs at a time: one writer on one
+checkout.
 
-Skills first: an existing profile plus a card-specific skill is preferred for
-one-off translation, security review, research or another specialization.
-Steward creates a persistent specialist only for recurring work, a distinct
-identity, model/provider or capability boundary, long-lived skills, independent
-responsibility, or an explicit request for a dedicated role.
+**Implementation run.** Test-first: a behavior change starts with a test that
+fails; a bug fix starts with a test that reproduces the bug
+(documentation-only and configuration-only changes are exempt and say so).
+Evidence is command output. Decisions and rejected approaches are recorded on
+the card. When the change is ready the run calls `kanban_request_review` with
+`reviewer="default"`. It never completes its own card.
 
-Steward uses native Hermes profile inventory, creation, description, export,
-distribution updates and deletion. RepoKit adds no runtime profile registry.
-New specialists use the qualified native config clone, replace inherited SOUL,
-clear only newly copied curated memories, and receive their own description.
-Native cloning preserves the supported provider/model baseline; RepoKit does
-not manually copy authentication stores or use `--clone-all`/`--clone-channels`.
-Provider mechanisms outside native config cloning require native verification;
-a copied `.env` fixture is not proof of every OAuth/provider path.
+**Verification run.** A separate, fresh session of `default`. It sees the
+card, its handoffs, the change and the repository, never the implementing
+run's reasoning, and tries to break the change. The rubric, in order:
 
-Retirement is the default: stop new assignments in coordination with default,
-mark routing metadata retired, and preserve history. Deletion requires explicit
-user authorization for the specific profile, inspection, appropriate backup,
-and confirmation that no active task depends on it. Never delete `default`.
-These rules live in [steward's SOUL](../internal/team/souls/steward.md).
+1. Every acceptance criterion is met, shown by commands it ran and their
+   output. A claim without output is unverified.
+2. No test was deleted, weakened, skipped or special-cased to pass.
+3. Nothing outside the card's scope changed.
+4. New probes of its own (edge cases, error paths, the end-to-end path) find
+   no regression.
 
-## Provisioning and ownership
+Only correctness and requirement gaps block; style is advisory. A risky change
+(concurrency, auth or security, data migrations, parsers or input handling, a
+large diff) fans out up to four subagents, each with a different job:
+property tests, mutating the new tests to see that they fail, the end-to-end
+path, a security read. The verification run does not modify the repository;
+probes live under `/tmp` or the card's scratch space.
 
-`install` creates private native state, a conservative config and a standalone
-launcher. It initializes one native board when the existing container is running.
-`setup` explicitly selects native `default` and inherits the user's terminal for
-private setup. Noninteractive setup cannot authorize team provisioning. After
-interactive setup returns successfully and a saved model exists, RepoKit
-provisions missing specialists through native config cloning. Plain `setup` then
-runs operational activation;
-when a saved default model already exists (including native setup completed
-through the standalone launcher), `setup` skips the private wizard and goes
-straight to provisioning; `setup --team` is the recovery form that never opens it.
-Plain `setup` ends with a canary card through automatic dispatch. Memory setup is user-managed and is
-not part of RepoKit's setup stages.
-
-The initial native config trusts `/workspace` for repository-local skills. New
-profiles inherit that trust; native `skills trust /workspace` adds it to existing
-managed profiles during reconciliation without replacing other trusted roots or
-skill settings. Explicit project-discovery opt-outs remain respected, and native
-scan-time quarantine remains active. The gateway generation includes project
-trust/discovery settings so changes require convergence and a fresh conversation.
-
-Native profile creation uses the final role name because Hermes also registers
-profile services/routing. Immediately replace a new clone's identity and clear
-its copied `memories/MEMORY.md` and `memories/USER.md`; then configure it and
-verify native list/show. On interruption, preserve partial native profiles and
-report drift. Do not erase them or re-clear their memory on retry.
-
-Default's pristine upstream SOUL is adopted only when all managed config fields
-already match RepoKit defaults and existing description is absent or expected.
-Default uses the installed Hermes platform preset's resolved categories plus
-explicit Kanban on configured interactive channels. Memory and other optional
-Hermes tools are the owner's configuration: RepoKit neither requires nor enables
-them, and preserves whatever is selected. Native `tools
-enable` owns persistence and built-in/plugin bookkeeping; existing extra tools
-are preserved. Hermes rejects composite preset names in that command, so RepoKit
-resolves the native preset first instead of passing an ignored alias. No lists
-are materialized for unconfigured channels or reduced programmatic surfaces.
-The legacy profile-wide Kanban fallback remains. Native enablement repairs a
-disabled Kanban category.
-New specialist clones have inherited human-channel selections narrowed to their
-role subsets; their
-task-scoped lifecycle tools remain native dispatcher behavior. Existing worker
-platform Kanban opt-ins are reported as drift.
-
-Reconciliation classifies each roster profile on its own:
-
-| State | Evidence | Action |
-|---|---|---|
-| current | current managed SOUL, description and managed config | none |
-| missing | no profile | create from default |
-| customized | a SOUL other than the current one, or a changed description | preserve, report |
-| drift | a managed config value the team depends on no longer holds | preserve, block |
-
-A customized profile is owner-controlled: it is never rewritten, it does not
-block the rest of the roster, and install/setup still succeed and report it.
-`verify` reports its `profile:<name>` probe as `customized`, not `degraded`: it
-is not a CORE_READY failure, but CORE_READY names it, since RepoKit then vouches
-for that role only through observed work.
-Role toolsets are required as a subset, so owner-added tools are preserved; a
-missing required tool, like any other conflicting managed field, is drift.
-Drift blocks every native write in that run, because the roster can no longer be
-proved and a partial write could leave dispatch pointing at an unready team.
-Models, providers, channels, plugins and memory are not managed fields. A rerun
-never replaces owner modifications, clears learned memories or deletes unknown
-profiles. Existing `builder` or domain profiles are left untouched.
-
-`repokit plan` previews this per profile in its `team` section when the
-deployment is running: each row names the profile, its state, the action
-install would take and which parts differ (`SOUL`, `description` or managed
-configuration keys; values are never printed). Beyond the table above, `adopt`
-means the stock default profile is claimed and `reset` a requested reset.
-
-Returning a profile to RepoKit's baseline is always explicit:
-
-```sh
-repokit plan --reset-profile executor      # preview; writes nothing
-repokit install --reset-profile executor   # apply
-```
-
-Reset copies the profile's `SOUL.md`, `config.yaml` and `profile.yaml` beside
-themselves as `*.before-reset-<UTC time>`, then restores the current managed
-SOUL, description and managed configuration (role toolsets exactly). Resetting
-`default` restores its identity only; its dispatch policy belongs to setup
-activation. Only roster profiles can be reset, never owner-created ones.
-Models, providers, channels, memory and sessions are untouched. Reset refuses
-while a card is running or when the dispatch policy is owner-controlled, and a
-reset that could not be applied fails install. Resetting a missing profile
-creates it.
-
-Verification reports `channel:<platform>` for each saved human-facing channel
-of default. A channel without the Kanban tool is degraded. Healthy configuration does not
-change a cached session schema: start a fresh conversation after reconciliation.
-Setup starts or converges the native gateway only after its activation gates pass;
-saving Telegram credentials alone does not establish operational readiness.
-
-Sources: [native provisioning](../internal/native/team.py),
-[setup delegation](../internal/native/setup.go),
-[CLI wiring](../internal/cli/cli.go).
-
-## Work and review
-
-One shared native Kanban board owns cards, dependencies, runs, claims and review.
-Bootstrap defaults are dispatch off, automatic decomposition off, orchestrator `default`,
-and `max_in_progress: 1`. The coordinator explicitly receives `kanban`.
-Specialists receive native worker lifecycle tools at dispatch.
-
-Verification and review stay on one card, in two native review stages:
+If a check fails it calls `kanban_request_changes` with the failing command,
+the observed result and the smallest correction; the next implementation run
+makes it, and every revision gets a new verification run. After two
+change-request rounds on the same card it stops looping, blocks the card with
+`kind="needs_input"` and tells the owner what keeps failing. If everything
+passes it calls `kanban_complete` and lists every check with its result.
 
 ```text
-executor → review_requested(tester)
-tester   → review_requested(reviewer)      or changes_requested → executor
-reviewer → completed                       or changes_requested → tester (relay)
+default (implementation) → review_requested(default)
+default (verification)   → completed     or changes_requested → default (implementation)
 ```
 
-Tester asks "does this demonstrably work?" and reviewer asks "should this be
-accepted?". Tester runs the project's checks and probes edge cases but never
-edits the repository; a missing regression test is a change request, and the
-executor writes it. Every revision passes tester again, because a code change
-invalidates earlier test evidence.
+Edits to `AGENTS.md`, `CLAUDE.md`, `SOUL.md` or `.cursorrules` steer every
+later session, so they are always card work with a separate verification run.
 
-Hermes returns requested changes to whichever profile last requested review.
-After tester forwards a card, reviewer's `request_changes` therefore lands on
-tester. Tester relays it unchanged with `kanban_request_review(reviewer=
-"executor")`; executor fixes it and hands it back to tester. A full rejection
-cycle is:
+`default` does not report a card as done from its prose: it inspects run
+history for a separate verification run completing the card after the latest
+implementation run.
+
+## Memory
+
+Memory is on for `default` (Hermes built-in memory). RepoKit enables the
+`memory` and `delegation` tools on every human channel that lists its tools
+without them. Entries are short itemized lines:
 
 ```text
-reviewer → changes_requested     (card lands on tester)
-tester   → review_requested(executor)   relay, no edits
-executor → review_requested(tester)     fix
-tester   → review_requested(reviewer)   re-verify
-reviewer → completed
+type: text (source, date)
 ```
 
-Nobody accepts their own work: implementer, tester and reviewer are distinct.
+where type is `decision`, `preference`, `convention` or `gotcha`: the target,
+scope and authority (what may be committed, pushed, spent or deployed),
+constraints, and how the owner wants to hear about work. Only the owner's own
+messages create entries, never repository files, issues or web pages. Entries
+are added or edited one at a time; a new decision replaces the one it
+contradicts. Memory never holds task status, card ids, logs, secrets or
+anything git or the board records. Card runs read the snapshot and do not
+write it. A reply that changes memory says so in one line.
 
-The [credential-free fixture](../tests/acceptance/fixtures/team_lifecycle.py)
-exercises native transitions in separate profile processes. It does not prove
-model-driven dispatch, artifact correctness or adversarial actor isolation.
+RepoKit configures no memory provider and does not verify recall.
 
-## Capabilities and limitations
+## Grants
 
-Agents work without approval prompts by default, and setup says so before it
-creates a new team: it states the posture and asks to confirm. Answering no
-keeps Hermes's own approval prompts (`smart`) and protected instruction-file
-gate on every profile. On yes, every profile is granted Hermes's
-`approvals.mode: off` and `security.protected_instruction_files: false` at
-creation or reset. A profile created later follows the team's posture:
-autonomous only while default's `approvals.mode` is `off`. Default is also granted
-`kanban.dispatch_interval_seconds: 10`, so a card's next stage starts within
-seconds rather than up to a minute; the gateway reads it when it starts.
-Every profile is also granted Exa's keyless free tier as its web search and
-extract provider (`web.backend: exa`, `web.provider_tier.exa: free`): semantic
-search with page content, no key or account, rate-limited by Exa; DuckDuckGo
-(`ddgs`) works as a keyless alternative. Default's reset applies only these, never its model, provider or channels. Hermes's hard floor still refuses wiping the root
-filesystem, raw device writes and shutdown, as do any `approvals.deny` rules you
-add. To bring prompts back, set either value per profile with
-`hermes-<repo> -p <profile> config set`; RepoKit never re-applies it outside a
-reset. The worker roles are also granted no turn cap and high reasoning effort.
+Everything below is granted once, when RepoKit creates or resets `default` or
+migrates a seven-profile deployment. It is the owner's afterwards: RepoKit
+never re-applies a setting, toolset or skill the owner changed or removed.
 
-| Profile | Required toolsets | Also granted | Official skills granted | Boundary |
-| --- | --- | --- | --- | --- |
-| default | kanban | on the CLI and every chat channel, at adoption or reset: web, browser, terminal, file, code_execution, vision, video, image_gen, x_search, tts, skills, todo, memory, context_engine, session_search, connections, clarify, delegation, cronjob, computer_use, a2a (owner tools preserved) | decision-questionnaire, dynamic-workflow | Diagnosis and own non-secret maintenance allowed; artifact implementation delegated |
-| researcher | file, web | browser, terminal, skills | domain-intel, code-wiki, duckduckgo-search | Artifact writes prohibited by SOUL |
-| planner | file | web, skills | grill-me, decision-questionnaire | Implementation prohibited by SOUL |
-| executor | file, terminal, code_execution, skills | web, browser, delegation | ast-grep, rest-graphql-debug, subagent-driven-development, agent-merge-conflict-arbiter | Work limited to the card; sub-agents only for bounded help inside it |
-| tester | terminal | code_execution, web, browser, skills | adversarial-ux-test, rest-graphql-debug | No file-editing toolset; repository writes prohibited by SOUL |
-| reviewer | file, terminal | code_execution, web, skills | oss-forensics, grill-me | Artifact writes prohibited by SOUL; terminal permits verification |
-| steward | terminal, file | skills | — | Profile administration only; project writes prohibited by SOUL |
+| Key | Value | Why |
+| --- | --- | --- |
+| `approvals.mode` | `off` | agents work without approval prompts (see below) |
+| `security.protected_instruction_files` | `false` | same posture |
+| `web.backend`, `web.provider_tier.exa` | `exa`, `free` | keyless web search and extract |
+| `kanban.dispatch_interval_seconds` | `10` | a card's next stage starts within seconds, not up to a minute |
+| `goals.max_turns` | `100` | a chat `/goal` does not silently expire |
+| `checkpoints.enabled` | `true` | `/rollback` recovery for writes |
+| `delegation.oneshot_max_children` | `4` | room for a verification run's subagents |
+| `agent.max_turns` | `0` | a card run uses the whole card |
+| `agent.reasoning_effort` | `high` | `default` does the work |
 
-Each profile is powerful within its responsibility rather than identical:
-together the team can research, plan, implement, test and review, while each
-role keeps a meaningful boundary. Required toolsets are what a role needs and
-are checked on every run; missing one is drift. Everything else is granted when
-RepoKit creates or resets the profile and is the owner's afterwards: removing a
-granted toolset or skill is not drift and RepoKit never re-adds it.
+Setup states the autonomy posture before it creates a new `default` and asks
+to confirm. Answering no keeps Hermes's own approval prompts (`smart`) and the
+protected instruction-file gate. Hermes's hard floor still refuses wiping the
+root filesystem, raw device writes and shutdown, as do any `approvals.deny`
+rules you add. To bring prompts back later, set either value with
+`hermes-<repo> config set`; RepoKit never re-applies it outside a reset.
 
-Skills come from the official Nous Research catalog only (`official/<category>/<name>`),
-chosen because they need no API key or paid service. The development image
-ships the binaries two of them rely on (`ast-grep`/`sg`, pinned by checksum, and
-`ddgs`), along with `shellcheck` for the shell scripts agents write, the GitHub CLI
-`gh` (pinned by checksum; agents push through the login the owner gives it
-with `repokit github-login`), the
-`browser-use` CLI behind Hermes's browser tool (pinned by hash and pointed at the
-base image's headless Chromium, since Hermes cannot install it lazily there),
-`edge-tts`, `ddgs` and `faster-whisper` added to Hermes's own environment by
-hash (for its default Edge text-to-speech provider, its DuckDuckGo search
-provider and local speech to text for voice messages, whose ~145 MB `base`
-model downloads into `.hermes` on first use; the `ddgs` command comes from the
-same install) and, in a
-Go repository, `staticcheck`; a Rust repository gets cargo's `clippy`; a Flutter repository gets `flutter analyze`. A skill that does not install (offline, or blocked by Hermes's
+Toolsets: `default` is granted, on the CLI and every chat channel, web,
+browser, terminal, file, code_execution, vision, video, image_gen, x_search,
+tts, skills, todo, kanban, memory, context_engine, session_search,
+connections, clarify, delegation, cronjob, computer_use and a2a. Only `kanban`
+is required and checked on every run; missing it is drift. Owner-added tools
+are preserved. Native `tools enable` owns persistence; RepoKit resolves the
+installed platform preset first, since Hermes rejects composite preset names
+in that command. No lists are materialized for unconfigured channels.
+
+Skills come from the official Nous Research catalog only
+(`official/<category>/<name>`), chosen because they need no API key or paid
+service: ast-grep, rest-graphql-debug, subagent-driven-development,
+agent-merge-conflict-arbiter, adversarial-ux-test, decision-questionnaire,
+dynamic-workflow, domain-intel, code-wiki, duckduckgo-search, grill-me and
+oss-forensics. A skill that does not install (offline, or blocked by Hermes's
 security scan) is reported and never fails the run. Community plugins are
 never installed; authentication-dependent ones such as the official `snyk`
 plugin stay optional Hermes configuration for the owner.
 
-The pinned Hermes `file` bundle includes reads and writes; terminal execution
-also permits writes. These specialist boundaries are **advisory**, not an OS
-sandbox. Profile plugins, MCP servers, explicit tool arguments and other
-platform settings can add capabilities; CLI bundle selection is not proof of
-complete capability isolation. Review effective tools before enabling dispatch.
+The development image ships the binaries those skills and tools rely on:
+`ast-grep`/`sg` (pinned by checksum), `ddgs`, `shellcheck`, the GitHub CLI
+`gh` (pinned by checksum; agents push through the login the owner gives it
+with `repokit github-login`), the `browser-use` CLI behind Hermes's browser
+tool (pinned by hash and pointed at the base image's headless Chromium),
+`edge-tts`, `ddgs` and `faster-whisper` in Hermes's own environment by hash
+(text to speech, DuckDuckGo search, and local speech to text whose ~145 MB
+`base` model downloads into `.hermes` on first use) and, by repository,
+`staticcheck` for Go, cargo's `clippy` for Rust and `flutter analyze` for
+Flutter.
 
-`default` is one profile across human-facing channels; platform and session are
-conversation surfaces/history, not new team identities. All primary channels
-share repository SOUL, roster and board. Memory is user-managed and is not part
-of RepoKit's team identity model.
-Routing to another profile is reported separately. Saved core selections do not
-prove credentials, connected adapters or a fresh session's loaded tools.
+The pinned Hermes `file` bundle includes writes, and terminal execution also
+permits writes. SOUL boundaries, such as a verification run not modifying the
+repository, are **advisory**, not an OS sandbox. Plugins, MCP servers and other
+platform settings can add capabilities. Review effective tools before enabling
+dispatch.
+
+## Owner communication
+
+The owner usually reads `default` on a phone, in a chat, often by voice. The
+rules in [`owner.md`](../internal/team/souls/owner.md): lead with the outcome
+in plain words; card ids, stage names and hashes stay on the board unless
+asked for; a few short lines; one question at a time with a recommended
+answer; when the owner must act, say exactly what and where. On a review
+handoff (an implementation run handing its card to a verification run) it
+replies exactly `[SILENT]`, and Hermes sends nothing. It reports a
+completion, a block, requested changes or a decision the owner must make,
+briefly.
+
+`default` is one profile across human-facing channels; platform and session
+are conversation surfaces and history, not separate identities. Every channel
+shares the SOUL, memory and board. Default creates cards with the
+gateway-context native tool and checks subscription success. RepoKit
+reconciles `auto_subscribe_on_create=true` and `notify_in_gateway=true`;
+native `notify+wake` delivers completion, review and blocked events to the
+originating conversation. Live end-to-end delivery remains an acceptance gate.
 
 Hermes keeps a conversation's system prompt from when it started, so a chat
-begun before an install or reset still acts on the earlier SOUL (for example an
-older roster). `verify` compares each messaging platform's newest session with
-default's current `SOUL.md` and reports `sessions` degraded, naming only the
-platform, until the owner sends `/new` there. Chat titles, previews and targets
-are never read.
+begun before an install or reset still acts on the earlier SOUL. `verify`
+compares each messaging platform's newest session with `default`'s current
+`SOUL.md` and reports `sessions` degraded, naming only the platform, until the
+owner sends `/new` there. Chat titles, previews and targets are never read.
 
-Default can use native commands to maintain its own non-secret preferences and
-repair required capabilities. Credentials, authentication, destructive changes,
-and review independence are outside that authority.
-Steward still owns specialist lifecycle. These are advisory SOUL boundaries.
+Read-only authorization projection reports declared restrictions, open grants
+or unknown without showing sender IDs. A declared allowlist is not certified
+safe access, and no reconciliation weakens gateway authentication or sender
+authorization.
 
-RepoKit no longer bundles a maintenance runtime plugin. Hermes owns gateway
-restart and worker lifecycle. RepoKit may invoke the public native commands
-during setup, but live self-restart remains unqualified until Hermes exposes
-and proves the required behavior through supported interfaces.
+## Migration from seven profiles
 
-Messaging is a remote development interface. Default may directly inspect files,
-search Git/repository state and run diagnostics; substantive changes use Kanban,
-executor and distinct same-card tester and reviewer. Once setup passes its operational gates,
-the default gateway automatically claims assigned work and review; users need no
-SSH or manual dispatch. Default creates cards with the gateway-context native
-tool and checks subscription success. RepoKit reconciles
-`auto_subscribe_on_create=true` and `notify_in_gateway=true`; native `notify+wake`
-delivers completion, review and blocked events to the originating conversation.
-Live end-to-end delivery remains an acceptance gate.
+Before v0.3.0, RepoKit installed seven profiles: `default`, `researcher`,
+`planner`, `executor`, `tester`, `reviewer` and `steward`. On `repokit install`,
+a deployment that still has any of the six worker profiles retires them once,
+while no card is running:
 
-Read-only authorization projection reports declared restrictions, open grants or
-unknown without showing sender IDs. Effective access still depends on environment,
-pairing and native policy, so a declared allowlist is not certified safe access.
-An outbound home-channel destination is not inbound profile-routing evidence.
-No reconciliation weakens gateway authentication or sender authorization.
+1. `default` receives the grants and skills above.
+2. Each worker profile's open cards (not done, archived or running) are
+   reassigned to `default`.
+3. Each profile is exported to
+   `.hermes/backups/profile-<name>-<UTC time>.tar.gz` with
+   `hermes profile export`, then deleted with `hermes profile delete -y`.
+   `hermes profile import` restores one.
+4. The seven-profile dispatch policy is recognized as RepoKit's own, not owner
+   drift, and rewritten to `dispatch_profiles: ["default"]`.
 
-## Identity and shared memory
+While a card is running, install reports each worker profile as
+`retire-later` and changes nothing about them; rerun install when the board is
+idle. The `install --team` option and `.hermes/repokit-team` are gone; a
+deployment that ran the single-profile trial migrates the same way.
 
-SOUL defines identity and Kanban holds work state. Memory is user-managed: the
-operator chooses and configures any memory provider the repository needs, and
-RepoKit neither links nor certifies it. Built-in local memory remains a native
-Hermes concern. The coordinator is granted the memory toolset with the rest of
-its full toolset; no worker baseline includes memory, an owner who adds it keeps
-it, and the SOULs use memory only when the owner has configured it.
+## What stays the owner's
 
-`verify` reports scaffold readiness and native integration configuration, but it
-does not configure or verify a memory provider. Review remains `unqualified`
-until actual same-card work is accepted. See
-[acceptance matrix](qualification/generic-team.md).
+- Models, providers, channels, plugins and memory providers.
+- Any granted setting, toolset or skill the owner changes or removes.
+- An owner-edited SOUL or description on `default` (reported as
+  `customized`, never rewritten).
+- Owner-created profiles: never reset, retired or deleted.
+- An owner-changed dispatch policy: observed and reported, never rewritten.
+- Credentials and authentication, destructive changes, and commits, pushes,
+  spending or deployment beyond what a card or the owner authorizes.
 
-Source: [read-only integration probes](../internal/verify/integrations.go).
+`default` may use native commands to maintain its own non-secret preferences
+and repair required capabilities. It must not remove repository identity,
+Kanban availability, verification runs or repository isolation, read raw
+credentials into a transcript, delete profiles, or erase memory or board
+history.
+
+## Provisioning and reconciliation
+
+`install` creates private native state, a conservative config and a standalone
+launcher. It initializes one native board when the container is running.
+`setup` selects native `default` and hands the owner's terminal to Hermes's
+private setup while `default` has no saved model; once one exists (including
+native setup completed through the launcher) the wizard is skipped.
+Noninteractive setup cannot authorize team provisioning. `setup --team` is the
+recovery form that never opens the wizard. Plain `setup` ends with a canary
+card through automatic dispatch.
+
+The initial native config trusts `/workspace` for repository-local skills;
+native `skills trust /workspace` adds it to an existing `default` during
+reconciliation without replacing other trusted roots or skill settings.
+Explicit project-discovery opt-outs are respected, and native scan-time
+quarantine stays active. The gateway generation includes these settings, so a
+change requires convergence and a fresh conversation.
+
+Reconciliation classifies `default`:
+
+| State | Evidence | Action |
+|---|---|---|
+| current | current managed SOUL, description and managed config | none |
+| missing | no profile | create |
+| adopt | Hermes's stock default, all managed fields matching | claim it |
+| upgrade | a SOUL that still matches the digest RepoKit recorded | rewrite to the current SOUL |
+| deferred | as upgrade, while a card runs | wait for an idle board |
+| customized | a SOUL other than the current or recorded one, or a changed description | preserve, report |
+| drift | a managed config value the team depends on no longer holds | preserve, block |
+
+A customized `default` is owner-controlled: it is never rewritten, and
+install/setup still succeed and report it. `verify` reports `profile:default`
+as `customized`, not `degraded`; CORE_READY names it, since RepoKit then
+vouches for it only through observed work. Drift blocks every native write in
+that run. A rerun never replaces owner modifications, clears memory or deletes
+unknown profiles.
+
+`repokit plan` previews this in its `team` section when the deployment is
+running: the state, the action install would take and which parts differ
+(`SOUL`, `description` or managed configuration keys; values are never
+printed).
+
+Returning `default` to RepoKit's baseline is always explicit:
+
+```sh
+repokit plan --reset-profile default      # preview; writes nothing
+repokit install --reset-profile default   # apply
+```
+
+Reset copies `SOUL.md`, `config.yaml` and `profile.yaml` beside themselves as
+`*.before-reset-<UTC time>`, then restores the current managed SOUL,
+description, managed configuration and grants. Models, providers, channels,
+memory and sessions are untouched; the dispatch policy belongs to setup
+activation. Reset refuses while a card is running or when the dispatch policy
+is owner-controlled, and a reset that could not be applied fails install.
+`--reset-profile` takes only `default`.
+
+Verification reports `channel:<platform>` for each saved human-facing channel
+of `default`. A channel without the Kanban tool is degraded. Healthy
+configuration does not change a cached session schema: start a fresh
+conversation after reconciliation.
+
+Sources: [native provisioning](../internal/native/team.go),
+[setup delegation](../internal/native/setup.go),
+[CLI wiring](../internal/cli/cli.go).
 
 ## Repository identity and live convergence
 
 Every generated SOUL includes the repository basename, stable RepoKit project
-identity, profile role, permanent seven-profile roster and relationship to default.
-Hermes is the runtime, not the profile's repository identity. A persistent profile
-is distinct from a currently running worker. No absolute host path is embedded.
+identity, the profile and its role. Hermes is the runtime, not the profile's
+repository identity. A persistent profile is distinct from a currently running
+worker. No absolute host path is embedded.
+
 Every SOUL RepoKit writes is recorded by its SHA-256 in `.repokit-soul` beside
-it, and a current SOUL written before records existed is recorded on the next
-install. A SOUL that still matches its record is untouched and RepoKit's,
-whichever build wrote it: `install` or `setup` rewrites it to the current one while no card
-is running (plan state `upgrade`), and waits while one is (`deferred`); `verify`
-reports it as `upgradable`, which does not fail core readiness. Any other SOUL
-is owner-customized and preserved, and is brought to the current baseline only
-by an explicit `install --reset-profile`. An operational seven-profile team is
-reconciled whenever no card is running: missing roles are created, never under
-a live worker. Any other owner-changed dispatch policy is only observed.
+it. A SOUL that still matches its record is untouched and RepoKit's, whichever
+build wrote it: `install` or `setup` rewrites it to the current one while no
+card is running (plan state `upgrade`), and waits while one is (`deferred`);
+`verify` reports it as `upgradable`, which does not fail core readiness. Any
+other SOUL is owner-customized and preserved, and is brought to the current
+baseline only by an explicit `install --reset-profile default`. A recorded
+SOUL, or an explicit `--reset-profile default`, proves the home is RepoKit's.
 
-Dispatch is off during bootstrap and incomplete setup. Successful setup activates
-one default gateway dispatcher with review dispatch enabled, concurrency one,
-automatic decomposition disabled and the explicit seven-profile allowlist.
-Memory is user-managed and does not block core activation.
-Specialists keep dispatch disabled. SOUL distinguishes persistent profiles
-from running workers and requires inspection of live dispatch before promising
-progress; it never uses one-shot dispatch to bypass incomplete activation.
+## Dispatch and review evidence
 
-Setup configures this policy through public `hermes config set`, restarts the
-gateway once, and observes a replacement PID. It does not claim a worker ran.
-`verify --dispatch-check` is the explicit researcher proof, and `verify` reports
-same-card executor→tester→reviewer evidence from native card history: the final
-run is reviewer's completion and a tester hand-off follows the latest
-implementation run. Neither
-establishes Telegram delivery. See [setup and recovery](bootstrap-quickstart.md).
+One native Kanban board owns cards, dependencies, runs, claims and review.
+Dispatch is off during bootstrap and incomplete setup. Successful setup
+activates one `default` gateway dispatcher through public `hermes config set`:
+`review_dispatch=true`, `max_in_progress=1`, `auto_decompose=false`,
+`orchestrator_profile=default`, `dispatch_profiles: ["default"]`, and
+`dispatch_in_gateway=true` last. It restarts the gateway once and observes a
+replacement PID. It does not claim a worker ran. The SOUL requires inspecting
+live dispatch before promising progress and never uses one-shot dispatch to
+bypass incomplete activation.
+
+`verify --dispatch-check` is the explicit proof: one no-write card assigned to
+`default` that the gateway must claim and complete by itself. `verify` reports
+review evidence from native card history: among the newest done cards
+assigned to `default`, one that `default` implemented and requested review on,
+and a separate `default` run verified and completed. Neither establishes
+Telegram delivery. See [setup and recovery](bootstrap-quickstart.md) and the
+[acceptance matrix](qualification/generic-team.md).
+
+RepoKit bundles no maintenance runtime plugin. Hermes owns gateway restart and
+worker lifecycle; live self-restart remains unqualified until Hermes exposes
+and proves it through supported interfaces.
 
 ## Shared development capability
 
-Interactive channels and workers execute in the same generated Hermes development
-container at `/workspace`. Tool visibility and installed compiler/runtime readiness
-are checked separately. Executor's native coding tools include file, terminal,
-code_execution and skills; tester and reviewer can run the same project
-checks. Default may perform a tiny authorized direct edit, but substantive
-artifact work, verification and review remain executor/tester/reviewer
-responsibilities.
+Channels and card runs execute in the same generated Hermes development
+container at `/workspace`. Tool visibility and installed compiler/runtime
+readiness are checked separately.
 
-The optional Docker acceptance daemon is infrastructure, not a profile. It uses
-dedicated disposable test storage and never receives the host Docker socket or
-Hermes private state. Privileged DinD is an explicit testing trust decision, not
-strong host-kernel isolation. Neither Pi nor Codex is a mandatory coding harness.
+The optional Docker acceptance daemon is infrastructure, not a profile. It
+uses dedicated disposable test storage and never receives the host Docker
+socket or Hermes private state. Privileged DinD is an explicit testing trust
+decision, not strong host-kernel isolation. Neither Pi nor Codex is a
+mandatory coding harness.
 
 ## Runtime-aware assignments and truthful outcomes
 
-The managed team operates inside `hermes-<repo>`. The native Hermes command is
-`/opt/hermes/bin/hermes`. Memory is user-managed and lives outside RepoKit's
-runtime contract. Pending initialization is
-separate from an absent runtime. The ordinary runtime has no host Docker socket;
-local observation does not require one. Multi-deployment acceptance requires
-its own authorized test environment. Terminal secrets are filtered, so missing
-shell variables cannot establish missing native provider authentication.
+`default` operates inside `hermes-<repo>`; the native Hermes command is
+`/opt/hermes/bin/hermes`. Pending initialization is separate from an absent
+runtime. The ordinary runtime has no host Docker socket. Terminal secrets are
+filtered, so missing shell variables cannot establish missing native provider
+authentication.
 
-Default supplies inspected Git/board facts to planner or routes inspection to a
-profile with the required tools. Planner's file, web and skills toolsets are unchanged.
-Known missing prerequisites should gate the acceptance card, while other feasible
-work can proceed. A completed diagnostic report is not completed acceptance.
-Workers use native blocking for unmet external prerequisites and native same-card
-review for independently reviewed work. A separate blocker-report review does not
+Known missing prerequisites gate the acceptance card, while other feasible
+work proceeds. A completed diagnostic report is not completed acceptance.
+Card runs use native blocking for unmet external prerequisites and native
+same-card review for verified work. A separate blocker-report review does not
 approve the original acceptance criteria.
 
-These are managed agent instructions, not new task-state enforcement in RepoKit.
-Native Hermes owns transitions. Reconciliation recognizes exact prior managed
-SOULs and preserves custom edits; new behavior requires normal setup and fresh
-sessions, and model adherence still needs live evidence.
+These are managed agent instructions, not task-state enforcement in RepoKit.
+Native Hermes owns transitions, and model adherence still needs live evidence.

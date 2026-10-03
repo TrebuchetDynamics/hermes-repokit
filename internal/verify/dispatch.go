@@ -47,10 +47,10 @@ func dispatchProbes(d dispatchObservation) []Probe {
 	if d.Policy && d.Owner == "default" && d.Max == 1 && d.Auto != nil && !*d.Auto && d.Review != nil && *d.Review && strings.Join(d.Allowlist, ",") == expected {
 		policy = Probe{policy.Component, Healthy, "owner=default; max_in_progress=1; auto_decompose=disabled; review_dispatch=enabled; worker_allowlist=" + expected}
 	}
-	canary := Probe{"kanban:dispatcher-canary", Unqualified, "researcher gateway execution has not passed for this gateway generation"}
+	canary := Probe{"kanban:dispatcher-canary", Unqualified, "gateway execution of a default canary card has not passed for this gateway generation"}
 	if d.Canary && live.Status == Healthy {
 		canary.Status = Healthy
-		canary.Detail = "observed gateway-spawned researcher running and completing the no-write canary; native card archived"
+		canary.Detail = "observed gateway-spawned default running and completing the no-write canary; native card archived"
 	}
 	return []Probe{configured, live, policy, canary}
 }

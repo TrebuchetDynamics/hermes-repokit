@@ -107,7 +107,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 	noCanary := false
 	dispatchCheck := false
 	if args[0] == "verify" {
-		flags.BoolVar(&dispatchCheck, "dispatch-check", false, "create one researcher card and require automatic gateway completion")
+		flags.BoolVar(&dispatchCheck, "dispatch-check", false, "create one default card and require automatic gateway completion")
 	}
 	if args[0] == "plan" || args[0] == "install" {
 		flags.BoolVar(&a.DockerTests, "docker-tests", false, "publish opt-in privileged isolated Docker acceptance service; never the host socket")
@@ -384,7 +384,7 @@ func usage(w io.Writer) {
 	fmt.Fprintf(w, "usage: %s <plan|install|setup|verify|start|stop|remove> [--help]\n", me)
 	fmt.Fprintf(w, "%s%s install [--no-setup] (the whole first-time path: continues into setup in a terminal)\n", pad, me)
 	fmt.Fprintf(w, "%s%s setup [--no-canary] [--team] (--team: recovery without the private wizard)\n", pad, me)
-	fmt.Fprintf(w, "%s%s verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)\n", pad, me)
+	fmt.Fprintf(w, "%s%s verify [--dispatch-check] (one default card through automatic dispatch; model cost)\n", pad, me)
 	fmt.Fprintf(w, "%s%s <plan|install> [--docker-tests] [--reset-profile default]\n", pad, me)
 	fmt.Fprintf(w, "%s%s start | stop (start or stop the deployment; state is kept)\n", pad, me)
 	fmt.Fprintf(w, "%s%s remove (deletes the deployment and .hermes after typed confirmation)\n", pad, me)

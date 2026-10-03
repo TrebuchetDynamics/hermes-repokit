@@ -131,15 +131,17 @@ approval prompts (Hermes's hard-deny floor still applies); answering no keeps
 Hermes's approval prompts. That answer is theirs. `setup` is the last step of the first-time path. It
 starts a stopped deployment, hands the terminal to Hermes's own private setup
 while default has no model (skipped once one is saved, including setup done
-natively through `hermes-<repo> setup`), reconciles the seven profiles, writes
+natively through `hermes-<repo> setup`), reconciles the `default` profile, writes
 the native dispatch policy (`review_dispatch=true`, `max_in_progress=1`,
-`auto_decompose=false`, the seven-profile allowlist, `dispatch_in_gateway=true`
+`auto_decompose=false`, `dispatch_profiles: ["default"]`, `dispatch_in_gateway=true`
 last), restarts or starts the gateway, and runs the canary: one no-write
-researcher card the gateway must complete by itself (a small model call).
+card assigned to `default` that the gateway must complete by itself (a small
+model call).
 A failed canary exits nonzero without claiming readiness.
 
-Every rerun preserves profiles, credentials, sessions and owner choices;
-owner-customized profiles are preserved and reported, never overwritten.
+Every rerun preserves credentials, sessions, owner-created profiles and owner
+choices; an owner-customized `default` is preserved and reported, never
+overwritten.
 `setup --team` is the recovery form that never opens the wizard, and
 `--no-canary` skips the paid proof.
 
@@ -150,13 +152,13 @@ dispatch policy untouched.
 
 ```sh
 repokit verify                    # observational
-repokit verify --dispatch-check   # explicit and paid: one no-write researcher card
+repokit verify --dispatch-check   # explicit and paid: one no-write default card
 ```
 
 Classify every component from the JSON, not just the exit code (see
 [readiness report](usage.md#readiness-report)). The dispatch check requires the
 running gateway to claim the card within 150 seconds without manual dispatch and
-a completed researcher run whose `metadata.first_line` equals the README's first
+a completed `default` run whose `metadata.first_line` equals the README's first
 line; a failing card is preserved for inspection. Run it only when the owner
 accepts the model cost.
 
@@ -195,7 +197,11 @@ or hand-edit the Compose file.
 
 RepoKit keeps no legacy support: it recognizes only its current generation,
 plus v0.2.0 deployments, which `repokit install` upgrades in place (just run
-it). `install` refuses a deployment from any earlier release, like an edited or
+it). A seven-profile deployment from before v0.3.0 is also upgraded by
+`install`: on an idle board it moves the six worker profiles' open cards to
+`default`, exports each profile to `.hermes/backups/profile-<name>-<UTC time>.tar.gz`
+and deletes it. While a card runs it reports `retire-later`; rerun `install`
+once the board is idle. Do not delete those profiles by hand. `install` refuses a deployment from any earlier release, like an edited or
 foreign one, and prints the steps to start over. Relay them to the owner and
 let the owner run them: stop that deployment with
 `docker compose -f .hermes/compose.yaml down`, move `.hermes` aside, then

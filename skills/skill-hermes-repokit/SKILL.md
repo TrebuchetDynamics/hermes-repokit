@@ -1,6 +1,6 @@
 ---
 name: skill-hermes-repokit
-description: Use when installing, resuming, verifying, repairing or operating Hermes RepoKit in a repository — the repokit bootstrap CLI, the generated hermes-<repo> launcher, the seven-profile team, Kanban dispatch, the development runtime and channel parity — including CORE_READY degraded/unqualified, a silent channel bot, a stopped gateway or a drifted profile. Not for unrelated Hermes installations, memory-provider setup, or developing RepoKit itself.
+description: Use when installing, resuming, verifying, repairing or operating Hermes RepoKit in a repository — the repokit bootstrap CLI, the generated hermes-<repo> launcher, the one-profile team (default), Kanban dispatch, the development runtime and channel parity — including CORE_READY degraded/unqualified, a silent channel bot, a stopped gateway or a drifted profile. Not for unrelated Hermes installations, memory-provider setup, or developing RepoKit itself.
 ---
 
 # Hermes RepoKit in repositories
@@ -76,7 +76,7 @@ changes to RepoKit, commit and push are each separately scoped.
 | Native default chat | `hermes-<repo>` (no arguments) |
 | Other native Hermes commands | `hermes-<repo> kanban list`, `profile list`, `gateway status`, … |
 | Stop or start the deployment (state kept) | `repokit stop`, `repokit start` |
-| Return one roster profile to baseline (backs up first) | `repokit plan --reset-profile <role>`, then `repokit install --reset-profile <role>` |
+| Return `default` to baseline (backs up first) | `repokit plan --reset-profile default`, then `repokit install --reset-profile default` |
 | Delete the deployment and `.hermes` (owner types the repo name) | `repokit remove` |
 
 `repokit` and `hermes-repokit` are the same bootstrap binary. Prefer `repokit`:
@@ -90,10 +90,10 @@ not reconcile the team.
 repokit plan                         inspect: names, context, collisions
 repokit install                      publish .hermes/, launcher, ~/.local/bin link; build + start
                                      hermes-<repo>; native Kanban init (dispatch off)
-repokit setup        (owner, private) provider/model → seven profiles → dispatch policy → gateway start
+repokit setup        (owner, private) provider/model → default profile → dispatch policy → gateway start
 repokit verify                       CORE_READY report
-repokit verify --dispatch-check      (explicit, paid) gateway claims a researcher card
-real task                            executor → tester → reviewer on the same card
+repokit verify --dispatch-check      (explicit, paid) gateway claims a no-write default card
+real task                            default implements, a separate default run verifies, same card
 repokit stop | start                 stop / start the deployment; all state kept
 repokit remove       (owner, typed)  delete the deployment and .hermes
 ```
@@ -111,10 +111,12 @@ repokit remove       (owner, typed)  delete the deployment and .hermes
   mounts. Never disable SELinux or change global policy.
 - Coding readiness needs the target's toolchain inside `/workspace` (the pinned
   development image); terminal/file tools alone are not enough.
-- Seven permanent profiles: `default` (coordinator, the user's entry point),
-  `researcher`, `planner`, `executor`, `tester`, `reviewer`, `steward` (team
-  lifecycle). Configured channels such as Telegram route to `default` with the
-  same core development and Kanban tools as the CLI.
+- One profile, `default`: it talks with the owner, researches through read-only
+  subagents, implements Kanban cards assigned to itself and verifies each in a
+  separate fresh run. Configured channels such as Telegram route to `default`
+  with the same core development, Kanban, memory and delegation tools as the
+  CLI. `install` retires a pre-v0.3.0 deployment's six worker profiles once, on
+  an idle board, after exporting each to `.hermes/backups/`.
 - Kanban is canonical. Setup enables the single native gateway dispatcher
   (automatic review, concurrency one, no auto-decomposition) with
   `hermes config set` and one gateway restart. It refuses while a card is running
@@ -126,16 +128,16 @@ repokit remove       (owner, typed)  delete the deployment and .hermes
 Memory is not reported; it is a Hermes feature RepoKit does not own. `CORE_READY` is:
 
 - `healthy` — configuration, runtime, toolchain, dispatch policy, gateway and
-  channel Kanban tools are healthy **and** native card history shows same-card
-  executor→tester→reviewer completion.
+  channel Kanban tools are healthy **and** native card history shows a card
+  `default` implemented and a separate `default` run verified and completed.
 - `unqualified` — configured, but that review loop has not been observed yet.
 - `degraded` — a core component is broken; the only nonzero exit. Right after
   `install`, before `setup`, `pending-setup` probes make this expected.
 
-`customized` (owner-edited profile) and `upgradable` (awaiting the next
-`install`/`setup`) are not faults; `CORE_READY` names customized profiles.
+`customized` (owner-edited `default`) and `upgradable` (awaiting the next
+`install`/`setup`) are not faults; `CORE_READY` names a customized profile.
 
 Container health is not readiness, and passive `verify` proves no model work,
-channel delivery, reviewer independence or removal-first acceptance. Report
+channel delivery, verification independence or removal-first acceptance. Report
 bootstrap, host command, default chat, profiles, dispatch, toolchain and
 channels separately, each with evidence and the next action.

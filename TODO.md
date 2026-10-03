@@ -16,9 +16,34 @@ templates and Android builds; v0.2.14 fixes its verify listing; v0.2.15 has
 agents do the work they can instead of blocking; v0.2.16 pushes through the
 owner's gh login; v0.2.17 adds the single-profile shape, on trial on
 hermes-wing, and keeps image builds from filling the disk).
-The same-card
-executor → tester → reviewer loop is proven live; a reviewer request-changes
-correction cycle is not yet.
+Since v0.3.0, RepoKit is one profile, `default`. The seven-profile same-card
+executor → tester → reviewer loop was proven live before that; the one-profile
+implementation → verification loop is not yet proven live.
+
+## Released in v0.3.0
+
+- RepoKit is one profile, `default`: it talks with the owner, researches
+  through read-only subagents, implements Kanban cards assigned to itself and
+  verifies each in a separate fresh run (`kanban_request_review` with
+  `reviewer="default"`). The rubric: acceptance shown by command output; no
+  deleted, weakened or special-cased tests; scope; new probes. Risky changes
+  fan out up to four subagents with distinct jobs; after two change-request
+  rounds the card goes back to the owner.
+- Memory is on for `default` and holds itemized owner decisions and
+  preferences only. Memory and delegation are enabled on every human channel.
+- New grants on `default`: `checkpoints.enabled`, `delegation.oneshot_max_children`
+  4, `agent.max_turns` 0, `agent.reasoning_effort` high, and the union of the
+  old roles' skills. The dispatch allowlist is `dispatch_profiles: ["default"]`.
+- Removed: the six worker profiles and their SOULs, `install --team` and
+  `.hermes/repokit-team`. `--reset-profile` takes only `default`.
+- Migration: `install` retires a seven-profile deployment once, on an idle
+  board. Open cards of the six move to `default`; each profile is exported to
+  `.hermes/backups/profile-<name>-<UTC time>.tar.gz` (restorable with
+  `hermes profile import`) and deleted. A busy board reports `retire-later`;
+  rerun install later.
+- `verify` counts as review evidence a card `default` implemented and a
+  separate `default` run verified and completed. The dispatch-check canary is
+  assigned to `default`.
 
 ## Released in v0.2.4
 
@@ -145,7 +170,7 @@ against a fresh clone.
       enabling them.
 - [x] Decide: do specialists keep narrow role toolsets or get the full set?
       Role-shaped toolsets (v0.2.3); none includes memory, which stays the
-      owner's to add.
+      owner's to add. Superseded in v0.3.0: one profile with the full set.
 
 ## Memory boundary
 
@@ -155,6 +180,9 @@ against a fresh clone.
       (owner tool choices preserved, memory never enabled), `verify` no longer
       reports memory, and the default SOUL no longer guarantees it. The first
       seven-role SOUL generation is frozen so those defaults still upgrade.
+- [x] v0.3.0 turns Hermes's built-in memory tool on for `default`, for the
+      owner's decisions and preferences. RepoKit still configures no memory
+      provider and does not verify recall.
 
 ## Upstream
 
@@ -181,16 +209,23 @@ against a fresh clone.
 
 ## Acceptance tests still open
 
-Review evidence credits only `executor` as the implementer and reads the newest
-20 reviewer-completed cards (`kanban list --assignee reviewer`), not the 5
-newest done cards.
+Review evidence reads the newest 20 done cards assigned to `default`
+(`kanban list --assignee default`) and needs a `default` run requesting review
+followed by a separate `default` run completing the card.
 
 Live and Docker proof that has not been exercised yet.
 
-- [ ] **Tester loop:** a real task completes executor → tester → reviewer on the
-      same card (qualifies `CORE_READY`; not yet observed since `tester` joined).
-- [ ] **Reviewer correction cycle:** reviewer requests changes → executor
-      revises on the same card → reviewer approves → result in the same chat.
+- [ ] **One-profile loop:** on hermes-wing, a real task is implemented by
+      `default` and verified and completed by a separate `default` run on the
+      same card (qualifies `CORE_READY`), then the same on every live
+      deployment.
+- [ ] **Migration:** a live seven-profile deployment retires its six profiles
+      on install: open cards reassigned, backups written under
+      `.hermes/backups/`, dispatch policy rewritten.
+- [ ] **Correction cycle:** a verification run requests changes → a new
+      implementation run revises on the same card → a new verification run
+      completes it → result in the same chat. After two rounds the card goes
+      back to the owner.
 - [ ] **Vague requests:** "Improve readme" produced a reply but no card; qualify
       how `default` scopes open-ended requests.
 - [ ] **Removal-first:** delete the RepoKit binary, then run a real Telegram task

@@ -229,7 +229,7 @@ func Readiness(probes []Probe) []Probe {
 	if len(failing) > 0 {
 		core = Probe{"CORE_READY", Degraded, "not ready: " + strings.Join(failing, ", ")}
 	} else if review != Healthy {
-		core = Probe{"CORE_READY", Unqualified, "configured and running; no automatic executor/tester/reviewer loop observed yet"}
+		core = Probe{"CORE_READY", Unqualified, "configured and running; no card verified by a separate default run observed yet"}
 	}
 	// Owner customization is not a fault, but readiness names it: RepoKit's
 	// role contract for those profiles rests on observed work, not on config.

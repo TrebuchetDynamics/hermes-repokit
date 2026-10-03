@@ -7,7 +7,6 @@ it is not on PATH. For a repository whose launcher is `hermes-design-notes`:
 
 ```sh
 hermes-design-notes                     # native chat as default
-hermes-design-notes -p researcher       # chat with another profile
 hermes-design-notes profile list
 hermes-design-notes kanban list
 hermes-design-notes gateway status
@@ -22,36 +21,39 @@ changes.
 
 ## Working with the team
 
-Talk to `default`. It owns the task graph and coordinates `researcher`,
-`planner`, `executor`, `tester`, `reviewer` and `steward`; steward owns team
-lifecycle (it prefers a task-scoped skill to a new specialist, and deleting a
-profile needs explicit approval). Role boundaries in SOULs are advisory, not
+Talk to `default`; it is the whole team. It researches through read-only
+subagents, implements Kanban cards assigned to itself and verifies each in a
+separate fresh run. Its memory holds the owner's decisions and preferences,
+never task status. Specialization comes from skills. Creating or retiring
+profiles is the owner's decision. SOUL boundaries are advisory, not
 operating-system isolation.
 
-Owner edits to a roster profile's SOUL or description are preserved and reported
-as `customized`. To deliberately return one profile to RepoKit's baseline, preview
-with `repokit plan --reset-profile <role>` and, with the owner's consent, apply
-with `repokit install --reset-profile <role>` (prior files are backed up).
+Owner edits to `default`'s SOUL or description are preserved and reported as
+`customized`. To deliberately return `default` to RepoKit's baseline, preview
+with `repokit plan --reset-profile default` and, with the owner's consent, apply
+with `repokit install --reset-profile default` (prior files are backed up).
 Owner-created profiles are never reset.
 
 ## Project skills
 
-Skills every profile should share belong in the repository's own
+Project skills belong in the repository's own
 `.agents/skills/<name>/SKILL.md`; RepoKit trusts `/workspace` for native
-project-skill discovery in all seven profiles, and Hermes still scans them and
-honors disabled skills. A profile-specific skill goes under
-`/opt/data/profiles/<profile>/skills/` (steward's job). Start a fresh
-conversation after adding skills so the index refreshes.
+project-skill discovery in `default`, and Hermes still scans them and honors
+disabled skills. Start a fresh conversation after adding skills so the index
+refreshes.
 
 Inside the container the repository's `.hermes` is masked by an empty read-only
 mount at `/workspace/.hermes`; private state is reachable only at `/opt/data`.
 An empty `/workspace/.hermes` is expected, not data loss.
 
-Substantive work runs executor → tester → reviewer on the **same card**.
-Reviewer-requested changes go back to tester, which relays them to executor; the
-fix passes tester again. `done` alone does not prove independent review: inspect
-card history for distinct executor, tester and reviewer runs. Never fabricate a
-rejection to exercise the loop.
+Substantive work is a card assigned to `default`. The implementation run
+requests review with `reviewer="default"`; a separate, fresh `default` run
+verifies the change and completes the card or requests changes, and every
+revision gets a new verification run. After two change-request rounds it hands
+the card back to the owner. `done` alone does not prove independent review:
+inspect card history for an implementation run requesting review followed by a
+separate verification run completing it. Never fabricate a rejection to
+exercise the loop.
 
 Before promising progress, check configured and live dispatch separately
 (`hermes-<repo> config get kanban --json`, `gateway status`, `kanban list`). If
@@ -60,7 +62,7 @@ with one-shot dispatch, and preserve queued work. Do not commit or push work the
 team produced unless asked.
 
 Configured channels (Telegram and others) route to `default` with the same core
-development and Kanban tools as the CLI. After reconciliation, start a fresh
+development, Kanban, memory and delegation tools as the CLI. After reconciliation, start a fresh
 conversation (`/new`) so the coordinator reloads its tools and skills. Actual
 task/result delivery on the originating channel still needs a live test.
 
@@ -96,8 +98,8 @@ when a probe's detail prints a command, prefer that one.
 | Symptom or probe | Likely cause | Next action |
 | --- | --- | --- |
 | `compose`, `config`, `kanban` `pending-setup` | Install not finished | `repokit install` |
-| `profile:<role>` degraded or missing | Team not reconciled, or drift | `repokit setup --team` (refuses while a card runs) |
-| `profile:<role>` `customized` | Owner edit | Leave it; reset only on owner request (see above) |
+| `profile:default` degraded or missing | Team not reconciled, or drift | `repokit setup --team` (refuses while a card runs) |
+| `profile:default` `customized` | Owner edit | Leave it; reset only on owner request (see above) |
 | `kanban:dispatch-*` inactive/degraded | Setup incomplete or a card was running | `repokit setup`; never dispatch by hand |
 | `gateway` degraded, cards stay `ready` | Gateway stopped or crashed | `hermes-<repo> gateway status`, Compose `logs`, then `repokit setup` |
 | `channel:<name>` degraded, bot silent or tool-less | Default lacks the Kanban tool on that platform, or stale session | The native command in the probe detail (`hermes-<repo> -p default tools enable kanban --platform <name>`) or `repokit setup --team`, then `/new` in that chat |
@@ -117,13 +119,13 @@ RepoKit changes.
 
 ```json
 [
-  {"component": "CORE_READY", "status": "unqualified", "detail": "configured and running; no automatic executor/tester/reviewer loop observed yet"},
+  {"component": "CORE_READY", "status": "unqualified", "detail": "configured and running; no card verified by a separate default run observed yet"},
   {"component": "...", "status": "healthy", "detail": "..."}
 ]
 ```
 
-- `CORE_READY: healthy` — every core probe healthy and a same-card
-  executor→tester→reviewer completion observed.
+- `CORE_READY: healthy` — every core probe healthy and a card `default`
+  implemented and a separate `default` run verified and completed.
 - `CORE_READY: unqualified` — nothing broken; the review loop has not been seen.
   Exit status 0. Run `verify --dispatch-check` or real reviewed work next.
 - `CORE_READY: degraded` — the detail names the failing components. Exit 1.
@@ -136,7 +138,7 @@ add any of those to make it pass. Summarize for the owner like this:
 ```text
 bootstrap            installed (repokit, ~/.local/bin)
 host command         hermes-my-project on PATH
-core team            7 profiles healthy
+core team            default healthy
 dispatch             policy on; dispatch-check PASS
 development runtime  go 1.26 in /workspace
 channels             telegram → default, tools healthy
@@ -151,11 +153,11 @@ test and report each as PASS, FAIL, BLOCKED or NOT TESTED with evidence:
 | Gate | Required evidence |
 | --- | --- |
 | Host/default chat | Fresh shell, unrelated cwd, default profile, `/workspace` identity, real chat |
-| Team | Seven resolving profiles with distinct descriptions and SOULs; owner edits preserved |
-| Automatic dispatch | Gateway claims a no-write researcher card with no manual dispatch |
+| Team | `default` resolves with RepoKit's SOUL and description; owner edits preserved; no leftover worker profiles |
+| Automatic dispatch | Gateway claims a no-write `default` card with no manual dispatch |
 | Development runtime | Target's manifest requirements match the in-container toolchain and mounts |
 | Channels | Adapter routes to default with CLI core parity; task and result delivered on that channel |
-| Same-card review | Real artifact with distinct executor, tester and reviewer runs |
+| Same-card review | Real artifact implemented by one `default` run and verified and completed by a separate `default` run |
 | Runtime independence | After removing a test-owned bootstrap, launcher and raw Compose restart keep profiles and board |
 
 Never delete a system-installed RepoKit binary to manufacture removal evidence.

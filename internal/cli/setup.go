@@ -119,20 +119,20 @@ func (a App) setup(id target.Identity, teamOnly, noCanary bool, stdout, stderr i
 		u.pending("Canary", "skipped: the default gateway is not running")
 		return 1
 	default:
-		u.working("Canary", "one researcher card through automatic dispatch (a small model call)")
+		u.working("Canary", "one default card through automatic dispatch (a small model call)")
 		task, err := a.canary(id, dc)
 		if err != nil {
 			u.fail("canary failed: %v; the team is configured but automatic dispatch is unproven", err)
 			u.next([2]string{self() + " verify", "inspect readiness"}, [2]string{self() + " verify --dispatch-check", "retry the canary"})
 			return 1
 		}
-		u.ok("Canary", "gateway ran researcher card "+task+" automatically; card archived")
+		u.ok("Canary", "gateway ran canary card "+task+" automatically; card archived")
 	}
 	u.ready(a.teamCommand(id))
 	return 0
 }
 
-// canary runs the dispatch check: one no-write researcher card that the
+// canary runs the dispatch check: one no-write default card that the
 // running gateway must claim and complete by itself.
 func (a App) canary(id target.Identity, dc string) (string, error) {
 	if a.Canary != nil {

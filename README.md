@@ -88,39 +88,31 @@ For example, you might ask:
 > “Research how this project handles authentication, then propose and implement
 a safer token-refresh flow. Run the relevant tests and ask for an independent review.”
 
-A typical request may flow through **research → plan → execute → test → review**.
-Conceptually, default routes the question to researcher, planner shapes bounded
-work, executor makes the change, tester checks it, and reviewer independently
-decides acceptance. This is an example of the intended flow, not a guarantee
-that every prompt invokes every role. Small questions may need only default.
+default does this work itself. It researches through read-only subagents,
+turns the change into a Kanban card, implements it, and then checks it in a
+separate, fresh verification run that never saw the implementation's
+reasoning. Small questions need only a reply.
 
 ## What you get
 
-RepoKit's default team has seven permanent profiles. The profile is a persistent
-identity; a worker runs only while doing assigned work.
+RepoKit installs one Hermes profile, `default`. It is the whole team: it talks
+with you, researches through read-only subagents, implements Kanban cards
+assigned to itself, and verifies each card in a separate fresh run. Its memory
+keeps your decisions and preferences. Specialization comes from skills, not
+from more profiles. See the [team model](docs/team-model.md).
 
-| Profile | Role |
-| --- | --- |
-| default | User-facing assistant, coordinator and orchestrator |
-| researcher | Investigates questions and gathers evidence |
-| planner | Defines a bounded work plan |
-| executor | Produces the requested change or artifact |
-| tester | Checks behavior and verifies the change |
-| reviewer | Independently decides whether verified work is accepted |
-| steward | Maintains team profiles and capabilities |
-
-Kanban is the shared work board. The intended review loop keeps implementation,
-verification and independent acceptance on the same card. The default gateway
+Kanban is the work board. Implementation and verification stay on the same
+card; the run that implemented a change never completes it. The default gateway
 dispatcher is configured during setup; actual model-driven work and channel
 delivery still have qualification limits described below.
 
-Where configured, Hermes channels use the same default profile, team and Kanban
+Where configured, Hermes channels use the same default profile and Kanban
 board as the launcher. The generated launcher provides a local command-line entry
 point and forwards native Hermes commands. Remote coding through a messaging
 channel is an intended way to use the team after channel setup, not a claim that
-Telegram task delivery or end-to-end remote coding is qualified today. Memory
-is yours to set up and manage in Hermes; RepoKit neither configures nor
-verifies it.
+Telegram task delivery or end-to-end remote coding is qualified today.
+RepoKit turns on Hermes's built-in memory tool for default; it configures no
+memory provider and does not verify recall.
 
 ## Everyday commands
 
@@ -137,7 +129,7 @@ repokit github-login  # sign in to GitHub once so the team can push
 Agents push to GitHub over HTTPS through the GitHub CLI's own login.
 `repokit github-login` runs `gh auth login` inside the deployment, in your
 terminal; RepoKit never sees the token, and gh keeps the login in `.hermes`
-(never committed), shared by every profile. Choose "Paste an authentication
+(never committed). Choose "Paste an authentication
 token" with a fine-grained token limited to this repository for the least
 privilege. Without it, agents finish their work and hand you `git push`.
 GitHub SSH remotes resolve to HTTPS inside the container only. `verify` reports

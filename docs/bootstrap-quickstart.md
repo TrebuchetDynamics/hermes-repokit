@@ -39,10 +39,10 @@ points at `repokit setup`). Neither asks you to run Compose, rerun install or
 pass extra flags. `setup` ends with `RepoKit ready.`
 once the canary card has run through automatic dispatch.
 
-The default roster is default/researcher/planner/executor/tester/reviewer/steward.
+RepoKit installs one profile, `default`, which is the whole team.
 Fresh installation trusts `/workspace` for native project-local skills before
-the container starts. Team provisioning carries that trust to all seven profiles;
-existing managed profiles gain it on the next `install` or `setup`. Hermes still scans
+the container starts. Team provisioning carries that trust to `default`; an
+existing `default` gains it on the next `install` or `setup`. Hermes still scans
 project skills and honors disabled skills. Existing trusted paths, skill settings
 and an explicit `skills.project_discovery: false` are preserved. Start a fresh
 conversation after reconciliation to refresh the skill index.
@@ -55,31 +55,39 @@ creates a new team it states the autonomy posture and asks to confirm:
 RepoKit's default runs workers without approval prompts, so they change the
 repository and run commands unattended from any connected chat (Hermes's
 hard-deny floor still applies); answering no keeps Hermes's approval prompts.
-It then provisions the seven-role team, activates dispatch and runs the canary: one
-no-write researcher card the gateway must claim and complete by itself (a small
-model call; `--no-canary` skips it and leaves dispatch unproven). RepoKit never
-configures memory. Owner-customized
-profiles (changed SOUL or description) are preserved and reported without
-failing; missing managed configuration is reported as drift. `default` is the normal user
-entry point; it delegates team changes to steward. See the [team model](team-model.md).
-Plain `setup` activates the core team. Memory setup is user-managed and separate.
+It then provisions `default`, activates dispatch and runs the canary: one
+no-write card assigned to `default` that the gateway must claim and complete by
+itself (a small model call; `--no-canary` skips it and leaves dispatch
+unproven). RepoKit turns on Hermes's built-in memory tool for `default` and
+configures no memory provider. An owner-customized `default` (changed SOUL or
+description) is preserved and reported without failing; missing managed
+configuration is reported as drift. Creating or retiring profiles is the
+owner's decision. See the [team model](team-model.md).
+Plain `setup` activates the core team. A memory provider is user-managed and separate.
 Failed steps preserve native state; rerun `setup`. For recovery,
 `setup --team` reconciles the team without ever opening the private wizard.
 On an operational team (dispatch already on), reconciliation never rewrites
-profiles under live workers. When no card is running, missing roles are created;
-while a card runs, only `default`'s own Kanban tools on saved channels are
-completed. Owner-customized profiles and an owner-changed dispatch policy are
-only reported. `repokit plan` shows the
-per-profile decision in its `team` section, and `repokit install
---reset-profile <role>` deliberately returns one roster profile to RepoKit's
-baseline after backing up its files (preview it with `plan --reset-profile`);
-see the [team model](team-model.md).
+profiles under live workers. When no card is running, a missing `default` is
+created; while a card runs, only `default`'s own Kanban tools on saved channels
+are completed. An owner-customized `default` and an owner-changed dispatch
+policy are only reported. `repokit plan` shows the decision in its `team`
+section, and `repokit install --reset-profile default` deliberately returns
+`default` to RepoKit's baseline after backing up its files (preview it with
+`plan --reset-profile default`); see the [team model](team-model.md).
 
-Fresh installation keeps `dispatch_in_gateway=false`. After the seven profiles
-reconcile without drift, setup writes the native Kanban policy on `default` with
+A deployment installed before v0.3.0 has six more profiles (researcher,
+planner, executor, tester, reviewer, steward). `install` retires them once,
+while no card is running: their open cards are reassigned to `default`, each
+profile is exported to `.hermes/backups/profile-<name>-<UTC time>.tar.gz`
+(restore with `hermes profile import`) and deleted, and the dispatch policy is
+rewritten to `dispatch_profiles: ["default"]`. While a card runs, install
+reports `retire-later`; rerun it when the board is idle.
+
+Fresh installation keeps `dispatch_in_gateway=false`. After `default`
+reconciles without drift, setup writes the native Kanban policy on `default` with
 `hermes config set`: `review_dispatch=true`, `max_in_progress=1`,
-`auto_decompose=false`, `orchestrator_profile=default`, the seven-profile
-`dispatch_profiles` allowlist, and `dispatch_in_gateway=true` last. It then runs
+`auto_decompose=false`, `orchestrator_profile=default`,
+`dispatch_profiles: ["default"]`, and `dispatch_in_gateway=true` last. It then runs
 `hermes gateway restart` and waits for a new gateway PID in `gateway status`.
 Setup refuses (and leaves dispatch off) while any card is running. An
 already-matching policy is left untouched with no restart; an owner-changed
@@ -88,8 +96,9 @@ started by setup. Memory is user-managed and never gates core work.
 
 Setup does not run a model or claim that a worker executed. Prove the loop with
 the explicit, paid `hermes-repokit verify --dispatch-check`: it creates one
-no-write researcher card, requires the running gateway to claim it within 150
-seconds without any manual dispatch, and accepts only a completed researcher run
+no-write card assigned to `default`, requires the running gateway to claim it
+within 150 seconds without any manual dispatch, and accepts only a completed
+`default` run
 whose `metadata.first_line` equals the README's first physical line (computed by
 RepoKit) with no changed files. A passing card is archived; a failing card is
 preserved for inspection.
@@ -98,8 +107,9 @@ preserved for inspection.
 and `kanban list/show --json` and reports `CORE_READY` first; memory is not
 reported. `CORE_READY` is `healthy` only when configuration, runtime,
 toolchain, dispatch policy, gateway and channel Kanban tools are healthy **and** a
-recent done card shows same-card review (an implementation run requesting review,
-a later tester run forwarding it, and reviewer completing the card last). Without that evidence it is `unqualified`.
+recent done card shows same-card review (`default` implemented it and requested
+review, and a separate `default` run verified and completed it). Without that
+evidence it is `unqualified`.
 `verify` exits 0 unless core is `degraded`. Passive verify does not configure or
 prove memory. A fresh
 Telegram conversation (`/new`) refreshes the coordinator's tools; actual
@@ -271,7 +281,7 @@ not produce a successful whole-deployment verification exit status.
 
 The release must still remove a disposable RepoKit binary AND checkout, remove
 the receipt, change directory, use native chat/commands, restart with raw
-Compose, perform actual bounded executor→tester→reviewer work, restart again,
+Compose, perform actual bounded work implemented and verified on one card, restart again,
 and prove session and board persistence. The current offline
 independence test uses the actual CLI, then deletes its copied source/binary and
 receipt. The Docker foundation test passes real CLI install/verify/rerun and

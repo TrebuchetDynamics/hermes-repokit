@@ -54,6 +54,6 @@ func (a App) dispatchCheck(out io.Writer) int {
 		return finish()
 	}
 	probe.Status = verify.Healthy
-	probe.Detail = "gateway automatically ran researcher card " + task + " with the expected no-write answer; card archived"
+	probe.Detail = "gateway automatically ran canary card " + task + " with the expected no-write answer; card archived"
 	return finish()
 }
