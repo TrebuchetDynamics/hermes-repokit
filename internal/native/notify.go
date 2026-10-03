@@ -18,10 +18,10 @@ var sendTarget = regexp.MustCompile(`^\s+([a-z][a-z0-9_]*):\S`)
 
 // IdentityChangedNotice is posted to the owner's chats when default's identity
 // changes: a chat keeps the identity it started with until the owner sends /new.
-const IdentityChangedNotice = "RepoKit updated this repository team's coordinator identity. Send /new to start a conversation that uses it; this chat keeps the earlier identity until then."
+const IdentityChangedNotice = "Your team got an update. This conversation keeps working as before; send /new whenever you like to start one that uses the update."
 
 // FreshChatNotice is posted where RepoKit ended the earlier conversation.
-const FreshChatNotice = "RepoKit updated this repository team's coordinator identity and closed the earlier conversation (its history is kept). Your next message here starts a fresh conversation with the new identity."
+const FreshChatNotice = "Your team got an update. Your next message starts a new conversation that uses it, so mention anything from earlier that still matters."
 
 // chatIdleSeconds keeps a conversation the owner is in the middle of: only a
 // chat quiet for this long is ended.

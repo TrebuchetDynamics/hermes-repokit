@@ -106,7 +106,7 @@ func TestProtectedInstructionWritesAreOwnerSteps(t *testing.T) {
 		if !strings.Contains(r.Soul, "runs without approval prompts") || !strings.Contains(r.Soul, "hermes kanban attach <your card id> <path>") {
 			t.Errorf("%s lacks the no-approval or attachment rule", r.Name)
 		}
-		if r.Name == "default" && (!strings.Contains(r.Soul, "Assign edits\nto AGENTS.md") || !strings.Contains(r.Soul, "tell them in one line")) {
+		if r.Name == "default" && (!strings.Contains(r.Soul, "Assign edits\nto AGENTS.md") || !strings.Contains(r.Soul, "reply\nexactly [SILENT]")) {
 			t.Error("default does not route protected writes to executor")
 		}
 		// RepoKit's default posture: no approval prompts on any profile.

@@ -32,11 +32,19 @@ func (s *sendCLI) RunInput(_ context.Context, _ io.Reader, _ string, args ...str
 func TestNotifyChatsPostsToEachHomeChannel(t *testing.T) {
 	r := &sendCLI{}
 	sent := NotifyChats(context.Background(), target.Identity{Compose: "/x/.hermes/compose.yaml"}, "default", r, IdentityChangedNotice)
-	if strings.Join(sent, ",") != "telegram" || len(r.sends) != 1 || !strings.HasPrefix(r.sends[0], "telegram --quiet RepoKit updated") {
+	if strings.Join(sent, ",") != "telegram" || len(r.sends) != 1 || !strings.HasPrefix(r.sends[0], "telegram --quiet Your team got an update") {
 		t.Fatalf("sent=%v sends=%v", sent, r.sends)
 	}
 	if !strings.Contains(IdentityChangedNotice, "/new") {
 		t.Fatal("notice does not tell the owner what to do")
+	}
+	// The owner reads these in a chat: no RepoKit internals.
+	for _, notice := range []string{IdentityChangedNotice, FreshChatNotice} {
+		for _, jargon := range []string{"identity", "coordinator", "profile", "SOUL"} {
+			if strings.Contains(notice, jargon) {
+				t.Errorf("notice %q says %q", notice, jargon)
+			}
+		}
 	}
 }
 
