@@ -3,7 +3,7 @@
 RepoKit configures a repository-specific Hermes team through public Hermes
 interfaces, proves what it can prove, then gets out of the way.
 
-**Released:** [v0.2.16](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.16)
+**Released:** [v0.2.17](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.17)
 (repository toolchains with nothing manual, autonomy stated at setup, memory
 left to the owner, fresh chats that follow default's identity in v0.2.4;
 v0.2.5 recognizes untouched SOULs by a recorded digest; v0.2.6 makes install
@@ -12,7 +12,10 @@ and keyless Exa web search by default; v0.2.8 adds `repokit list` and local spee
 to text; v0.2.9 teaches the coordinator to talk to the owner plainly; v0.2.10
 stops uv scratch locks blocking upgrades; v0.2.11 provisions Godot 4; v0.2.12
 gates recurring checks with a monitor script; v0.2.13 adds Godot export
-templates and Android builds; v0.2.14 fixes its verify listing).
+templates and Android builds; v0.2.14 fixes its verify listing; v0.2.15 has
+agents do the work they can instead of blocking; v0.2.16 pushes through the
+owner's gh login; v0.2.17 adds the single-profile shape, on trial on
+hermes-wing, and keeps image builds from filling the disk).
 The same-card
 executor → tester → reviewer loop is proven live; a reviewer request-changes
 correction cycle is not yet.
