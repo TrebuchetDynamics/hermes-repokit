@@ -23,9 +23,12 @@ type Requirements struct {
 	Flutter bool `json:"flutter"`
 	// FlutterLinux adds the Linux desktop toolchain for a Flutter app with a
 	// linux/ runner.
-	FlutterLinux bool     `json:"flutter_linux,omitempty"`
-	Detected     []string `json:"detected"`
-	Unsupported  []string `json:"unsupported"`
+	FlutterLinux bool `json:"flutter_linux,omitempty"`
+	// Godot is the Godot 4 minor version ("4.5") a project.godot declares;
+	// every qualified patch of it is installed.
+	Godot       string   `json:"godot,omitempty"`
+	Detected    []string `json:"detected"`
+	Unsupported []string `json:"unsupported"`
 }
 
 // Detect inspects root manifests strictly and, within bounds, those of nested
@@ -72,6 +75,8 @@ func Detect(path string) (Requirements, error) {
 			kind = "flutter"
 		case name == "pom.xml" || strings.HasPrefix(name, "build.gradle"):
 			kind = "jvm"
+		case name == "project.godot":
+			kind = "godot"
 		default:
 			continue
 		}
@@ -136,6 +141,8 @@ func Detect(path string) (Requirements, error) {
 			r.Unsupported = append(r.Unsupported, dartRequirements("", string(data))...)
 		case "jvm":
 			r.Unsupported = append(r.Unsupported, kind+" toolchain provisioning is not supported")
+		case "godot":
+			r.addGodot(name, string(data))
 		}
 	}
 	detectNested(root, &r, found)
@@ -346,8 +353,8 @@ func compact(values []string) []string {
 // skips vendored, generated and hidden trees. A nested go.mod provisions Go;
 // one that cannot be read or qualified is reported with its path and never
 // fails detection, so a stray file deep in a repository cannot block install.
-// A nested Cargo.toml provisions Rust and a nested pubspec.yaml Flutter the
-// same way. Other nested projects are
+// A nested Cargo.toml provisions Rust, a nested pubspec.yaml Flutter and a
+// nested project.godot Godot the same way. Other nested projects are
 // only recorded as detected: Node and Python come with the image, and nested
 // JVM builds (often an app's Android wrapper) are not provisioned and do not
 // mark the environment degraded.
@@ -431,6 +438,14 @@ func detectNested(root *os.Root, r *Requirements, found map[string]bool) {
 				r.Unsupported = append(r.Unsupported, rustRequirements(root, dir+"/", string(data))...)
 			case name == "pom.xml" || strings.HasPrefix(name, "build.gradle"):
 				found["jvm"] = true
+			case name == "project.godot":
+				data, err := readManifest(root, rel)
+				if err != nil {
+					r.Unsupported = append(r.Unsupported, rel+" cannot be safely inspected")
+					continue
+				}
+				found["godot"] = true
+				r.addGodot(rel, string(data))
 			}
 		}
 	}

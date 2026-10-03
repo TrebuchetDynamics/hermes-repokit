@@ -50,6 +50,9 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 	if req.Flutter && req.FlutterLinux {
 		tools = append(tools, struct{ name, command string }{"clang", "clang --version | head -1"}, struct{ name, command string }{"ninja", "ninja --version"}, struct{ name, command string }{"gtk3", "pkg-config --modversion gtk+-3.0"}, struct{ name, command string }{"xvfb-run", "command -v xvfb-run"})
 	}
+	if req.Godot != "" {
+		tools = append(tools, struct{ name, command string }{"godot", "godot --version"})
+	}
 	if req.Rust {
 		tools = append(tools, struct{ name, command string }{"rustc", "rustc --version"}, struct{ name, command string }{"cargo", "cargo --version"}, struct{ name, command string }{"clippy", "cargo clippy --version"})
 	}
@@ -71,7 +74,8 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 			tool.name == "go" && !strings.HasPrefix(version, "go version go"+development.GoVersion+" ") ||
 			tool.name == "staticcheck" && !strings.HasPrefix(version, "staticcheck "+development.StaticcheckVersion+" ") ||
 			tool.name == "rustc" && !strings.HasPrefix(version, "rustc "+development.RustVersion+" ") ||
-			tool.name == "flutter" && version != "Flutter "+development.FlutterVersion {
+			tool.name == "flutter" && version != "Flutter "+development.FlutterVersion ||
+			tool.name == "godot" && !strings.HasPrefix(version, newestGodot(req.Godot)+".stable.official.") {
 			status = Degraded
 		}
 		if status == Degraded {
@@ -143,4 +147,13 @@ func containsVersionToken(output, want string) bool {
 		}
 	}
 	return false
+}
+
+// newestGodot is the release the godot command names for a minor.
+func newestGodot(minor string) string {
+	versions := development.GodotVersions(minor)
+	if len(versions) == 0 {
+		return minor
+	}
+	return versions[len(versions)-1]
 }

@@ -286,8 +286,14 @@ volume. Flutter publishes Linux SDKs for x86_64 only, so on arm64 it is reported
 missing. An app with a `linux/` runner also gets the Linux desktop toolchain
 (clang, ninja, GTK 3 headers and Xvfb for headless widget tests) from Debian
 packages pinned to a fixed snapshot.debian.org date, warmed by a scratch
-`flutter build linux`. Android, iOS, macOS and Windows builds are not
-provisioned. A
+`flutter build linux`. A Godot 4 `project.godot` selects the Godot minor its
+`config/features` declares (4.4 to 4.7): every official stable patch of that
+minor is installed under its upstream name (`Godot_v4.5.1-stable_linux.x86_64`),
+each verified against Godot's published SHA-512, with `godot` naming the newest,
+so a repository that pins an exact patch finds it on PATH. The build runs a
+headless import and script. A second project on another minor, an unqualified
+minor or a Godot 3 project is reported by `verify`. Export templates are not
+provisioned. Android, iOS, macOS and Windows builds are not provisioned. A
 `rust-toolchain` file pinning another release, or a newer `rust-version`, is
 reported by `verify`. Vendored, generated and hidden trees are skipped and
 symlinks are never followed. Node/npm, Python and standard build utilities come

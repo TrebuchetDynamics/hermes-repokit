@@ -98,8 +98,10 @@ over.
 
 Detected toolchains: Go (`go.mod` at the root or up to three folders deep, plus
 `staticcheck`), Rust (`Cargo.toml`), Flutter/Dart (`pubspec.yaml`; Linux desktop
-toolchain when a `linux/` runner exists; x86_64 only), with Node/npm and Python
-from the base image. JVM, Android, iOS, macOS and Windows builds are not
+toolchain when a `linux/` runner exists; x86_64 only), Godot 4 (`project.godot`;
+every patch of its declared minor as `Godot_v<version>-stable_linux.<arch>`,
+`godot` the newest; no export templates), with Node/npm and Python from the base
+image. JVM, Android, iOS, macOS and Windows builds are not
 provisioned — report them as a gap rather than installing toolchains by hand
 inside the container. A repository that gains a manifest gets a republished
 recipe on the next `install`.

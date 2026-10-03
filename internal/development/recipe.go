@@ -197,6 +197,9 @@ func recipeInputs(req Requirements) map[string][]byte {
 			goSteps += flutterLinuxInstall
 		}
 	}
+	if req.Godot != "" {
+		goSteps += godotInstall(req.Godot)
+	}
 	content := strings.NewReplacer("{{HERMES_IMAGE}}", qualification.FoundationImage, "{{GO_INSTALL}}", goSteps).Replace(string(template))
 	browser, err := assets.Assets.ReadFile("repokit-browser-use-requirements.txt")
 	if err != nil {
@@ -242,7 +245,17 @@ func RecipeRequirements(files map[string][]byte) Requirements {
 		Rust:         bytes.Contains(files["Dockerfile"], []byte("https://static.rust-lang.org/dist/")),
 		Flutter:      bytes.Contains(files["Dockerfile"], []byte("https://storage.googleapis.com/flutter_infra_release/")),
 		FlutterLinux: bytes.Contains(files["Dockerfile"], []byte("repokit_linux_smoke")),
+		Godot:        recipeGodot(files["Dockerfile"]),
 	}
+}
+
+var godotRecipe = regexp.MustCompile(`(?m)^# RepoKit Godot (\d+\.\d+)$`)
+
+func recipeGodot(dockerfile []byte) string {
+	if m := godotRecipe.FindSubmatch(dockerfile); m != nil {
+		return string(m[1])
+	}
+	return ""
 }
 
 // Toolchains lists every toolchain selection a generated Compose can carry.
@@ -254,13 +267,18 @@ func Toolchains() []Requirements {
 			continue
 		}
 		all = append(all, req)
+		for _, minor := range GodotMinors() {
+			withGodot := req
+			withGodot.Godot = minor
+			all = append(all, withGodot)
+		}
 	}
 	return all
 }
 
 // SameToolchains reports whether two selections install the same toolchains.
 func SameToolchains(a, b Requirements) bool {
-	return a.Go == b.Go && a.Rust == b.Rust && a.Flutter == b.Flutter && a.FlutterLinux == b.FlutterLinux
+	return a.Go == b.Go && a.Rust == b.Rust && a.Flutter == b.Flutter && a.FlutterLinux == b.FlutterLinux && a.Godot == b.Godot
 }
 
 var recipeLabel = regexp.MustCompile(`org\.repokit\.development\.recipe=([0-9a-f]{64})`)

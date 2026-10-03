@@ -198,7 +198,7 @@ func TestDockerfileRunSyntax(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("sh not installed")
 	}
-	files, err := Recipe(Requirements{Go: true})
+	files, err := Recipe(Requirements{Go: true, Rust: true, Flutter: true, FlutterLinux: true, Godot: "4.5"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,7 +387,7 @@ func TestFlutterRecipeIsPinnedAndWarmed(t *testing.T) {
 	if strings.Contains(dockerfile, "apt-get") || RecipeRequirements(files).FlutterLinux {
 		t.Fatal("web-only Flutter recipe installs the Linux desktop toolchain")
 	}
-	if len(Toolchains()) != 12 {
+	if len(Toolchains()) != 12*(1+len(GodotMinors())) {
 		t.Fatal("toolchain selections incomplete")
 	}
 }
@@ -507,4 +507,83 @@ func TestRecipeShipsHashPinnedHermesPackages(t *testing.T) {
 			t.Fatalf("requirement without hashes: %s", line)
 		}
 	}
+}
+
+func godotProject(features string) string {
+	return "config_version=5\n\n[application]\n\nconfig/name=\"game\"\nconfig/features=PackedStringArray(" + features + ")\n"
+}
+
+// A project.godot at the root or in a nested game provisions the Godot minor
+// it declares; an unqualified, missing or Godot 3 version is noted instead,
+// as is a second project on another minor. Hidden build trees are skipped.
+func TestDetectProvisionsGodot(t *testing.T) {
+	for _, tc := range []struct {
+		files map[string]string
+		godot string
+		notes []string
+	}{
+		{map[string]string{"project.godot": godotProject(`"4.5", "Mobile"`)}, "4.5", nil},
+		{map[string]string{"game/project.godot": godotProject(`"4.7", "Forward Plus"`)}, "4.7", nil},
+		{map[string]string{"game/project.godot": godotProject(`"4.5"`), ".build/p8/project.godot": godotProject(`"4.2"`)}, "4.5", nil},
+		{map[string]string{"game/project.godot": godotProject(`"4.2"`)}, "", []string{"game/project.godot requires Godot 4.2, which is not qualified"}},
+		{map[string]string{"game/project.godot": godotProject(`"Mobile"`)}, "", []string{"game/project.godot declares no Godot version"}},
+		{map[string]string{"project.godot": "config_version=4\n[application]\nconfig/name=\"old\"\n"}, "", []string{"project.godot is not a Godot 4 project"}},
+		{map[string]string{"project.godot": godotProject(`"4.5"`), "tools/project.godot": godotProject(`"4.6"`)}, "4.5", []string{"tools/project.godot requires Godot 4.6; this repository is provisioned with Godot 4.5"}},
+	} {
+		root := t.TempDir()
+		for rel, content := range tc.files {
+			os.MkdirAll(filepath.Join(root, filepath.Dir(rel)), 0700)
+			manifest(t, filepath.Join(root, filepath.Dir(rel)), filepath.Base(rel), content)
+		}
+		r, err := Detect(root)
+		if err != nil || r.Godot != tc.godot || r.Go || r.Flutter || !reflect.DeepEqual(r.Unsupported, append([]string{}, tc.notes...)) {
+			t.Errorf("%v: %+v %v", tc.files, r, err)
+		}
+	}
+}
+
+// Every patch of the declared minor is installed under its upstream name,
+// each verified against Godot's published SHA-512, with godot naming the
+// newest and a headless import and script proving it.
+func TestGodotRecipeInstallsEveryPatchOfTheMinor(t *testing.T) {
+	files, err := Recipe(Requirements{Godot: "4.5"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dockerfile := string(files["Dockerfile"])
+	for _, want := range []string{
+		"releases/download/4.5-stable/${name}.zip", "releases/download/4.5.1-stable/${name}.zip", "releases/download/4.5.2-stable/${name}.zip",
+		`name="Godot_v4.5.1-stable_linux.${arch}"`, "sha512sum -c",
+		// Godot's published SHA512-SUMS.txt for 4.5.1 linux x86_64.
+		"5bccbed65a94b82c",
+		`ln -s "/opt/godot/$name" "/usr/local/bin/$name"`, "/opt/godot/Godot_v4.5.2-stable_linux.*)\" /usr/local/bin/godot",
+		"'4.5.1.stable.official.'*", "godot --headless --path . --import", "godot --headless --path . -s smoke.gd",
+	} {
+		if !strings.Contains(dockerfile, want) {
+			t.Errorf("Godot recipe missing %s", want)
+		}
+	}
+	if strings.Contains(dockerfile, "4.6-stable") || strings.Contains(dockerfile, "4.4.1-stable") {
+		t.Error("Godot recipe installs another minor")
+	}
+	if got := RecipeRequirements(files); got.Godot != "4.5" || got.Go || got.Flutter {
+		t.Fatalf("Godot recipe misread: %+v", got)
+	}
+	if RecipeRequirements(mustRecipe(t, Requirements{Go: true})).Godot != "" {
+		t.Fatal("a recipe without Godot read as Godot")
+	}
+	for _, r := range godotReleases {
+		if len(r.AMD64SHA512) != 128 || len(r.ARM64SHA512) != 128 {
+			t.Errorf("Godot %s checksum is not a SHA-512", r.Version)
+		}
+	}
+}
+
+func mustRecipe(t *testing.T, req Requirements) map[string][]byte {
+	t.Helper()
+	files, err := Recipe(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return files
 }

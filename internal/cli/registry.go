@@ -148,6 +148,9 @@ func (a App) recordInstall(id target.Identity, report Plan, code int) {
 			d.Toolchains = append(d.Toolchains, name)
 		}
 	}
+	if report.Development.Godot != "" {
+		d.Toolchains = append(d.Toolchains, "godot-"+report.Development.Godot)
+	}
 	sort.Strings(d.Toolchains)
 	if data, err := os.ReadFile(id.Compose); err == nil {
 		if m := composeImage.FindSubmatch(data); m != nil {
