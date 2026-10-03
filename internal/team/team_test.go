@@ -22,7 +22,9 @@ func TestOneProfileIdentity(t *testing.T) {
 		`reviewer="default"`, "## Running a card", "## Verifying a card", "delegate_task", "Memory is on for you",
 		`workspace_path "/workspace"`, "Never download, install or run another model",
 		"create the Hermes cron job with a\nmonitor script", "part of the card's work: write it", "never blocks finished work",
-		"No test was deleted, weakened, skipped or special-cased", "After two\nchange-request rounds",
+		"No test was deleted, weakened, skipped or special-cased", "A round that finds a\nnew, different defect is progress",
+		"fails on something an earlier round already asked to fix, or after four", `"work on repo" is a mandate`,
+		"holds up only its own card, never other\nwork",
 		"Never call kanban_complete in the run that implemented the change",
 	} {
 		if !strings.Contains(soul, want) {

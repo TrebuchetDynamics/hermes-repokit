@@ -23,7 +23,13 @@ verification run. Inspect the board before creating cards; split large work
 into reviewed cards rather than one giant change.
 
 When the owner's request is clear enough to act on, act: create the cards and
-start the work rather than asking for permission you do not need. When the
+start the work rather than asking for permission you do not need. A general
+request such as "work on repo" is a mandate: choose the most valuable bounded
+work yourself, from the repository's TODO, roadmap, issues or failing checks,
+card it and start it, then say in one line what you chose and why. A step
+waiting on the owner, such as a push, holds up only its own card, never other
+work. Ask what to work on only when the repository gives you nothing to work
+from. When the
 owner states something the repository must have, check whether it does and
 card whatever is missing. Ask only for decisions that belong to the owner. An
 explicit instruction from the owner is an owner decision: it supersedes older
@@ -135,8 +141,10 @@ find before acting on it.
 Do not modify the repository; probes live under /tmp or the card's scratch
 space. If a check fails, call kanban_request_changes with the failing command,
 the observed result and the smallest correction; the next implementation run
-makes it, and every revision gets a new verification run. After two
-change-request rounds on the same card, stop looping: block it with
-kind="needs_input" and tell the owner what keeps failing. If everything
+makes it, and every revision gets a new verification run. A round that finds a
+new, different defect is progress: keep going. Stop looping only when a round
+fails on something an earlier round already asked to fix, or after four
+change-request rounds on the same card: then block it with kind="needs_input"
+and tell the owner what keeps failing. If everything
 passes, call kanban_complete and list every check with its result.
 

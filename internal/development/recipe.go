@@ -156,13 +156,12 @@ ENV PUB_CACHE=/var/cache/repokit/pub-cache \
 // only at a fixed snapshot.debian.org date, verified by Debian's archive key,
 // so a rebuild installs the same versions. A smoke project builds the Linux
 // bundle and runs its widget test under Xvfb.
-const flutterLinuxInstall = `RUN set -eu; \
-    case "$(dpkg --print-architecture)" in \
-      amd64) ;; \
-      *) echo 'Flutter publishes Linux SDKs for x86_64 only; the Linux desktop toolchain is not installed' >&2; exit 0 ;; \
-    esac; \
-    mkdir /tmp/repokit-apt; \
-    printf '%s\n' 'Types: deb' \
+// snapshotApt installs Debian packages with apt pointed only at a fixed
+// snapshot.debian.org date, verified by Debian's archive key, so a rebuild
+// installs the same versions. It is a fragment of a RUN step.
+func snapshotApt(packages string) string {
+	return fmt.Sprintf(`    mkdir /tmp/repokit-apt; \
+    printf '%%s\n' 'Types: deb' \
       'URIs: https://snapshot.debian.org/archive/debian/20261001T000000Z' \
       'Suites: trixie trixie-updates' 'Components: main' \
       'Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg' '' \
@@ -173,9 +172,24 @@ const flutterLinuxInstall = `RUN set -eu; \
       -o Acquire::Check-Valid-Until=false -o Acquire::Retries=3 update; \
     DEBIAN_FRONTEND=noninteractive apt-get -o Dir::Etc::sourcelist=/dev/null -o Dir::Etc::sourceparts=/tmp/repokit-apt \
       -o Acquire::Check-Valid-Until=false -o Acquire::Retries=3 install -y --no-install-recommends \
-      clang ninja-build libgtk-3-dev liblzma-dev xvfb xauth; \
+      %s; \
     rm -rf /tmp/repokit-apt /var/lib/apt/lists/*; \
-    clang --version | head -1; ninja --version; \
+`, packages)
+}
+
+// godotDisplayInstall adds xauth, which the base image's xvfb-run needs to
+// start a virtual X display, so a Godot game can be run and recorded under X11
+// rather than only headless.
+var godotDisplayInstall = `RUN set -eu; \
+` + snapshotApt("xauth") + `    xvfb-run -a true
+`
+
+var flutterLinuxInstall = `RUN set -eu; \
+    case "$(dpkg --print-architecture)" in \
+      amd64) ;; \
+      *) echo 'Flutter publishes Linux SDKs for x86_64 only; the Linux desktop toolchain is not installed' >&2; exit 0 ;; \
+    esac; \
+` + snapshotApt("clang ninja-build libgtk-3-dev liblzma-dev xvfb xauth") + `    clang --version | head -1; ninja --version; \
     export PUB_CACHE=/tmp/repokit-pub-cache FLUTTER_SUPPRESS_ANALYTICS=true DASH__SUPPRESS_ANALYTICS=true; \
     cd /tmp; flutter create --project-name repokit_linux_smoke --platforms linux repokit_linux_smoke >/dev/null; \
     cd /tmp/repokit_linux_smoke; flutter build linux >/dev/null; xvfb-run -a flutter test; \
@@ -210,6 +224,7 @@ func recipeInputs(req Requirements) map[string][]byte {
 			goSteps += androidInstall
 		}
 		goSteps += godotInstall(req.Godot, req.GodotExport)
+		goSteps += godotDisplayInstall
 	}
 	content := strings.NewReplacer("{{HERMES_IMAGE}}", qualification.FoundationImage, "{{GO_INSTALL}}", goSteps).Replace(string(template))
 	browser, err := assets.Assets.ReadFile("repokit-browser-use-requirements.txt")
