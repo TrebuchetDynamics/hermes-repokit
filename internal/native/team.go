@@ -995,7 +995,10 @@ func retireScript(name, stamp string) string {
 		"done\n" +
 		teamCommand("profile", "export", name, "-o", base+".tar.gz") +
 		"for secret in auth.json .env; do\n" +
-		"    if [ -f " + shellQuote("/opt/data/profiles/"+name+"/") + "\"$secret\" ]; then install -m 600 " + shellQuote("/opt/data/profiles/"+name+"/") + "\"$secret\" " + shellQuote(base+".") + "\"$secret\"; fi\n" +
+		"    if [ -f " + shellQuote("/opt/data/profiles/"+name+"/") + "\"$secret\" ]; then install -m 600 " + shellQuote("/opt/data/profiles/"+name+"/") + "\"$secret\" " + shellQuote(base+".") + "\"${secret#.}\"; fi\n" +
 		"done\n" +
-		teamCommand("profile", "delete", "-y", name)
+		// Hermes removes the profile, then purges its routing identity, which
+		// fails while the running gateway holds it; the gateway step purges
+		// again after its restart. A removed profile is retired.
+		"hermes 'profile' 'delete' '-y' " + q + " >/dev/null 2>&1 || [ ! -e " + shellQuote("/opt/data/profiles/"+name) + " ]\n"
 }

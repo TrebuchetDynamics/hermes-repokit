@@ -252,6 +252,14 @@ func convergeGateway(ctx context.Context, id target.Identity, dc string, r Input
 	if before != 0 {
 		script += teamCommand("-p", "default", "gateway", "restart")
 	}
+	if LegacyPolicy(kanban) {
+		// Finish what retiring the six profiles started: once the gateway has
+		// reloaded its routing index, purge each removed profile's identity
+		// (idempotent; a profile that still exists is the owner's and kept).
+		for _, name := range LegacyProfiles {
+			script += "[ -e " + shellQuote("/opt/data/profiles/"+name) + " ] || hermes 'profile' 'purge-identity' " + shellQuote(name) + " >/dev/null 2>&1 || true\n"
+		}
+	}
 	if _, err := runBootstrap(ctx, id, dc, false, script, r); errors.Is(err, ErrWorkStarted) {
 		return "", err
 	} else if err != nil {
