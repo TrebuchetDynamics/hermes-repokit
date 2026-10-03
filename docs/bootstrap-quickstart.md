@@ -14,7 +14,7 @@ requires Go, not a host C compiler. Race tests are contributor validation.
 Install the bootstrap with Go 1.26+ from the latest release:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.3.0/install.sh | REPOKIT_REF=v0.3.0 sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.3.1/install.sh | REPOKIT_REF=v0.3.1 sh
 ```
 
 To build unreleased `main` instead, drop `REPOKIT_REF` and fetch the script from

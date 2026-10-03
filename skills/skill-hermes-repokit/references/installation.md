@@ -30,7 +30,7 @@ Reuse an installed `repokit` if `command -v repokit` resolves and `repokit --hel
 lists `plan|install|setup|verify`. Otherwise install it (Linux, Go 1.26+, curl):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.3.0/install.sh | REPOKIT_REF=v0.3.0 sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.3.1/install.sh | REPOKIT_REF=v0.3.1 sh
 ```
 
 Install the latest release shown above unless the owner asks for unreleased
