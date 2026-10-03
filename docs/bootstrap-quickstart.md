@@ -292,8 +292,20 @@ minor is installed under its upstream name (`Godot_v4.5.1-stable_linux.x86_64`),
 each verified against Godot's published SHA-512, with `godot` naming the newest,
 so a repository that pins an exact patch finds it on PATH. The build runs a
 headless import and script. A second project on another minor, an unqualified
-minor or a Godot 3 project is reported by `verify`. Export templates are not
-provisioned. Android, iOS, macOS and Windows builds are not provisioned. A
+minor or a Godot 3 project is reported by `verify`. An `export_presets.cfg`
+beside it adds the official export templates its presets target (Android,
+Linux, Web, Windows Desktop), extracted from each patch's template archive,
+verified against Godot's SHA-512, into
+`/opt/godot/export_templates/<version>.stable` (`GODOT_EXPORT_TEMPLATES`).
+Godot reads templates only from its data folder, so link
+`~/.local/share/godot/export_templates` to that directory; `install` accepts
+that link. An Android preset also adds Eclipse Temurin JDK 17.0.11 and the
+Android SDK's build-tools 35.0.0, platform android-35 and platform-tools
+36.0.2 (`JAVA_HOME`, `ANDROID_HOME`, `ANDROID_SDK_ROOT`; `java`, `keytool`,
+`apksigner`, `zipalign` and `adb` on PATH), x86_64 only; the build exports and
+verifies a debug APK. Gradle builds, macOS and iOS exports are not
+provisioned. Flutter's Android, iOS, macOS and Windows builds are not
+provisioned. A
 `rust-toolchain` file pinning another release, or a newer `rust-version`, is
 reported by `verify`. Vendored, generated and hidden trees are skipped and
 symlinks are never followed. Node/npm, Python and standard build utilities come

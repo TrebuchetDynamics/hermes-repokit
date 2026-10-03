@@ -26,7 +26,11 @@ type Requirements struct {
 	FlutterLinux bool `json:"flutter_linux,omitempty"`
 	// Godot is the Godot 4 minor version ("4.5") a project.godot declares;
 	// every qualified patch of it is installed.
-	Godot       string   `json:"godot,omitempty"`
+	Godot string `json:"godot,omitempty"`
+	// GodotExport lists the export platforms (android, linux, web, windows)
+	// the projects' export presets target; their templates are installed,
+	// and Android adds the JDK and Android SDK.
+	GodotExport []string `json:"godot_export,omitempty"`
 	Detected    []string `json:"detected"`
 	Unsupported []string `json:"unsupported"`
 }
@@ -142,7 +146,7 @@ func Detect(path string) (Requirements, error) {
 		case "jvm":
 			r.Unsupported = append(r.Unsupported, kind+" toolchain provisioning is not supported")
 		case "godot":
-			r.addGodot(name, string(data))
+			r.addGodot(name, string(data), optionalManifest(root, "export_presets.cfg", &r.Unsupported))
 		}
 	}
 	detectNested(root, &r, found)
@@ -180,6 +184,20 @@ func readManifest(root *os.Root, name string) ([]byte, error) {
 		return nil, fmt.Errorf("development detection: %s exceeds size limit", name)
 	}
 	return data, nil
+}
+
+// optionalManifest reads a manifest that may be absent; one present but
+// unsafe to read is noted.
+func optionalManifest(root *os.Root, rel string, notes *[]string) string {
+	if _, err := root.Lstat(rel); err != nil {
+		return ""
+	}
+	data, err := readManifest(root, rel)
+	if err != nil {
+		*notes = append(*notes, rel+" cannot be safely inspected")
+		return ""
+	}
+	return string(data)
 }
 
 var pythonRequirement = regexp.MustCompile(`^requires-python\s*=\s*["']([^"']+)["']\s*(?:#.*)?$`)
@@ -445,7 +463,7 @@ func detectNested(root *os.Root, r *Requirements, found map[string]bool) {
 					continue
 				}
 				found["godot"] = true
-				r.addGodot(rel, string(data))
+				r.addGodot(rel, string(data), optionalManifest(root, dir+"/export_presets.cfg", &r.Unsupported))
 			}
 		}
 	}

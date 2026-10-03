@@ -198,7 +198,7 @@ func TestDockerfileRunSyntax(t *testing.T) {
 	if _, err := exec.LookPath("sh"); err != nil {
 		t.Skip("sh not installed")
 	}
-	files, err := Recipe(Requirements{Go: true, Rust: true, Flutter: true, FlutterLinux: true, Godot: "4.5"})
+	files, err := Recipe(Requirements{Go: true, Rust: true, Flutter: true, FlutterLinux: true, Godot: "4.5", GodotExport: GodotExportPlatforms()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -387,7 +387,7 @@ func TestFlutterRecipeIsPinnedAndWarmed(t *testing.T) {
 	if strings.Contains(dockerfile, "apt-get") || RecipeRequirements(files).FlutterLinux {
 		t.Fatal("web-only Flutter recipe installs the Linux desktop toolchain")
 	}
-	if len(Toolchains()) != 12*(1+len(GodotMinors())) {
+	if len(Toolchains()) != 12*(1+len(GodotMinors())<<len(GodotExportPlatforms())) {
 		t.Fatal("toolchain selections incomplete")
 	}
 }
@@ -586,4 +586,79 @@ func mustRecipe(t *testing.T, req Requirements) map[string][]byte {
 		t.Fatal(err)
 	}
 	return files
+}
+
+func godotPresets(platforms ...string) string {
+	var b strings.Builder
+	for i, p := range platforms {
+		fmt.Fprintf(&b, "[preset.%d]\n\nname=\"%s\"\nplatform=\"%s\"\nrunnable=true\n\n[preset.%d.options]\n\n", i, p, p, i)
+	}
+	return b.String()
+}
+
+// Export presets beside a project.godot select the templates installed for
+// it; macOS, iOS and any other platform are noted, not provisioned.
+func TestDetectGodotExportPresets(t *testing.T) {
+	for _, tc := range []struct {
+		files  map[string]string
+		export []string
+		notes  []string
+	}{
+		{map[string]string{"game/project.godot": godotProject(`"4.5"`), "game/export_presets.cfg": godotPresets("Android")}, []string{"android"}, nil},
+		{map[string]string{"project.godot": godotProject(`"4.5"`), "export_presets.cfg": godotPresets("Windows Desktop", "Linux", "Web", "Linux")}, []string{"linux", "web", "windows"}, nil},
+		{map[string]string{"game/project.godot": godotProject(`"4.5"`), "game/export_presets.cfg": godotPresets("Android", "iOS", "macOS")}, []string{"android"}, []string{"game/export_presets.cfg: iOS export is not provisioned", "game/export_presets.cfg: macOS export is not provisioned"}},
+		{map[string]string{"game/project.godot": godotProject(`"4.5"`)}, nil, nil},
+		// Presets of an unqualified project are not provisioned.
+		{map[string]string{"game/project.godot": godotProject(`"4.2"`), "game/export_presets.cfg": godotPresets("Android")}, nil, []string{"game/project.godot requires Godot 4.2, which is not qualified"}},
+	} {
+		root := t.TempDir()
+		for rel, content := range tc.files {
+			os.MkdirAll(filepath.Join(root, filepath.Dir(rel)), 0700)
+			manifest(t, filepath.Join(root, filepath.Dir(rel)), filepath.Base(rel), content)
+		}
+		r, err := Detect(root)
+		if err != nil || !reflect.DeepEqual(r.GodotExport, tc.export) || !reflect.DeepEqual(r.Unsupported, append([]string{}, tc.notes...)) {
+			t.Errorf("%v: %+v %v", tc.files, r, err)
+		}
+	}
+}
+
+// Android export installs the pinned JDK and SDK packages and the Android
+// templates of every patch, each archive checked against its publisher's
+// checksum; the recipe is recognized again on upgrade.
+func TestGodotAndroidExportRecipe(t *testing.T) {
+	req := Requirements{Godot: "4.5", GodotExport: []string{"android", "web"}}
+	files := mustRecipe(t, req)
+	dockerfile := string(files["Dockerfile"])
+	for _, want := range []string{
+		"OpenJDK17U-jdk_x64_linux_hotspot_17.0.11_9.tar.gz", "aa7fb6bb342319d227a838af5c363bfa1b4a670c209372f9e6585bd79da6220c",
+		"build-tools_r35_linux.zip bd3a4966912eb8b30ed0d00b0cda6b6543b949d5ffe00bea54c04c81e1561d88",
+		"platform-35_r02.zip", "platform-tools_r36.0.2-linux.zip",
+		"ENV JAVA_HOME=/opt/jdk-17.0.11+9", "ANDROID_HOME=/opt/android-sdk", "ANDROID_SDK_ROOT=/opt/android-sdk",
+		"Godot_v4.5.1-stable_export_templates.tpz", "Godot_v4.5.2-stable_export_templates.tpz",
+		"dir=/opt/godot/export_templates/4.5.1.stable", "android_debug.apk android_release.apk web_debug.zip",
+		"ENV GODOT_EXPORT_TEMPLATES=/opt/godot/export_templates",
+	} {
+		if !strings.Contains(dockerfile, want) {
+			t.Errorf("Android export recipe missing %s", want)
+		}
+	}
+	if strings.Contains(dockerfile, "android_source.zip") || strings.Contains(dockerfile, "linux_debug.$arch") || strings.Contains(dockerfile, "windows_") {
+		t.Error("recipe installs templates no preset exports to")
+	}
+	if got := RecipeRequirements(files); !SameToolchains(got, req) {
+		t.Fatalf("Android export recipe misread: %+v", got)
+	}
+	noAndroid := string(mustRecipe(t, Requirements{Godot: "4.5", GodotExport: []string{"linux"}})["Dockerfile"])
+	if strings.Contains(noAndroid, "android-sdk") || !strings.Contains(noAndroid, "linux_debug.$arch linux_release.$arch") {
+		t.Error("a Linux-only export installs Android or misses its templates")
+	}
+	if strings.Contains(string(mustRecipe(t, Requirements{Godot: "4.5"})["Dockerfile"]), "export_templates") {
+		t.Error("a project without presets installs templates")
+	}
+	for _, r := range godotReleases {
+		if len(r.TemplatesSHA512) != 128 {
+			t.Errorf("Godot %s templates checksum is not a SHA-512", r.Version)
+		}
+	}
 }

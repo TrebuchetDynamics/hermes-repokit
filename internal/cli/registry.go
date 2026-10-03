@@ -150,6 +150,9 @@ func (a App) recordInstall(id target.Identity, report Plan, code int) {
 	}
 	if report.Development.Godot != "" {
 		d.Toolchains = append(d.Toolchains, "godot-"+report.Development.Godot)
+		for _, platform := range report.Development.GodotExport {
+			d.Toolchains = append(d.Toolchains, "godot-export-"+platform)
+		}
 	}
 	sort.Strings(d.Toolchains)
 	if data, err := os.ReadFile(id.Compose); err == nil {

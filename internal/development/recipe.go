@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -198,7 +199,10 @@ func recipeInputs(req Requirements) map[string][]byte {
 		}
 	}
 	if req.Godot != "" {
-		goSteps += godotInstall(req.Godot)
+		if slices.Contains(req.GodotExport, "android") {
+			goSteps += androidInstall
+		}
+		goSteps += godotInstall(req.Godot, req.GodotExport)
 	}
 	content := strings.NewReplacer("{{HERMES_IMAGE}}", qualification.FoundationImage, "{{GO_INSTALL}}", goSteps).Replace(string(template))
 	browser, err := assets.Assets.ReadFile("repokit-browser-use-requirements.txt")
@@ -246,10 +250,20 @@ func RecipeRequirements(files map[string][]byte) Requirements {
 		Flutter:      bytes.Contains(files["Dockerfile"], []byte("https://storage.googleapis.com/flutter_infra_release/")),
 		FlutterLinux: bytes.Contains(files["Dockerfile"], []byte("repokit_linux_smoke")),
 		Godot:        recipeGodot(files["Dockerfile"]),
+		GodotExport:  recipeGodotExport(files["Dockerfile"]),
 	}
 }
 
 var godotRecipe = regexp.MustCompile(`(?m)^# RepoKit Godot (\d+\.\d+)$`)
+
+var godotExportRecipe = regexp.MustCompile(`(?m)^# RepoKit Godot export ([a-z,]+)$`)
+
+func recipeGodotExport(dockerfile []byte) []string {
+	if m := godotExportRecipe.FindSubmatch(dockerfile); m != nil {
+		return strings.Split(string(m[1]), ",")
+	}
+	return nil
+}
 
 func recipeGodot(dockerfile []byte) string {
 	if m := godotRecipe.FindSubmatch(dockerfile); m != nil {
@@ -268,9 +282,17 @@ func Toolchains() []Requirements {
 		}
 		all = append(all, req)
 		for _, minor := range GodotMinors() {
-			withGodot := req
-			withGodot.Godot = minor
-			all = append(all, withGodot)
+			platforms := GodotExportPlatforms()
+			for set := 0; set < 1<<len(platforms); set++ {
+				withGodot := req
+				withGodot.Godot = minor
+				for i, platform := range platforms {
+					if set&(1<<i) != 0 {
+						withGodot.GodotExport = append(withGodot.GodotExport, platform)
+					}
+				}
+				all = append(all, withGodot)
+			}
 		}
 	}
 	return all
@@ -278,7 +300,7 @@ func Toolchains() []Requirements {
 
 // SameToolchains reports whether two selections install the same toolchains.
 func SameToolchains(a, b Requirements) bool {
-	return a.Go == b.Go && a.Rust == b.Rust && a.Flutter == b.Flutter && a.FlutterLinux == b.FlutterLinux && a.Godot == b.Godot
+	return a.Go == b.Go && a.Rust == b.Rust && a.Flutter == b.Flutter && a.FlutterLinux == b.FlutterLinux && a.Godot == b.Godot && slices.Equal(a.GodotExport, b.GodotExport)
 }
 
 var recipeLabel = regexp.MustCompile(`org\.repokit\.development\.recipe=([0-9a-f]{64})`)

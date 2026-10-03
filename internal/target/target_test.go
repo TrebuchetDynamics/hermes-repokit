@@ -749,3 +749,38 @@ func TestScratchUVLocksAreAccepted(t *testing.T) {
 		})
 	}
 }
+
+// An agent links Godot's export_templates data folder (in HERMES_HOME or a
+// profile home) to the image's templates; that link, and only that, may
+// point outside the state.
+func TestGodotTemplateLinksAreAccepted(t *testing.T) {
+	cases := []struct {
+		rel, target string
+		ok          bool
+	}{
+		{".local/share/godot/export_templates", "/opt/godot/export_templates", true},
+		{".local/share/godot/export_templates/4.5.1.stable", "/opt/godot/export_templates/4.5.1.stable", true},
+		{"profiles/executor/home/.local/share/godot/export_templates", "/opt/godot/export_templates/", true},
+		{"home/.local/share/godot/export_templates", "/opt/godot/export_templates", true},
+		{".local/share/godot/export_templates", "/opt/godot", false},
+		{".local/share/godot/export_templates", "/etc", false},
+		{".local/share/godot/keystores", "/opt/godot/export_templates", false},
+		{".local/share/godot/export_templates/4.5.1.stable", "/opt/godot/export_templates/../../etc", false},
+	}
+	for _, c := range cases {
+		t.Run(c.rel+"->"+c.target, func(t *testing.T) {
+			p := privateDir(t)
+			path := filepath.Join(p, ".hermes", c.rel)
+			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(c.target, path); err != nil {
+				t.Fatal(err)
+			}
+			id, _ := Resolve(p)
+			if issues := Inspect(id, ""); (len(issues) == 0) != c.ok {
+				t.Fatalf("ok=%v issues=%v", c.ok, issues)
+			}
+		})
+	}
+}

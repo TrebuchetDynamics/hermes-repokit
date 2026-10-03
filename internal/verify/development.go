@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -53,6 +54,14 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 	if req.Godot != "" {
 		tools = append(tools, struct{ name, command string }{"godot", "godot --version"})
 	}
+	if req.Godot != "" && len(req.GodotExport) > 0 {
+		tools = append(tools, struct{ name, command string }{"godot-templates", `ls "$GODOT_EXPORT_TEMPLATES" | tr '\n' ' '`})
+	}
+	if req.Godot != "" && slices.Contains(req.GodotExport, "android") {
+		tools = append(tools, struct{ name, command string }{"java", `java -version 2>&1 | sed -n '1s/.*version "\([^"]*\)".*/\1/p'`},
+			struct{ name, command string }{"apksigner", "apksigner --version"},
+			struct{ name, command string }{"android-build-tools", `sed -n 's/^Pkg.Revision=//p' "$ANDROID_HOME/build-tools/` + development.AndroidBuildTools + `/source.properties"`})
+	}
 	if req.Rust {
 		tools = append(tools, struct{ name, command string }{"rustc", "rustc --version"}, struct{ name, command string }{"cargo", "cargo --version"}, struct{ name, command string }{"clippy", "cargo clippy --version"})
 	}
@@ -75,7 +84,10 @@ func Development(ctx context.Context, id target.Identity, r Runner) []Probe {
 			tool.name == "staticcheck" && !strings.HasPrefix(version, "staticcheck "+development.StaticcheckVersion+" ") ||
 			tool.name == "rustc" && !strings.HasPrefix(version, "rustc "+development.RustVersion+" ") ||
 			tool.name == "flutter" && version != "Flutter "+development.FlutterVersion ||
-			tool.name == "godot" && !strings.HasPrefix(version, newestGodot(req.Godot)+".stable.official.") {
+			tool.name == "godot" && !strings.HasPrefix(version, newestGodot(req.Godot)+".stable.official.") ||
+			tool.name == "godot-templates" && version != godotTemplateDirs(req.Godot) ||
+			tool.name == "java" && version != strings.SplitN(development.JDKVersion, "+", 2)[0] ||
+			tool.name == "android-build-tools" && version != development.AndroidBuildTools {
 			status = Degraded
 		}
 		if status == Degraded {
@@ -156,4 +168,14 @@ func newestGodot(minor string) string {
 		return minor
 	}
 	return versions[len(versions)-1]
+}
+
+// godotTemplateDirs is the template listing installed for a minor: one
+// <version>.stable directory per patch.
+func godotTemplateDirs(minor string) string {
+	var dirs []string
+	for _, v := range development.GodotVersions(minor) {
+		dirs = append(dirs, v+".stable")
+	}
+	return strings.Join(dirs, " ")
 }

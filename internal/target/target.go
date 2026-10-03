@@ -48,6 +48,9 @@ var scratchUVLock = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/uv-([a-
 // a home's state directory (named by process ID).
 var dartPerfSocket = regexp.MustCompile(`^\.local/state/Dart/perf/[0-9]+$`)
 var browserHarnessSocket = regexp.MustCompile(`^(profiles/[^/]+/)?home/\.config/browser-harness/runtime/[^/]+\.sock$`)
+var godotTemplatesLink = regexp.MustCompile(`^((profiles/[^/]+/)?home/)?\.local/share/godot/export_templates(/[0-9]+\.[0-9]+(\.[0-9]+)?\.stable)?$`)
+var godotTemplatesTarget = regexp.MustCompile(`^/opt/godot/export_templates(/[0-9]+\.[0-9]+(\.[0-9]+)?\.stable)?$`)
+
 var huggingFaceModelLink = regexp.MustCompile(`^\.cache/huggingface/hub/models--[A-Za-z0-9][A-Za-z0-9._-]*/(blobs/[0-9a-f]{40}([0-9a-f]{24})?|snapshots/[0-9a-f]{40}/[^/]+(/[^/]+)*)$`)
 var huggingFaceCacheMetadata = regexp.MustCompile(`^\.cache/huggingface/hub/(\.locks/models--[A-Za-z0-9][A-Za-z0-9._-]*/[0-9a-f]{40}([0-9a-f]{24})?\.lock|blobs/[0-9a-f]{2}/[0-9a-f]{64}\.(lock|refs))$`)
 
@@ -314,6 +317,11 @@ func containedToolLink(rel, path, launcher string, info fs.FileInfo) bool {
 	target, err := os.Readlink(path)
 	if err != nil || target == "" {
 		return false
+	}
+	// Godot finds export templates only in its data folder; an agent links
+	// it to the templates RepoKit installed in the image.
+	if godotTemplatesLink.MatchString(rel) && godotTemplatesTarget.MatchString(filepath.Clean(target)) {
+		return true
 	}
 	if strings.HasPrefix(target, "/") {
 		clean := filepath.Clean(target)
