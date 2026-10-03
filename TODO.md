@@ -3,7 +3,7 @@
 RepoKit configures a repository-specific Hermes team through public Hermes
 interfaces, proves what it can prove, then gets out of the way.
 
-**Released:** [v0.3.2](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.3.2)
+**Released:** [v0.3.3](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.3.3)
 (repository toolchains with nothing manual, autonomy stated at setup, memory
 left to the owner, fresh chats that follow default's identity in v0.2.4;
 v0.2.5 recognizes untouched SOULs by a recorded digest; v0.2.6 makes install
