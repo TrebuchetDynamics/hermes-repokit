@@ -50,6 +50,8 @@ type App struct {
 	// update in tests.
 	Fetch        func(url string) ([]byte, error)
 	RunInstaller func(script []byte, ref string, stdout, stderr io.Writer) error
+	// FreeSpace replaces the Docker free-space probe in tests.
+	FreeSpace func(dockerContext string) (uint64, bool)
 	// GitHubLogin replaces gh's interactive sign-in in tests.
 	GitHubLogin func(compose, dockerContext string, stdin io.Reader, stdout, stderr io.Writer) int
 	// Canary replaces the setup canary card in tests.

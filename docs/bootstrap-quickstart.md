@@ -169,6 +169,13 @@ earlier release, like an edited or foreign one, is refused and never migrated. T
 `docker compose -f .hermes/compose.yaml down`, move `.hermes` aside, and run
 `repokit install` again.
 
+Before building an image, install and start check that the filesystem holding a
+local Docker daemon's images has at least 15 GB free, and refuse with that
+reason otherwise; a running container keeps running unchanged. Once the new
+image runs, install removes the deployment's earlier `repokit/hermes-<repo>`
+images, never one a container still uses. Docker's build cache is yours to
+trim (`docker builder prune`).
+
 If PATH lacks the directory, install still creates the link and prints its
 absolute path. If host exposure is unavailable, install warns and gives the
 repository-local launcher instead; published artifacts remain usable. Existing

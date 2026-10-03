@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/compose"
@@ -75,6 +76,13 @@ func (a App) startDeployment(id target.Identity, dc string, stdout, stderr io.Wr
 		u.fail("start refused: %v", err)
 		return 1
 	}
+	if !a.imageBuilt(id, dc) {
+		if free, known := a.dockerFree(dc); known && free < minBuildFree {
+			u.fail("only %.1f GB free where Docker keeps images; a build needs about %d GB. %s", float64(free)/(1<<30), minBuildFree>>30, keepsRunning(id, state))
+			u.note("free space (for example docker builder prune, or remove unused images), then rerun")
+			return 1
+		}
+	}
 	if state == "running" {
 		// Build first while the running container keeps working, so the
 		// idle check below is followed by a recreation of seconds, not by a
@@ -106,7 +114,77 @@ func (a App) startDeployment(id target.Identity, dc string, stdout, stderr io.Wr
 		return 1
 	}
 	u.ok("Container", id.Container+" running")
+	if n := a.removeSuperseded(id, dc); n > 0 {
+		u.ok("Images", fmt.Sprintf("removed %d earlier image(s) this deployment no longer uses", n))
+	}
 	return 0
+}
+
+// minBuildFree is the free space a development image build needs; a Flutter
+// or Godot image adds several gigabytes plus build cache.
+const minBuildFree = 15 << 30
+
+func keepsRunning(id target.Identity, state string) string {
+	if state == "running" {
+		return id.Container + " keeps running unchanged."
+	}
+	return "Nothing was built."
+}
+
+// dockerFree reports the free space on the filesystem holding a local Docker
+// daemon's images. It is unknown for a remote daemon.
+func (a App) dockerFree(dc string) (uint64, bool) {
+	if a.FreeSpace != nil {
+		return a.FreeSpace(dc)
+	}
+	ctx := context.Background()
+	host := a.Runner.Run(ctx, "docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}", dc)
+	if host.Err != nil || !strings.HasPrefix(strings.TrimSpace(host.Output), "unix://") {
+		return 0, false
+	}
+	root := a.Runner.Run(ctx, "docker", "--context", dc, "info", "--format", "{{.DockerRootDir}}")
+	dir := strings.TrimSpace(root.Output)
+	var st syscall.Statfs_t
+	if root.Err != nil || !filepath.IsAbs(dir) || syscall.Statfs(dir, &st) != nil {
+		return 0, false
+	}
+	return st.Bavail * uint64(st.Bsize), true
+}
+
+// removeSuperseded removes this deployment's earlier images once the current
+// one runs, so every upgrade does not leave a multi-gigabyte copy behind.
+// Only RepoKit's own repository for this container is touched, and never an
+// image any container (running or stopped) still uses.
+func (a App) removeSuperseded(id target.Identity, dc string) int {
+	data, err := os.ReadFile(id.Compose)
+	if err != nil {
+		return 0
+	}
+	m := composeImage.FindSubmatch(data)
+	repo := "repokit/" + id.Container
+	if m == nil || !strings.HasPrefix(string(m[1]), repo+":") {
+		return 0
+	}
+	ctx := context.Background()
+	used := a.Runner.Run(ctx, "docker", "--context", dc, "container", "ls", "--all", "--format", "{{.Image}}")
+	list := a.Runner.Run(ctx, "docker", "--context", dc, "image", "ls", "--format", "{{.Repository}}:{{.Tag}}", repo)
+	if used.Err != nil || used.Truncated || list.Err != nil || list.Truncated {
+		return 0
+	}
+	inUse := map[string]bool{string(m[1]): true}
+	for _, ref := range strings.Fields(used.Output) {
+		inUse[ref] = true
+	}
+	n := 0
+	for _, ref := range strings.Fields(list.Output) {
+		if !strings.HasPrefix(ref, repo+":") || inUse[ref] {
+			continue
+		}
+		if a.Runner.Run(ctx, "docker", "--context", dc, "image", "rm", ref).Err == nil {
+			n++
+		}
+	}
+	return n
 }
 
 func buildCommand(id target.Identity, dc string) string {
