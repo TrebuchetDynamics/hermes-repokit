@@ -486,7 +486,7 @@ func TestRecipeShipsHashPinnedHermesPackages(t *testing.T) {
 		t.Fatal(err)
 	}
 	dockerfile := string(files["Dockerfile"])
-	for _, want := range []string{"COPY repokit-hermes-requirements.txt", "--python /opt/hermes/.venv/bin/python --require-hashes --no-deps -r /tmp/repokit-hermes-requirements.txt", "import edge_tts, ddgs", "ln -s /opt/hermes/.venv/bin/ddgs /usr/local/bin/ddgs"} {
+	for _, want := range []string{"COPY repokit-hermes-requirements.txt", "--python /opt/hermes/.venv/bin/python --require-hashes --no-deps -r /tmp/repokit-hermes-requirements.txt", "import edge_tts, ddgs, faster_whisper", "ln -s /opt/hermes/.venv/bin/ddgs /usr/local/bin/ddgs"} {
 		if !strings.Contains(dockerfile, want) {
 			t.Errorf("recipe missing %q", want)
 		}
@@ -495,7 +495,11 @@ func TestRecipeShipsHashPinnedHermesPackages(t *testing.T) {
 		t.Error("ddgs still installed outside Hermes's environment")
 	}
 	reqs := string(files["repokit-hermes-requirements.txt"])
-	if !strings.Contains(reqs, "edge-tts==") || !strings.Contains(reqs, "ddgs==") || !strings.Contains(string(files[".dockerignore"]), "!repokit-hermes-requirements.txt") {
+	// faster-whisper passes an av.open option PyAV 16+ dropped (live round trip).
+	if !strings.Contains(reqs, "av==15.") {
+		t.Error("PyAV must stay on 15.x for faster-whisper")
+	}
+	if !strings.Contains(reqs, "edge-tts==") || !strings.Contains(reqs, "ddgs==") || !strings.Contains(reqs, "faster-whisper==") || !strings.Contains(string(files[".dockerignore"]), "!repokit-hermes-requirements.txt") {
 		t.Fatal("Hermes packages not in the build context")
 	}
 	for _, line := range strings.Split(reqs, "\n") {

@@ -96,15 +96,17 @@ RUN set -eu; cd /tmp; \
     rm /tmp/repokit-browser-use-requirements.txt; \
     browser-use --help >/dev/null
 # Packages Hermes's own providers import but this sealed Hermes environment
-# cannot install: edge-tts (default text to speech, keyless Edge voices) and
-# ddgs (DuckDuckGo web search, keyless; its CLI serves the search skill too).
+# cannot install: edge-tts (default text to speech, keyless Edge voices), ddgs
+# (DuckDuckGo web search, keyless; its CLI serves the search skill too) and
+# faster-whisper (local speech to text for voice messages; its model downloads
+# into .hermes on first use).
 # Only what Hermes lacks, hash-pinned and resolved against its own versions.
 # --no-config and /tmp keep uv from applying Hermes's own project settings.
 COPY repokit-hermes-requirements.txt /tmp/repokit-hermes-requirements.txt
 RUN set -eu; cd /tmp; \
     uv pip install --no-config --python /opt/hermes/.venv/bin/python --require-hashes --no-deps -r /tmp/repokit-hermes-requirements.txt; \
     rm /tmp/repokit-hermes-requirements.txt; \
-    /opt/hermes/.venv/bin/python -c 'import edge_tts, ddgs'; \
+    /opt/hermes/.venv/bin/python -c 'import edge_tts, ddgs, faster_whisper'; \
     ln -s /opt/hermes/.venv/bin/ddgs /usr/local/bin/ddgs; \
     ddgs --help >/dev/null
 # The base image ships Playwright's headless Chromium; agent-browser (under
