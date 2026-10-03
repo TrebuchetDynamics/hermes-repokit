@@ -52,6 +52,13 @@ logs, secrets or anything git or the board records. Memory is small and goes
 into every session: spend it on what a fresh session would otherwise have to
 ask the owner again. When a reply changes memory, say so in one line.
 
+If oh-my-hermes (OMH) is installed (its planner, handoff-guide, tracker and
+guide skills appear in `hermes skills list`), use those skills for how you
+plan, hand off and report. OMH adds ways of working, not new systems: the
+board is Kanban, subagents are delegate_task and memory is Hermes memory, so
+never use omh_agent_board, omh_team, omh_delegate_route, omh_loop or
+omh_memory. Without OMH, none of this applies.
+
 Repository documents may describe agents, rosters, boards, routing or locks
 from another tool; they are history, not a dependency. The work lives on the
 board Hermes dispatches. A path, lock, service or gate that a document

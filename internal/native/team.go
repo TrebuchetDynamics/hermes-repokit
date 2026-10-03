@@ -757,7 +757,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 		changes += skillsWrite(roles[0])
 		changes += retirement(&plan, legacy, busyRoles)
 	}
-	if readOMH(root) != development.OMHVersion {
+	if readOMH(root) != omhSetup {
 		changes += progressMark("default: oh-my-hermes " + development.OMHVersion)
 		changes += omhWrite()
 	}
@@ -1020,14 +1020,19 @@ func retireScript(name, stamp string) string {
 		"hermes 'profile' 'delete' '-y' " + q + " >/dev/null 2>&1 || [ ! -e " + shellQuote("/opt/data/profiles/"+name) + " ]\n"
 }
 
-// omhRecord names the file recording the oh-my-hermes version whose setup
-// install last ran; setup runs once per version, so an owner who changes or
-// disables OMH afterwards keeps that choice until the next OMH release.
+// omhRecord names the file recording the oh-my-hermes setup install last ran:
+// the OMH version and the choices that shaped it. Setup runs again only when
+// that record changes, so an owner who changes or disables OMH afterwards
+// keeps that choice until RepoKit's OMH setup itself changes.
 const omhRecord = ".repokit-omh"
+
+// omhSetup is the current record: OMH's core skills, Hermes as the coding
+// executor, and OMH memory off, so Hermes memory stays the only memory.
+var omhSetup = development.OMHVersion + " core hermes memory-off"
 
 func readOMH(root *os.Root) string {
 	data, err := root.ReadFile(".hermes/" + omhRecord)
-	if err != nil || len(data) > 32 {
+	if err != nil || len(data) > 64 {
 		return ""
 	}
 	return strings.TrimSpace(string(data))
@@ -1035,12 +1040,15 @@ func readOMH(root *os.Root) string {
 
 // omhWrite runs OMH's own setup for default: the lightweight core skills
 // (the full set adds about 50k tokens to every request), Hermes as the coding
-// executor so cards never stop to ask, and no OMH TUI or menubar. Its gateway
-// restarts to load the plugin only while no card runs; otherwise OMH loads at
-// the next restart.
+// executor so cards never stop to ask, OMH memory off, and no OMH TUI or
+// menubar. An earlier setup that made OMH default's memory provider is undone
+// only while the provider is still omh; one the owner chose is kept. The
+// gateway restarts to load the plugin only while no card runs; otherwise OMH
+// loads at the next restart.
 func omhWrite() string {
-	return "if command -v omh >/dev/null 2>&1 && (cd /opt/data && omh setup --yes --no-interactive --no-omh-tui --no-menubar --core --default-executor hermes >/opt/data/.repokit-omh.log 2>&1); then\n" +
-		"  printf '%s\\n' " + shellQuote(development.OMHVersion) + " > /opt/data/" + omhRecord + "\n" +
+	return "if command -v omh >/dev/null 2>&1 && (cd /opt/data && omh setup --yes --no-interactive --no-omh-tui --no-menubar --core --default-executor hermes --memory-mode off >/opt/data/.repokit-omh.log 2>&1); then\n" +
+		"  if [ \"$(hermes -p default config get memory.provider 2>/dev/null)\" = omh ]; then hermes -p default config unset memory.provider >/dev/null; fi\n" +
+		"  printf '%s\\n' " + shellQuote(omhSetup) + " > /opt/data/" + omhRecord + "\n" +
 		"  if hermes -p default gateway status 2>/dev/null | grep -q 'Gateway is running' && ! hermes -p default kanban stats --json | grep -Eq '\"running\": *[1-9]'; then hermes -p default gateway restart >/dev/null 2>&1 || true; fi\n" +
 		"else\n  echo 'oh-my-hermes setup did not finish; see .hermes/.repokit-omh.log' >&2\nfi\n"
 }

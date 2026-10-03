@@ -493,9 +493,10 @@ func TestCoordinatorToolsAreGrantedOnResetOnly(t *testing.T) {
 	}
 }
 
-// oh-my-hermes setup runs once per OMH version: a deployment already recorded
-// at the current version keeps whatever the owner did with OMH since.
-func TestTeamRunsOMHSetupOncePerVersion(t *testing.T) {
+// oh-my-hermes setup runs again only when RepoKit's OMH setup changes: an
+// install after the current record exists writes nothing, while a deployment
+// set up by an earlier record (3.0.0, which left OMH memory on) runs it once.
+func TestTeamRunsOMHSetupOncePerRecord(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.Mkdir(filepath.Join(dir, ".hermes"), 0700); err != nil {
 		t.Fatal(err)
@@ -506,15 +507,67 @@ func TestTeamRunsOMHSetupOncePerVersion(t *testing.T) {
 	}
 	defer root.Close()
 	id := target.Identity{Project: "repo-123", Name: "atlas"}
-	plan, err := teamScript(id, true, "", sectioned(fakeTeamConfig), root)
-	if err != nil || !strings.Contains(plan.Script, "omh setup --yes --no-interactive --no-omh-tui --no-menubar --core --default-executor hermes") {
-		t.Fatalf("first install did not set up OMH: err=%v", err)
+	for _, record := range []string{"", development.OMHVersion + "\n"} {
+		if record != "" {
+			if err := os.WriteFile(filepath.Join(dir, ".hermes", omhRecord), []byte(record), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		plan, err := teamScript(id, true, "", sectioned(fakeTeamConfig), root)
+		if err != nil || !strings.Contains(plan.Script, "--core --default-executor hermes --memory-mode off") {
+			t.Fatalf("record %q did not run OMH setup: err=%v", record, err)
+		}
 	}
-	if err := os.WriteFile(filepath.Join(dir, ".hermes", omhRecord), []byte(development.OMHVersion+"\n"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".hermes", omhRecord), []byte(omhSetup+"\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	plan, err = teamScript(id, true, "", sectioned(fakeTeamConfig), root)
+	plan, err := teamScript(id, true, "", sectioned(fakeTeamConfig), root)
 	if err != nil || strings.Contains(plan.Script, "omh setup") {
-		t.Fatalf("recorded OMH set up again: err=%v", err)
+		t.Fatalf("current record set up again: err=%v", err)
+	}
+}
+
+// The OMH step clears default's memory provider only while it is still the
+// omh an earlier setup chose; a provider the owner picked since is kept. The
+// record is written only when OMH's setup succeeds.
+func TestOMHStepKeepsOwnerMemoryProvider(t *testing.T) {
+	for _, tc := range []struct {
+		provider string
+		setupOK  bool
+		unset    bool
+		recorded bool
+	}{
+		{"omh", true, true, true},
+		{"holographic", true, false, true},
+		{"", true, false, true},
+		{"omh", false, false, false},
+	} {
+		data, bin := t.TempDir(), t.TempDir()
+		log := filepath.Join(data, "calls")
+		setupExit := "0"
+		if !tc.setupOK {
+			setupExit = "1"
+		}
+		stubs := map[string]string{
+			"omh": "#!/bin/sh\nexit " + setupExit + "\n",
+			"hermes": "#!/bin/sh\necho \"$*\" >> " + log + "\n" +
+				"case \"$*\" in *'config get memory.provider'*) printf '%s\\n' " + shellQuote(tc.provider) + ";; *'gateway status'*) echo 'Gateway is not running';; esac\n",
+		}
+		for name, body := range stubs {
+			if err := os.WriteFile(filepath.Join(bin, name), []byte(body), 0700); err != nil {
+				t.Fatal(err)
+			}
+		}
+		script := strings.ReplaceAll(omhWrite(), "/opt/data", data)
+		cmd := exec.Command("/bin/sh", "-c", script)
+		cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"))
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%+v: %v %s", tc, err, out)
+		}
+		calls, _ := os.ReadFile(log)
+		record, err := os.ReadFile(filepath.Join(data, omhRecord))
+		if strings.Contains(string(calls), "config unset memory.provider") != tc.unset || (err == nil) != tc.recorded || (tc.recorded && strings.TrimSpace(string(record)) != omhSetup) {
+			t.Fatalf("%+v: calls=%q record=%q", tc, calls, record)
+		}
 	}
 }
