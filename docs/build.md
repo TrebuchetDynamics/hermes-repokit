@@ -3,7 +3,7 @@
 On Linux with Go 1.26+, install the bootstrap CLI from the latest release:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.7/install.sh | REPOKIT_REF=v0.2.7 sh
+curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/v0.2.8/install.sh | REPOKIT_REF=v0.2.8 sh
 ```
 
 To build unreleased `main`, use `curl -fsSL https://raw.githubusercontent.com/TrebuchetDynamics/hermes-repokit/main/install.sh | sh`.
