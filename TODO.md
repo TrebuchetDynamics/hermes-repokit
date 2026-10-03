@@ -158,6 +158,18 @@ against a fresh clone.
       and retire the `python-imports` probe and `HermesImportNames`.
 - [ ] Requalify `NativeDefaultSoulSHA256` and `HermesImportNames` on every
       `FoundationImage` change.
+- [ ] Rootless Podman (owner decision 2026-10-02: stay on Docker for now). A
+      spike ran the Docker foundation acceptance through a `podman` Docker
+      context on Podman 4.9.3. The image built and the container ran, but the
+      Hermes image boots as root and drops to `hermes`, which rootless user
+      namespaces cannot satisfy: without `userns_mode: keep-id` the state
+      files belong to a sub-ID (the owner cannot read `.hermes`); with it, the
+      root-run profile reconcile cannot read `.hermes` and `exec` into
+      `/workspace` is refused. Revisit when Hermes ships a rootless-friendly
+      image; the RepoKit side is then four small changes: an empty read-only
+      volume instead of the tmpfs `.hermes` mask (Podman copies tmpfs up),
+      accept that volume in the mount check, strip Podman's `docker.io/` image
+      prefix before comparing, and `keep-id` on Podman.
 
 ## Acceptance tests still open
 
