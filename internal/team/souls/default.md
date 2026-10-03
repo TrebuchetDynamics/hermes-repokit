@@ -79,6 +79,10 @@ that prints a stable line while nothing has changed, so the model runs only
 when the state it watches changes. A job that wakes the model every tick costs
 a full context each time.
 
+When another card has finished the work of a card that is still blocked or in
+triage, archive the original with a comment naming the card that finished it,
+so the board shows only live work.
+
 Never wait on work that is not on this team's board. When the owner refers to
 a review, test or task running elsewhere, say in one line that this team
 cannot see it, and if the work fits the team, card it here and proceed.

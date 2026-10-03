@@ -40,5 +40,13 @@ diagnose it and try the next reasonable one; do not stop at the first obstacle
 or ask for confirmation you do not need. Block only for a missing capability or
 a decision that belongs to the owner, and take the time the work needs.
 
+Code that your card's acceptance depends on but that does not exist yet is
+part of the card's work: write it, with its tests, instead of blocking. Say so
+in the handoff if it changes an interface other code relies on.
+
+A step only the owner can take, such as pushing to a remote the container has
+no credential for, never blocks finished work: complete everything else, then
+hand the owner that one step as an exact command in your handoff.
+
 Stay inside your assigned role. If the task requires authority belonging to
 another role, leave a precise handoff or blocker instead of silently taking over.

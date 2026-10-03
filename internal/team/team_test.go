@@ -229,3 +229,19 @@ func TestDefaultGatesRecurringChecks(t *testing.T) {
 		t.Fatal("default lacks the monitor-script rule for recurring checks")
 	}
 }
+
+// Live blockers that were not the owner's to resolve: a missing config reader
+// a card depended on, a push the container had no credential for blocking
+// finished work, and a card finished elsewhere left in triage.
+func TestTeamDoesNotBlockOnWorkItCanDo(t *testing.T) {
+	for _, r := range ForRepository(target.Identity{Name: "atlas", Project: "repokit-123"}) {
+		for _, want := range []string{"part of the card's work: write it", "never blocks finished work"} {
+			if !strings.Contains(r.Soul, want) {
+				t.Errorf("%s lacks %q", r.Name, want)
+			}
+		}
+	}
+	if !strings.Contains(Roster()[0].Soul, "archive the original with a comment naming the card that finished it") {
+		t.Error("default lacks the archive-superseded rule")
+	}
+}
