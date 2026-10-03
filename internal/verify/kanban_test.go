@@ -2,14 +2,10 @@ package verify
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/process"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
 
 // hermesRunner answers public `hermes -p default ...` reads by suffix.
@@ -32,7 +28,7 @@ func (r *hermesRunner) Run(ctx context.Context, command string, args ...string) 
 	return r.integrationRunner.Run(ctx, command, args...)
 }
 
-const operationalKanban = `{"dispatch_in_gateway":true,"review_dispatch":true,"max_in_progress":1,"auto_decompose":false,"orchestrator_profile":"default","dispatch_profiles":["default","researcher","planner","executor","tester","reviewer","steward"],"auto_subscribe_on_create":true,"notify_in_gateway":true}`
+const operationalKanban = `{"dispatch_in_gateway":true,"review_dispatch":true,"max_in_progress":1,"auto_decompose":false,"orchestrator_profile":"default","dispatch_profiles":["default"],"auto_subscribe_on_create":true,"notify_in_gateway":true}`
 
 func status(probes []Probe, component string) Status {
 	for _, p := range probes {
@@ -69,7 +65,7 @@ func TestKanbanDistinguishesOffOwnerChangedAndUnreadable(t *testing.T) {
 		`{}`:                            Inactive,
 		strings.Replace(operationalKanban, `"max_in_progress":1`, `"max_in_progress":4`, 1): Degraded,
 		`not json`: Unknown,
-		strings.Replace(operationalKanban, `"tester",`, "", 1): Degraded,
+		strings.Replace(operationalKanban, `["default"]`, `["default","extra"]`, 1): Degraded,
 	} {
 		r := &hermesRunner{integrationRunner: base, replies: map[string]string{"config get kanban --json": reply}}
 		if got := status(DefaultKanban(context.Background(), id, r), "kanban:dispatch"); got != want {
@@ -82,9 +78,9 @@ func TestGatewayAndReviewEvidenceFromPublicCLI(t *testing.T) {
 	id, base := integrationFixture(t)
 	r := &hermesRunner{integrationRunner: base, replies: map[string]string{
 		"gateway status": "✓ Gateway is running (PID: 9)",
-		"kanban list --status done --assignee reviewer --sort completed-desc": "✓ t_0000000a  done  reviewer  first\n✓ t_0000000b  done  reviewer  second\n",
-		"kanban runs t_0000000a --json":                                       `[{"profile":"executor","outcome":"completed"}]`,
-		"kanban runs t_0000000b --json":                                       `[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]`,
+		"kanban list --status done --assignee default --sort completed-desc": "✓ t_0000000a  done  default  first\n✓ t_0000000b  done  default  second\n",
+		"kanban runs t_0000000a --json":                                      `[{"profile":"default","outcome":"completed"}]`,
+		"kanban runs t_0000000b --json":                                      `[{"profile":"default","outcome":"review_requested"},{"profile":"default","outcome":"completed"}]`,
 	}}
 	if got := status(Gateway(context.Background(), id, r), "gateway"); got != Healthy {
 		t.Fatal(got)
@@ -93,7 +89,7 @@ func TestGatewayAndReviewEvidenceFromPublicCLI(t *testing.T) {
 		t.Fatal(p)
 	}
 	// A card completed by its implementer alone is not independent review.
-	r.replies["kanban list --status done --assignee reviewer --sort completed-desc"] = "✓ t_0000000a  done  reviewer  first\n"
+	r.replies["kanban list --status done --assignee default --sort completed-desc"] = "✓ t_0000000a  done  default  first\n"
 	r.replies["gateway status"] = "✗ Gateway is not running"
 	if p := ReviewEvidence(context.Background(), id, r); p.Status != Unqualified {
 		t.Fatal(p)
@@ -116,67 +112,6 @@ func TestReadinessSeparatesConfiguredFromProved(t *testing.T) {
 	got = Readiness(append(healthy, Probe{"channel:telegram", Degraded, ""}, Probe{"review:evidence", Healthy, ""}))
 	if got[0].Status != Degraded || !strings.Contains(got[0].Detail, "channel:telegram") || CoreUsable(got) {
 		t.Fatalf("broken channel must block core: %+v", got)
-	}
-}
-
-func TestAcceptanceChainRequiresTesterAfterLatestImplementation(t *testing.T) {
-	type runs = []struct{ Profile, Outcome string }
-	rr := func(pairs ...string) runs {
-		out := runs{}
-		for i := 0; i < len(pairs); i += 2 {
-			out = append(out, struct{ Profile, Outcome string }{pairs[i], pairs[i+1]})
-		}
-		return out
-	}
-	for name, c := range map[string]struct {
-		runs runs
-		ok   bool
-	}{
-		"simple chain":                               {rr("executor", "review_requested", "tester", "review_requested", "reviewer", "completed"), true},
-		"tester rejection then pass":                 {rr("executor", "review_requested", "tester", "changes_requested", "executor", "review_requested", "tester", "review_requested", "reviewer", "completed"), true},
-		"reviewer rejection relayed and re-verified": {rr("executor", "review_requested", "tester", "review_requested", "reviewer", "changes_requested", "tester", "review_requested", "executor", "review_requested", "tester", "review_requested", "reviewer", "completed"), true},
-		"no tester":                                  {rr("executor", "review_requested", "reviewer", "completed"), false},
-		"relay without re-verify":                    {rr("executor", "review_requested", "tester", "review_requested", "reviewer", "changes_requested", "tester", "review_requested", "executor", "review_requested", "reviewer", "completed"), false},
-		"tester completed the card":                  {rr("executor", "review_requested", "tester", "completed"), false},
-		"tester is implementer":                      {rr("tester", "review_requested", "reviewer", "completed"), false},
-		"reviewer not last":                          {rr("executor", "review_requested", "tester", "review_requested", "reviewer", "completed", "executor", "completed"), false},
-		"planner is not an implementer":              {rr("planner", "review_requested", "tester", "review_requested", "reviewer", "completed"), false},
-		"steward is not an implementer":              {rr("steward", "review_requested", "tester", "review_requested", "reviewer", "completed"), false},
-	} {
-		if got := acceptanceChain(c.runs) != ""; got != c.ok {
-			t.Errorf("%s: accepted=%v", name, got)
-		}
-	}
-}
-
-// The qualifying card may be older than recent research or admin work: only
-// reviewer-completed cards are read, within a bounded window.
-func TestReviewEvidenceSurvivesUnrelatedLaterWork(t *testing.T) {
-	id, base := integrationFixture(t)
-	reviewed := []string{}
-	replies := map[string]string{}
-	for i := 0; i < reviewEvidenceWindow; i++ {
-		card := fmt.Sprintf("t_%08x", i)
-		reviewed = append(reviewed, "✓ "+card+"  done  reviewer  card "+card)
-		replies["kanban runs "+card+" --json"] = `[{"profile":"reviewer","outcome":"completed"}]`
-	}
-	// The only qualifying card is the oldest inside the window.
-	last := fmt.Sprintf("t_%08x", reviewEvidenceWindow-1)
-	replies["kanban runs "+last+" --json"] = `[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]`
-	replies["kanban list --status done --assignee reviewer --sort completed-desc"] = strings.Join(reviewed, "\n") + "\n✓ t_000000ff  done  reviewer  old\n"
-	replies["kanban runs t_000000ff --json"] = replies["kanban runs "+last+" --json"]
-	r := &hermesRunner{integrationRunner: base, replies: replies}
-	if p := ReviewEvidence(context.Background(), id, r); p.Status != Healthy || !strings.Contains(p.Detail, last) {
-		t.Fatalf("evidence inside the window lost: %+v", p)
-	}
-	for _, call := range r.calls {
-		joined := strings.Join(call, " ")
-		if strings.Contains(joined, "t_000000ff") {
-			t.Fatal("read past the bounded window")
-		}
-		if strings.Contains(joined, "kanban list") && strings.Contains(joined, "--json") || strings.Contains(joined, "kanban show") {
-			t.Fatalf("review evidence read whole card bodies: %s", joined)
-		}
 	}
 }
 
@@ -210,19 +145,14 @@ func TestEnvOnlyChannelsUseEffectiveTools(t *testing.T) {
 	}
 }
 
-// When default is the whole team, a card it completed counts only after a
-// separate default run requested review: implementation and verification are
-// distinct runs. Seven-profile history still counts until the first one lands.
-func TestReviewEvidenceInTheSingleShape(t *testing.T) {
+// A card default completed counts only after a separate default run requested
+// review: implementation and verification are distinct runs.
+func TestReviewEvidenceNeedsASeparateVerificationRun(t *testing.T) {
 	id, base := integrationFixture(t)
-	if err := os.WriteFile(filepath.Join(id.Root, ".hermes", team.ShapeFile), []byte("single\n"), 0600); err != nil {
-		t.Fatal(err)
-	}
 	r := &hermesRunner{integrationRunner: base, replies: map[string]string{
-		"kanban list --status done --assignee default --sort completed-desc":  "✓ t_0000000c  done  default  self only\n✓ t_0000000d  done  default  verified\n",
-		"kanban runs t_0000000c --json":                                       `[{"profile":"default","outcome":"completed"}]`,
-		"kanban runs t_0000000d --json":                                       `[{"profile":"default","outcome":"review_requested"},{"profile":"default","outcome":"changes_requested"},{"profile":"default","outcome":"review_requested"},{"profile":"default","outcome":"completed"}]`,
-		"kanban list --status done --assignee reviewer --sort completed-desc": "",
+		"kanban list --status done --assignee default --sort completed-desc": "✓ t_0000000c  done  default  self only\n✓ t_0000000d  done  default  verified\n",
+		"kanban runs t_0000000c --json":                                      `[{"profile":"default","outcome":"completed"}]`,
+		"kanban runs t_0000000d --json":                                      `[{"profile":"default","outcome":"review_requested"},{"profile":"default","outcome":"changes_requested"},{"profile":"default","outcome":"review_requested"},{"profile":"default","outcome":"completed"}]`,
 	}}
 	if p := ReviewEvidence(context.Background(), id, r); p.Status != Healthy || !strings.Contains(p.Detail, "t_0000000d") || !strings.Contains(p.Detail, "separate default run") {
 		t.Fatal(p)
@@ -230,12 +160,6 @@ func TestReviewEvidenceInTheSingleShape(t *testing.T) {
 	// Only a self-completed card: not independent.
 	r.replies["kanban list --status done --assignee default --sort completed-desc"] = "✓ t_0000000c  done  default  self only\n"
 	if p := ReviewEvidence(context.Background(), id, r); p.Status != Unqualified {
-		t.Fatal(p)
-	}
-	// The seven-profile history still proves review until a single-shape card lands.
-	r.replies["kanban list --status done --assignee reviewer --sort completed-desc"] = "✓ t_0000000b  done  reviewer  second\n"
-	r.replies["kanban runs t_0000000b --json"] = `[{"profile":"executor","outcome":"review_requested"},{"profile":"tester","outcome":"review_requested"},{"profile":"reviewer","outcome":"completed"}]`
-	if p := ReviewEvidence(context.Background(), id, r); p.Status != Healthy || !strings.Contains(p.Detail, "t_0000000b") {
 		t.Fatal(p)
 	}
 }

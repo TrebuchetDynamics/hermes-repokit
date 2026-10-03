@@ -71,7 +71,7 @@ func runMetadata(raw json.RawMessage) map[string]any {
 	return m
 }
 
-// DispatchCheckPassed accepts only a researcher run that completed the card
+// DispatchCheckPassed accepts only a default run that completed the card
 // with the independently computed README line and no changed files.
 func DispatchCheckPassed(record taskRecord, expected string) bool {
 	if record.Task.Status != "done" || len(record.Runs) == 0 {
@@ -80,11 +80,11 @@ func DispatchCheckPassed(record taskRecord, expected string) bool {
 	run := record.Runs[len(record.Runs)-1]
 	meta := runMetadata(run.Metadata)
 	changed, _ := meta["changed_files"].([]any)
-	return run.Profile == "researcher" && run.Status == "done" && run.Outcome == "completed" &&
+	return run.Profile == "default" && run.Status == "done" && run.Outcome == "completed" &&
 		run.Summary != "" && meta["first_line"] == expected && meta["changed_files"] != nil && len(changed) == 0
 }
 
-// DispatchCheck is an explicit, bounded mutation: it creates one researcher
+// DispatchCheck is an explicit, bounded mutation: it creates one default
 // card and waits for the running gateway to claim and complete it without any
 // manual dispatch. A passing card is archived; a failing one is preserved.
 func DispatchCheck(ctx context.Context, id target.Identity, dc string, r InputRunner, claimWithin, finishWithin, pause time.Duration) (string, error) {
@@ -106,7 +106,7 @@ func DispatchCheck(ctx context.Context, id target.Identity, dc string, r InputRu
 		return "", err
 	}
 	raw, err := run("-p", "default", "kanban", "create", "RepoKit dispatch check",
-		"--assignee", "researcher", "--workspace", "dir:/workspace", "--created-by", "default",
+		"--assignee", "default", "--workspace", "dir:/workspace", "--created-by", "default",
 		"--idempotency-key", "repokit-dispatch-check-"+hex.EncodeToString(nonce),
 		"--max-runtime", "180", "--max-retries", "1", "--priority", "100",
 		"--completion-contract", "local-only", "--body", DispatchCheckBody, "--json")
@@ -129,7 +129,7 @@ func DispatchCheck(ctx context.Context, id target.Identity, dc string, r InputRu
 			}
 			switch record.Task.Status {
 			case "done", "blocked", "archived":
-				return created.ID, errors.New("researcher did not return the expected no-write evidence; card preserved")
+				return created.ID, errors.New("default did not return the expected no-write evidence; card preserved")
 			}
 			if len(record.Runs) == 0 && time.Since(start) > claimWithin {
 				return created.ID, errors.New("gateway did not claim the card; card preserved")

@@ -87,20 +87,22 @@ var roleLines = map[string]struct {
 	pending bool
 	detail  string
 }{
-	"current":    {false, "current"},
-	"missing":    {false, "created"},
-	"adopt":      {false, "created from the stock default profile"},
-	"customized": {false, "owner-customized; preserved as is"},
-	"reset":      {false, "reset to RepoKit's baseline"},
-	"upgrade":    {false, "upgraded to the current RepoKit SOUL"},
-	"deferred":   {true, "SOUL upgrade waits for the running card; rerun install when the board is idle"},
+	"current":      {false, "current"},
+	"missing":      {false, "created"},
+	"adopt":        {false, "created from the stock default profile"},
+	"customized":   {false, "owner-customized; preserved as is"},
+	"reset":        {false, "reset to RepoKit's baseline"},
+	"upgrade":      {false, "upgraded to the current RepoKit SOUL"},
+	"deferred":     {true, "SOUL upgrade waits for the running card; rerun install when the board is idle"},
+	"retired":      {false, "retired: exported to .hermes/backups and removed; its open cards now belong to default"},
+	"retire-later": {true, "retirement waits for an idle board; rerun install when no card is running"},
 }
 
-// team prints one line per roster profile from the applied plan.
+// team prints one line per profile from the applied plan.
 func (u ui) team(report native.TeamReport) {
 	defer u.missingSkills(report.MissingSkills)
 	if len(report.Roles) == 0 {
-		u.ok("Team", "seven profiles reconciled")
+		u.ok("Team", "default reconciled")
 		if len(report.Customized) > 0 {
 			u.note("owner-customized, preserved as is: " + strings.Join(report.Customized, ", "))
 		}

@@ -11,8 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/qualification"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
@@ -488,8 +490,10 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 		kanban, _ := value.(map[string]any)
 		// An operational team is reconciled while no card runs: missing roles
 		// are created and a requested reset applies. An owner-changed policy,
-		// or a busy board, is only observed.
-		if OperationalPolicy(kanban) {
+		// or a busy board, is only observed. A seven-profile deployment's
+		// policy is RepoKit's own and counts as operational.
+		operational := OperationalPolicy(kanban) || LegacyPolicy(kanban)
+		if operational {
 			// A profile is rewritten only while it has no running card; the
 			// rest of a busy board keeps working. Default's own card, or an
 			// unreadable board, still leaves the whole team observed.
@@ -501,7 +505,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 			}
 			guarded = true
 		}
-		observe = busy || !OperationalPolicy(kanban)
+		observe = busy || !operational
 		if observe && reset != "" {
 			return teamPlan{}, errors.New("owner-changed dispatch policy is only observed; profile reset is unavailable")
 		}
@@ -526,7 +530,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 				plan.role(role.Name, "current", nil)
 			}
 		}
-		channels, err := defaultChannelTools(run, channelExtras(id))
+		channels, err := defaultChannelTools(run, defaultChannelExtras)
 		if err != nil {
 			return teamPlan{}, err
 		}
@@ -539,7 +543,10 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 	if err != nil {
 		return teamPlan{}, err
 	}
-	managed := false
+	// RepoKit manages this home when default holds a RepoKit SOUL, RepoKit
+	// recorded the SOUL it last wrote there (the owner has since edited it),
+	// or the owner explicitly asked to reset default.
+	managed := reset == "default" || readRecord(root, "default") != ""
 	for _, role := range roles {
 		s, e := readSoul(root, role.Name)
 		if e == nil && (matchingSoul(s, role) || repositorySoul(s, id)) {
@@ -594,7 +601,7 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 	if !holdsTeamValue(configured["cli"], []string{"kanban"}) {
 		changes += teamCommand("-p", "default", "tools", "enable", "kanban", "--platform", "cli")
 	}
-	channelTools, err := defaultChannelTools(run, channelExtras(id))
+	channelTools, err := defaultChannelTools(run, defaultChannelExtras)
 	if err != nil {
 		return teamPlan{}, err
 	}
@@ -715,6 +722,45 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 		}
 		changes += skillsWrite(role)
 	}
+	// Retire the six profiles of a seven-profile RepoKit deployment, once, on
+	// an idle board: reassign their open cards to default, export each to
+	// backups, delete it, and grant default what it now needs.
+	var legacy []string
+	for _, name := range LegacyProfiles {
+		if _, err := root.Lstat(".hermes/profiles/" + name); err == nil {
+			legacy = append(legacy, name)
+		}
+	}
+	retiring := false
+	if len(legacy) > 0 {
+		if busyBoard, err := runningWork(run); err != nil || busyBoard {
+			for _, name := range legacy {
+				plan.role(name, "retire-later", nil)
+			}
+		} else {
+			retiring = true
+			stamp := time.Now().UTC().Format("20060102T150405Z")
+			changes += progressMark("default: grants for doing every card")
+			for key, value := range roles[0].Settings {
+				changes += teamSet("default", key, value)
+			}
+			changes += skillsWrite(roles[0])
+			changes += "install -d -m 700 /opt/data/backups\n"
+			for _, name := range legacy {
+				ids, err := openCards(run, name)
+				if err != nil {
+					return teamPlan{}, err
+				}
+				changes += progressMark("retire " + name)
+				for _, card := range ids {
+					changes += teamCommand("-p", "default", "kanban", "reassign", card, "default")
+				}
+				changes += teamCommand("profile", "export", name, "-o", "/opt/data/backups/profile-"+name+"-"+stamp+".tar.gz")
+				changes += teamCommand("profile", "delete", "-y", name)
+				plan.role(name, "retired", nil)
+			}
+		}
+	}
 	if len(plan.Drift) > 0 {
 		// Missing managed configuration means the roster can no longer be
 		// proved. Preserve all state and let the owner inspect it first.
@@ -723,6 +769,9 @@ func teamScriptWith(id target.Identity, afterSetup bool, reset string, autonomou
 	}
 	if guarded {
 		guard += runningGuard(plan.Roles, busyRoles)
+	}
+	if retiring {
+		guard += idleGuard
 	}
 	plan.Script = bootstrapScript + "\n" + guard + numberProgress(changes)
 	plan.Script += teamCommand("profile", "list")
@@ -914,11 +963,32 @@ func numberProgress(script string) string {
 	return out.String()
 }
 
-// channelExtras are the tools default needs on its channels beyond Kanban in
-// this deployment's team shape.
-func channelExtras(id target.Identity) []string {
-	if team.ShapeOf(id.Root) == team.Single {
-		return team.SingleChannelTools
+// defaultChannelExtras are what default needs on every human channel beyond
+// Kanban: memory for the owner's decisions and delegation for subagents.
+var defaultChannelExtras = []string{"memory", "delegation"}
+
+// openCards lists a profile's cards that are neither finished nor running,
+// from the plain listing: one card per line, its ID then its status. The
+// --json listing carries every card body and outgrows bounded output.
+func openCards(run teamCLI, profile string) ([]string, error) {
+	raw, err := run("-p", "default", "kanban", "list", "--assignee", profile)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	var ids []string
+	for line := range strings.SplitSeq(string(raw), "\n") {
+		m := cardLine.FindStringSubmatch(line)
+		if m == nil {
+			continue
+		}
+		switch m[2] {
+		case "done", "archived", "running":
+		default:
+			ids = append(ids, m[1])
+		}
+	}
+	return ids, nil
 }
+
+// cardLine matches one plain `kanban list` line: marker, ID, status.
+var cardLine = regexp.MustCompile(`^\S+\s+(t_[0-9a-f]{8})\s+([a-z_]+)\s`)

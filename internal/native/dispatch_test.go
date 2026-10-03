@@ -108,7 +108,7 @@ func TestActivationSetsPolicyLastAndRestartsIdleGateway(t *testing.T) {
 	}
 	script := g.scripts[0]
 	last := strings.Index(script, "'kanban.dispatch_in_gateway' 'true'")
-	for _, want := range []string{"'kanban.review_dispatch' 'true'", "'kanban.max_in_progress' '1'", "'kanban.auto_decompose' 'false'", "'kanban.orchestrator_profile' 'default'", `'kanban.dispatch_profiles' '["default","researcher","planner","executor","tester","reviewer","steward"]'`} {
+	for _, want := range []string{"'kanban.review_dispatch' 'true'", "'kanban.max_in_progress' '1'", "'kanban.auto_decompose' 'false'", "'kanban.orchestrator_profile' 'default'", `'kanban.dispatch_profiles' '["default"]'`} {
 		if i := strings.Index(script, want); i < 0 || i > last {
 			t.Fatalf("%s missing or written after enabling dispatch:\n%s", want, script)
 		}
@@ -155,14 +155,14 @@ func TestGatewayPIDParsesPublicStatusOnly(t *testing.T) {
 	}
 }
 
-func TestDispatchCheckRequiresResearcherEvidence(t *testing.T) {
+func TestDispatchCheckRequiresDefaultEvidence(t *testing.T) {
 	var rec taskRecord
-	body := `{"task":{"id":"t_1","status":"done"},"runs":[{"profile":"researcher","status":"done","outcome":"completed","summary":"read","metadata":{"first_line":"# Title","changed_files":[]}}]}`
+	body := `{"task":{"id":"t_1","status":"done"},"runs":[{"profile":"default","status":"done","outcome":"completed","summary":"read","metadata":{"first_line":"# Title","changed_files":[]}}]}`
 	if json.Unmarshal([]byte(body), &rec) != nil || !DispatchCheckPassed(rec, "# Title") {
 		t.Fatal("valid evidence rejected")
 	}
 	for _, bad := range []string{
-		strings.Replace(body, `"researcher"`, `"executor"`, 1),
+		strings.Replace(body, `"default"`, `"executor"`, 1),
 		strings.Replace(body, `"# Title"`, `"# Other"`, 1),
 		strings.Replace(body, `"changed_files":[]`, `"changed_files":["README.md"]`, 1),
 		strings.Replace(body, `,"changed_files":[]`, ``, 1),
@@ -173,7 +173,7 @@ func TestDispatchCheckRequiresResearcherEvidence(t *testing.T) {
 			t.Fatalf("invalid evidence accepted: %s", bad)
 		}
 	}
-	stringMeta := `{"task":{"id":"t_1","status":"done"},"runs":[{"profile":"researcher","status":"done","outcome":"completed","summary":"s","metadata":"{\"first_line\":\"\",\"changed_files\":[]}"}]}`
+	stringMeta := `{"task":{"id":"t_1","status":"done"},"runs":[{"profile":"default","status":"done","outcome":"completed","summary":"s","metadata":"{\"first_line\":\"\",\"changed_files\":[]}"}]}`
 	if json.Unmarshal([]byte(stringMeta), &rec) != nil || !DispatchCheckPassed(rec, "") {
 		t.Fatal("string-encoded metadata or empty first line rejected")
 	}

@@ -31,14 +31,14 @@ func (a App) finishSetup(id target.Identity, dc string, code int, out, diag io.W
 	case "current":
 		u.ok("Dispatch", "automatic dispatch already configured; nothing changed")
 	case "restarted":
-		u.ok("Dispatch", "native automatic dispatch configured on default (review, seven-profile allowlist, one card at a time)")
+		u.ok("Dispatch", "native automatic dispatch configured on default (review, default-only allowlist, one card at a time)")
 		u.ok("Gateway", "restarted")
 		u.note("start a fresh conversation (/new in Telegram) so sessions see current tools")
 	case "started":
-		u.ok("Dispatch", "native automatic dispatch on default (review, seven-profile allowlist, one card at a time)")
+		u.ok("Dispatch", "native automatic dispatch on default (review, default-only allowlist, one card at a time)")
 		u.ok("Gateway", "default gateway started; Hermes keeps it running across restarts")
 	case "not-running":
-		u.ok("Dispatch", "native automatic dispatch on default (review, seven-profile allowlist, one card at a time)")
+		u.ok("Dispatch", "native automatic dispatch on default (review, default-only allowlist, one card at a time)")
 		u.pending("Gateway", "not running, so nothing is dispatched; start it: "+id.Container+" -p default gateway start")
 	}
 	return 0, state

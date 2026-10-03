@@ -12,7 +12,7 @@ import (
 func TestManagedSoulIsExactlyTheCurrentGeneration(t *testing.T) {
 	id := target.Identity{Name: "atlas", Project: "repokit-123"}
 	roles := team.ForRepository(id)
-	if len(roles) != 7 {
+	if len(roles) != 1 {
 		t.Fatalf("roles=%d", len(roles))
 	}
 	for _, role := range roles {

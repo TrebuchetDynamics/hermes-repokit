@@ -225,7 +225,7 @@ func Readiness(probes []Probe) []Probe {
 		}
 	}
 	sort.Strings(failing)
-	core := Probe{"CORE_READY", Healthy, "Hermes, seven profiles, toolchain, Kanban, dispatch policy and gateway observed; same-card tester and reviewer acceptance observed"}
+	core := Probe{"CORE_READY", Healthy, "Hermes, default, toolchain, Kanban, dispatch policy and gateway observed; a separate verification run observed"}
 	if len(failing) > 0 {
 		core = Probe{"CORE_READY", Degraded, "not ready: " + strings.Join(failing, ", ")}
 	} else if review != Healthy {

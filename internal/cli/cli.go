@@ -59,9 +59,6 @@ type App struct {
 	// resetProfile names one roster profile install returns to RepoKit's
 	// baseline, and plan previews.
 	resetProfile string
-	// teamShape, when set, is the team shape install records for the
-	// deployment ("single" or "seven"); later installs keep it.
-	teamShape string
 }
 
 func Run(args []string, stdout, stderr io.Writer) int {
@@ -116,9 +113,8 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		flags.BoolVar(&a.DockerTests, "docker-tests", false, "publish opt-in privileged isolated Docker acceptance service; never the host socket")
 		if args[0] == "install" {
 			flags.BoolVar(&a.noSetup, "no-setup", false, "stop after install even in a terminal; run setup yourself later")
-			flags.StringVar(&a.teamShape, "team", "", "record the team shape: single (default runs and verifies every card itself) or seven (the seven-profile team); later installs keep it")
 		}
-		flags.StringVar(&a.resetProfile, "reset-profile", "", "return one roster profile to RepoKit's baseline SOUL, description and managed configuration; prior files are backed up")
+		flags.StringVar(&a.resetProfile, "reset-profile", "", "return default to RepoKit's baseline SOUL, description and managed configuration; prior files are backed up")
 	}
 	if args[0] == "setup" {
 		flags.BoolVar(&teamSetup, "team", false, "recovery: reconcile the team from the saved default model without the private wizard")
@@ -138,11 +134,7 @@ func (a App) Run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	if a.resetProfile != "" && !rosterProfile(a.resetProfile) {
-		fmt.Fprintf(stderr, "--reset-profile takes a RepoKit roster profile (%s); owner-created profiles are never reset\n", strings.Join(rosterNames(), ", "))
-		return 2
-	}
-	if a.teamShape != "" && a.teamShape != string(team.Single) && a.teamShape != string(team.Seven) {
-		fmt.Fprintln(stderr, "--team takes single or seven")
+		fmt.Fprintln(stderr, "--reset-profile takes default, the only RepoKit profile; owner-created profiles are never reset")
 		return 2
 	}
 	if dispatchCheck {
@@ -326,7 +318,7 @@ func (a App) plan(id target.Identity) Plan {
 	if _, err := os.Lstat(filepath.Join(id.Root, ".hermes")); err == nil {
 		p.ExistingState = true
 		p.ProposedChanges = []string{"inspect and preserve existing native configuration; refuse ambiguous adoption", "initialize missing native Kanban in the running qualified container", "upgrade only recognized generated Hermes Compose; preserve native state and back up old Compose"}
-		p.ProposedChanges = append(p.ProposedChanges, "reconcile the seven native team profiles after default setup; preserve user drift and unknown profiles; integrations remain pending")
+		p.ProposedChanges = append(p.ProposedChanges, "reconcile default after setup; retire a seven-profile deployment's six worker profiles on an idle board (exported to .hermes/backups first); preserve owner-created profiles")
 	}
 	p.ProposedChanges = append(p.ProposedChanges, "create or reuse ~/.local/bin/"+id.Container+" as a symlink to the generated launcher when safe; preserve conflicts and report missing PATH")
 	p.ProposedChanges = append(p.ProposedChanges, "build and start "+id.Container+" with ordinary Docker Compose, then initialize native Kanban")
@@ -393,8 +385,7 @@ func usage(w io.Writer) {
 	fmt.Fprintf(w, "%s%s install [--no-setup] (the whole first-time path: continues into setup in a terminal)\n", pad, me)
 	fmt.Fprintf(w, "%s%s setup [--no-canary] [--team] (--team: recovery without the private wizard)\n", pad, me)
 	fmt.Fprintf(w, "%s%s verify [--dispatch-check] (one researcher card through automatic dispatch; model cost)\n", pad, me)
-	fmt.Fprintf(w, "%s%s <plan|install> [--docker-tests] [--reset-profile <role>]\n", pad, me)
-	fmt.Fprintf(w, "%s%s install --team <single|seven>\n", pad, me)
+	fmt.Fprintf(w, "%s%s <plan|install> [--docker-tests] [--reset-profile default]\n", pad, me)
 	fmt.Fprintf(w, "%s%s start | stop (start or stop the deployment; state is kept)\n", pad, me)
 	fmt.Fprintf(w, "%s%s remove (deletes the deployment and .hermes after typed confirmation)\n", pad, me)
 	fmt.Fprintf(w, "%s%s update [--main] (replace this binary with the latest release, or main) | version\n", pad, me)

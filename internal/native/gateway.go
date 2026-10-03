@@ -46,6 +46,20 @@ func dispatchPolicy(profiles []any) []struct {
 	}
 }
 
+// LegacyProfiles are the six profiles RepoKit provisioned before it became
+// one profile; install retires them.
+var LegacyProfiles = []string{"researcher", "planner", "executor", "tester", "reviewer", "steward"}
+
+// LegacyPolicy reports the managed dispatch policy of a seven-profile RepoKit
+// deployment: RepoKit's own, to be rewritten, not owner drift.
+func LegacyPolicy(kanban map[string]any) bool {
+	profiles := []any{"default"}
+	for _, name := range LegacyProfiles {
+		profiles = append(profiles, name)
+	}
+	return holdsPolicy(kanban, dispatchPolicy(profiles))
+}
+
 // OperationalPolicy reports whether a decoded native `kanban` config section
 // holds the complete managed dispatch policy.
 func OperationalPolicy(kanban map[string]any) bool {
@@ -201,16 +215,19 @@ func convergeGateway(ctx context.Context, id target.Identity, dc string, r Input
 	}
 	switch kanban["dispatch_in_gateway"] {
 	case true:
-		if !OperationalPolicy(kanban) {
+		// A seven-profile deployment's policy is RepoKit's: rewrite it below.
+		if !OperationalPolicy(kanban) && !LegacyPolicy(kanban) {
 			return "", errors.New("owner-changed dispatch policy preserved; inspect `kanban` configuration on default")
 		}
-		if before == 0 {
-			if start {
-				return startGateway(ctx, id, dc, r, run, attempts, pause)
+		if OperationalPolicy(kanban) {
+			if before == 0 {
+				if start {
+					return startGateway(ctx, id, dc, r, run, attempts, pause)
+				}
+				return "not-running", nil
 			}
-			return "not-running", nil
+			return "current", nil
 		}
-		return "current", nil
 	case false, nil:
 	default:
 		return "", errors.New("ambiguous native dispatch setting preserved")

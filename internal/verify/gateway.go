@@ -9,7 +9,6 @@ import (
 
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/native"
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
-	"github.com/TrebuchetDynamics/hermes-repokit/internal/team"
 )
 
 // hermesCLI runs one read-only public Hermes command in the verified runtime.
@@ -56,7 +55,7 @@ func DefaultKanban(ctx context.Context, id target.Identity, r Runner) []Probe {
 	if out, ok := hermesCLI(ctx, r, dc, container, "config", "get", "kanban", "--json"); ok && json.Unmarshal([]byte(out), &kanban) == nil && kanban != nil {
 		switch {
 		case native.OperationalPolicy(kanban):
-			dispatch = Probe{"kanban:dispatch", Healthy, "automatic dispatch configured on default: review dispatch, seven-profile allowlist, max_in_progress=1, auto_decompose=false"}
+			dispatch = Probe{"kanban:dispatch", Healthy, "automatic dispatch configured on default: review dispatch, default-only allowlist, max_in_progress=1, auto_decompose=false"}
 		case kanban["dispatch_in_gateway"] == true:
 			dispatch = Probe{"kanban:dispatch", Degraded, "dispatch enabled with an owner-changed policy; RepoKit preserves it"}
 		case kanban["dispatch_in_gateway"] == false || kanban["dispatch_in_gateway"] == nil:
@@ -171,14 +170,7 @@ func ReviewEvidence(ctx context.Context, id target.Identity, r Runner) Probe {
 	// the evidence out of view. The newest reviewEvidenceWindow are read.
 	// The plain listing carries only IDs and titles; --json includes every
 	// card body and outgrows the bounded output on a busy board (sdrhf: 120 KB).
-	// A single-shape default completes its own verified cards; until the
-	// first one lands, the seven-profile history still proves review.
-	if team.ShapeOf(id.Root) == team.Single {
-		if p, ok := evidenceFrom(ctx, r, dc, container, "default", singleChain); ok && p.Status == Healthy {
-			return p
-		}
-	}
-	p, ok := evidenceFrom(ctx, r, dc, container, "reviewer", acceptanceChain)
+	p, ok := evidenceFrom(ctx, r, dc, container, "default", singleChain)
 	if !ok {
 		return probe
 	}
@@ -212,7 +204,7 @@ func evidenceFrom(ctx context.Context, r Runner, dc, container, assignee string,
 			return Probe{"review:evidence", Healthy, "card " + task + ": " + described + " on the same card"}, true
 		}
 	}
-	return Probe{"review:evidence", Unqualified, "no same-card independent review among recent completed cards; run real reviewed work"}, true
+	return Probe{"review:evidence", Unqualified, "no card yet verified by a separate default run; run real reviewed work"}, true
 }
 
 // singleChain describes a single-shape default card: default completed it in
@@ -243,29 +235,3 @@ var taskID = regexp.MustCompile(`\bt_[0-9a-f]{8}\b`)
 // reviewEvidenceWindow bounds how many reviewer-completed cards verify reads
 // (one native `kanban show` each).
 const reviewEvidenceWindow = 20
-
-// acceptanceChain describes a run history whose final run is reviewer's
-// completion and whose latest executor run requesting review is followed by a
-// tester hand-off. Only executor implements: another profile requesting review
-// never qualifies. A tester relay of reviewer-requested changes precedes the
-// fix, so it never counts as verification of that fix.
-func acceptanceChain(runs []struct{ Profile, Outcome string }) string {
-	if len(runs) == 0 || runs[len(runs)-1].Profile != "reviewer" || runs[len(runs)-1].Outcome != "completed" {
-		return ""
-	}
-	implementer, verified := "", false
-	for _, run := range runs[:len(runs)-1] {
-		switch {
-		case run.Profile == "tester" || run.Profile == "reviewer":
-			if run.Profile == "tester" && run.Outcome == "review_requested" && implementer != "" {
-				verified = true
-			}
-		case run.Profile == "executor" && run.Outcome == "review_requested":
-			implementer, verified = run.Profile, false
-		}
-	}
-	if !verified {
-		return ""
-	}
-	return implementer + " requested review, tester verified and reviewer completed it"
-}

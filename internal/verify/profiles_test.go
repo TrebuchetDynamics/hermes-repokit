@@ -12,8 +12,8 @@ import (
 
 func TestProfilesReportCurrentOrCustomizedSoul(t *testing.T) {
 	id := target.Identity{Name: "atlas", Project: "repokit-123", Root: t.TempDir()}
-	executor := team.ForRepository(id)[3]
-	dir := filepath.Join(id.Root, ".hermes", "profiles", "executor")
+	executor := team.ForRepository(id)[0]
+	dir := filepath.Join(id.Root, ".hermes")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -26,7 +26,7 @@ func TestProfilesReportCurrentOrCustomizedSoul(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if got := status(Profiles(id), "profile:executor"); got != want {
+		if got := status(Profiles(id), "profile:default"); got != want {
 			t.Errorf("got %s want %s", got, want)
 		}
 	}
@@ -60,13 +60,8 @@ func TestAbsentProfilesPointAtRepoKitSetup(t *testing.T) {
 // record) works; verify names it as upgradable without failing core readiness.
 func TestRecordedEarlierSoulIsUpgradableNotCustomized(t *testing.T) {
 	id := target.Identity{Name: "atlas", Project: "repokit-123", Root: t.TempDir()}
-	var steward team.Role
-	for _, r := range team.ForRepository(id) {
-		if r.Name == "steward" {
-			steward = r
-		}
-	}
-	dir := filepath.Join(id.Root, ".hermes", "profiles", "steward")
+	steward := team.ForRepository(id)[0]
+	dir := filepath.Join(id.Root, ".hermes")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -76,10 +71,10 @@ func TestRecordedEarlierSoulIsUpgradableNotCustomized(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got := status(Profiles(id), "profile:steward"); got != Upgradable {
+	if got := status(Profiles(id), "profile:default"); got != Upgradable {
 		t.Fatalf("got %s", got)
 	}
-	readiness := Readiness([]Probe{{"hermes", Healthy, ""}, {"profile:steward", Upgradable, ""}, {"review:evidence", Healthy, ""}})
+	readiness := Readiness([]Probe{{"hermes", Healthy, ""}, {"profile:default", Upgradable, ""}, {"review:evidence", Healthy, ""}})
 	if readiness[0].Status != Healthy {
 		t.Fatalf("upgradable profile failed core: %+v", readiness[0])
 	}

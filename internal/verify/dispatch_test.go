@@ -4,7 +4,7 @@ import "testing"
 
 func TestConfiguredDispatchIsNotProofOfLiveDispatch(t *testing.T) {
 	yes, no := true, false
-	good := dispatchObservation{Configured: "enabled", Live: "enabled", Owner: "default", Max: 1, Auto: &no, Review: &yes, Allowlist: []string{"default", "researcher", "planner", "executor", "tester", "reviewer", "steward"}, Policy: true, Canary: true}
+	good := dispatchObservation{Configured: "enabled", Live: "enabled", Owner: "default", Max: 1, Auto: &no, Review: &yes, Allowlist: []string{"default"}, Policy: true, Canary: true}
 	for _, p := range dispatchProbes(good) {
 		if p.Status != Healthy {
 			t.Fatal(p)

@@ -38,7 +38,7 @@ func dispatchProbes(d dispatchObservation) []Probe {
 		live.Detail = "paused by native emergency stop; owner pause preserved"
 		live.Status = Inactive
 	}
-	policy := Probe{"kanban:dispatch-policy", Degraded, "expected default owner, seven-profile allowlist, review_dispatch=true, auto_decompose=false, max_in_progress=1"}
+	policy := Probe{"kanban:dispatch-policy", Degraded, "expected default owner, default-only allowlist, review_dispatch=true, auto_decompose=false, max_in_progress=1"}
 	names := []string{}
 	for _, role := range team.Roster() {
 		names = append(names, role.Name)

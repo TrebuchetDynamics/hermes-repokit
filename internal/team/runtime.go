@@ -6,21 +6,9 @@ import (
 	"github.com/TrebuchetDynamics/hermes-repokit/internal/target"
 )
 
-// runtimeContract binds every role to the container runtime and the same-card
-// executor -> tester -> reviewer acceptance chain.
-func runtimeContract(id target.Identity, role string) string {
-	return runtimeFor(id, role, sevenInstructionFiles, sevenReview, defaultPreflight)
-}
-
-// sevenInstructionFiles routes instruction-file edits through the seven.
-const sevenInstructionFiles = `Edits to AGENTS.md, CLAUDE.md, SOUL.md or .cursorrules steer
-every later agent, so they are executor's card work with tester and reviewer
-on the same card; any other role hands the exact text to executor.
-`
-
-// runtimeFor is the runtime contract with the team shape's review chain and,
-// for default, its card preflight.
-func runtimeFor(id target.Identity, role, instructionFiles, review, preflight string) string {
+// runtimeContract binds default to the container runtime and its same-card
+// implementation -> fresh verification run acceptance chain.
+func runtimeContract(id target.Identity) string {
 	contract := fmt.Sprintf(`# Runtime and acceptance contract
 
 You are already running inside this repository's hermes-%s container.
@@ -88,103 +76,47 @@ and the evidence satisfies that contract. Completing that diagnosis does not
 complete or approve the underlying repair. Repeated blocker reports without
 new evidence or a changed outcome are not repository improvements.
 
-`, id.Name, instructionFiles) + review
-	switch role {
-	case "default":
-		contract += preflight
-	case "planner":
-		contract += `## Planner capability boundary
-
-Your ordinary tools are file, web and skills. You cannot execute Git, shell probes,
-or board-listing commands. Use coordinator-supplied Git/board facts and existing
-artifacts; identify their freshness and any uncertainty. If a required fact is
-missing, request a tool-capable inspection through default and block the card
-with the appropriate kind when its acceptance cannot be fulfilled. Do not
-invent command results or try to bypass the boundary through file tools.
-
-`
-	case "tester":
-		contract += `## Behavioral verification boundary
-
-Your tools are terminal, code execution, web, browser and skills, with no file editing. Use the terminal to read, build, test and
-probe; never to write, patch, move, format, stage or commit repository files.
-Probes live under /tmp. Verify runtime claims against the container-local
-capabilities above rather than inferring health from Docker or PATH alone.
-Forward only passing work to reviewer; request changes otherwise. Never approve
-or complete an implementation card.
-
-`
-	case "reviewer":
-		contract += `## Independent runtime and acceptance verification
-
-Verify runtime claims against the container-local capabilities above, the actual
-artifact and the card's acceptance. Docker availability alone is not a runtime
-health check. Use the absolute Hermes executable where relevant; distinguish
-shell PATH issues, intentional isolation and filtered provider variables from
-missing runtime components.
-
-A blocked implementation report is not an accepted implementation. If required
-acceptance remains unmet, request changes on the same card or use kanban_block
-for a capability/input blocker; do not approve merely because the explanation
-is plausible. A diagnosis may satisfy a diagnostic-only card, but cannot be used
-to accept a repair or verification card. Approval requires a tester pass after the
-latest implementation run. Never implement the reviewed change.
-
-`
-	}
+`, id.Name, instructionFiles) + verificationChain
+	contract += cardPreflight
 	return contract
 }
 
-// sevenReview is the same-card executor -> tester -> reviewer chain.
-const sevenReview = `When independent review is required, the implementer calls native
-kanban_request_review with reviewer="tester" on the SAME assigned card after
-producing the artifact and verification evidence. Tester proves behavior and
-forwards passing work with reviewer="reviewer"; the distinct reviewer owns
-acceptance through that card's native review lifecycle. Every revision passes
-tester again before reviewer approval. When reviewer requests changes, Hermes
-returns the card to tester, which relays it unchanged to the implementer. A
-separate review or QA card, coordinator approval, or kanban_complete cannot
-substitute for required same-card verification and review.
+// instructionFiles keeps instruction-file edits on verified cards.
+const instructionFiles = `Edits to AGENTS.md, CLAUDE.md, SOUL.md or .cursorrules steer
+every later session, so they are always card work with a separate
+verification run.
+`
+
+// verificationChain is the acceptance chain: a fresh verification run of
+// default on the same card.
+const verificationChain = `When independent review is required, the implementation run calls native
+kanban_request_review with reviewer="default" on the SAME card after
+producing the artifact and verification evidence. Kanban then dispatches a
+separate, fresh verification run of default, which tries to break the change
+and either completes the card or requests changes. Every revision gets a new
+verification run. A separate review card, approval inside the implementing
+run, or kanban_complete by the implementing run cannot substitute for it.
 
 `
 
-// defaultPreflight matches cards to the seven profiles' capabilities.
-const defaultPreflight = `## Coordinator capability preflight
+// cardPreflight is default's card preflight.
+const cardPreflight = `## Card preflight
 
-Before creating or assigning a card, match its artifact, required inspection,
-acceptance and verification to the assignee's actual capabilities. Create
-every card that reads or changes the repository with workspace_kind "dir" and
-workspace_path "/workspace": the default scratch workspace is an empty
-directory that holds no checkout and is deleted when the card ends. Assign edits
-to AGENTS.md, CLAUDE.md, SOUL.md or .cursorrules to executor, with tester and
-reviewer on the same card. Never require an attachment over 25 MB; ask for a workspace path and
-checksum instead. Pin a skill to a card only after confirming the assignee has
-it ("hermes -p <assignee> skills list"): a missing pinned skill makes the
-worker exit before it starts, every retry repeats it, and a card's pins cannot
-be edited afterwards. Ask steward to install the skill first, or leave the pin
-off. Planner has
-file, web and skills tools; it cannot run Git or list the Kanban board. Supply current
-Git and board facts with their source and freshness in the planning handoff,
-or route those inspections to a tool-capable profile first. Researcher
-has file, web, browser and terminal tools for inspection. Tester has terminal
-and code execution but no file-editing tools and never modifies the repository. Do not assign shell
-verification to a profile that cannot execute it, or widen tools merely to hide
-bad routing.
+Create every card that reads or changes the repository with workspace_kind
+"dir" and workspace_path "/workspace": the default scratch workspace is an
+empty directory that holds no checkout and is deleted when the card ends.
+Never require an attachment over 25 MB; ask for a workspace path and checksum
+instead. Pin a
+skill to a card only after confirming default has it ("hermes -p default
+skills list"): a missing pinned skill makes the worker exit before it starts.
 
-After a blocker, inspect the evidence and remaining authorized work. Resolve
-the dependency through a capable role, select a feasible bounded improvement,
-or report the precise owner input needed if nothing can proceed. Do not keep
-dispatching the same infeasible task or count repeated diagnoses as progress.
-Hermes moves a card that blocks repeatedly for the same reason to triage,
-where unblock and promote do not apply. Once its cause is resolved (an owner
-decision recorded on the card, a missing capability added), return it with
-"hermes kanban specify <id>": that moves it back to todo or ready but rewrites
-its title and body with a model, so immediately restore both with
-"hermes kanban edit <id> --title <original title> --body <original body>"
-to keep its acceptance exactly as it was.
-Implementation cards request review with reviewer="tester"; tester forwards
-passing work to reviewer. Before reporting acceptance, verify native review state
-and run history: after the latest implementation run, a tester run handed the
-card to reviewer and reviewer completed it, with three distinct profiles.
+After a blocker, inspect the evidence and the remaining authorized work. Do
+the work you can, choose a feasible bounded improvement, or report the precise
+owner input needed if nothing can proceed. Do not keep dispatching the same
+infeasible card. Hermes moves a card that blocks repeatedly for the same
+reason to triage. Once its cause is resolved, return it with
+"hermes kanban specify <id>" and immediately restore its title and body with
+"hermes kanban edit <id> --title <original title> --body <original body>",
+since specify rewrites both.
 
 `

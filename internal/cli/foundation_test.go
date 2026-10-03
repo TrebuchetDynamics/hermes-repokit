@@ -233,7 +233,7 @@ func TestInstallPublishesArtifactsBeforeProfiles(t *testing.T) {
 	a, r := foundationApp(t)
 	code, out, diag := invoke(t, a, "plan")
 	var plan Plan
-	if code != 0 || json.Unmarshal([]byte(out), &plan) != nil || len(plan.Unsupported) > 0 || len(plan.Profiles) != 7 {
+	if code != 0 || json.Unmarshal([]byte(out), &plan) != nil || len(plan.Unsupported) > 0 || len(plan.Profiles) != 1 {
 		t.Fatalf("plan: %d %s %s", code, out, diag)
 	}
 	if code, out, diag = invoke(t, a, "install"); code != 0 {
@@ -277,7 +277,7 @@ func TestGenericTeamIsDefaultPlan(t *testing.T) {
 	if code != 0 || json.Unmarshal([]byte(out), &p) != nil {
 		t.Fatalf("%s %s", out, diag)
 	}
-	if strings.Join(p.Profiles, ",") != "default,researcher,planner,executor,tester,reviewer,steward" {
+	if strings.Join(p.Profiles, ",") != "default" {
 		t.Fatalf("roster %v", p.Profiles)
 	}
 	if p.Kanban["orchestrator_profile"] != "default" || p.Kanban["max_in_progress"] != float64(1) {

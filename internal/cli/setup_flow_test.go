@@ -95,7 +95,7 @@ func TestSetupSkipsWizardWhenConfiguredAndEndsReady(t *testing.T) {
 		t.Fatal("setup printed the configured model")
 	}
 	// A new team's autonomy posture is stated, never applied silently.
-	if !strings.Contains(out, "setting up the seven profiles") {
+	if !strings.Contains(out, "setting up default") {
 		t.Fatalf("setup's long team step is silent:\n%s", out)
 	}
 	if !strings.Contains(out, "Agent autonomy") || !strings.Contains(out, "no approval prompts; to bring them back") {
