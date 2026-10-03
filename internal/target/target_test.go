@@ -712,3 +712,40 @@ func TestInspectAllowsDartAnalysisSocket(t *testing.T) {
 		t.Fatalf("world-writable Dart socket accepted: %v", issues)
 	}
 }
+
+// uv run in a worker's scratch (its TMPDIR) leaves empty, mode 0666 lock
+// files there; they must not block an upgrade. Anything else stays strict.
+func TestScratchUVLocksAreAccepted(t *testing.T) {
+	cases := []struct {
+		rel     string
+		content string
+		ok      bool
+	}{
+		{"cache/scratch/uv-b02744f9443df1d2.lock", "", true},
+		{"cache/scratch/uv-setuptools-b02744f9443df1d2.lock", "", true},
+		{"profiles/executor/cache/scratch/uv-b02744f9443df1d2.lock", "", true},
+		{"cache/scratch/uv-b02744f9443df1d2.lock", "data", false},
+		{"cache/scratch/other-b02744f9443df1d2.lock", "", false},
+		{"cache/scratch/uv-b02744f9443df1d2.py", "", false},
+		{"cache/uv-b02744f9443df1d2.lock", "", false},
+	}
+	for _, c := range cases {
+		t.Run(c.rel+"/"+c.content, func(t *testing.T) {
+			p := privateDir(t)
+			path := filepath.Join(p, ".hermes", c.rel)
+			if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(c.content), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(path, 0666); err != nil {
+				t.Fatal(err)
+			}
+			id, _ := Resolve(p)
+			if issues := Inspect(id, ""); (len(issues) == 0) != c.ok {
+				t.Fatalf("ok=%v issues=%v", c.ok, issues)
+			}
+		})
+	}
+}

@@ -40,6 +40,10 @@ const maxNativeEntries = 2000000
 var workerScratch = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/.+`)
 var workerScratchEntry = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/[^/]+$`)
 
+// scratchUVLock is an empty lock uv creates, mode 0666, in its temporary
+// directory, which is a worker's scratch.
+var scratchUVLock = regexp.MustCompile(`^(profiles/[^/]+/)?cache/scratch/uv-([a-z0-9-]+-)?[0-9a-f]{16}\.lock$`)
+
 // dartPerfSocket is the Dart analysis server's private performance socket in
 // a home's state directory (named by process ID).
 var dartPerfSocket = regexp.MustCompile(`^\.local/state/Dart/perf/[0-9]+$`)
@@ -258,7 +262,8 @@ func safeNativeEntry(rel, launcher string, info fs.FileInfo) bool {
 	// repository download locks with mode 0664. Model/code files keep ordinary
 	// mode checks, as do every cache directory and ancestor above these entries.
 	hfMetadata := huggingFaceCacheMetadata.MatchString(rel) && info.Mode().Perm()&0111 == 0
-	return info.Mode().Perm()&0022 == 0 || (uv && strings.HasSuffix(rel, ".lock")) || hfMetadata || rel == "lazy-packages/.lock"
+	uvScratchLock := scratchUVLock.MatchString(rel) && info.Size() == 0 && info.Mode().Perm()&0111 == 0
+	return info.Mode().Perm()&0022 == 0 || (uv && strings.HasSuffix(rel, ".lock")) || hfMetadata || uvScratchLock || rel == "lazy-packages/.lock"
 }
 
 func owned(info fs.FileInfo) bool {
