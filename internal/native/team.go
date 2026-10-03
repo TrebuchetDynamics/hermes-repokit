@@ -1043,12 +1043,13 @@ func readOMH(root *os.Root) string {
 // executor so cards never stop to ask, OMH memory off, and no OMH TUI or
 // menubar. An earlier setup that made OMH default's memory provider is undone
 // only while the provider is still omh; one the owner chose is kept. The
-// gateway restarts to load the plugin only while no card runs; otherwise OMH
-// loads at the next restart.
+// gateway restarts to load the plugin only while no card runs and no human
+// chat was active in the last ChatQuietSeconds; otherwise OMH loads at the
+// next restart.
 func omhWrite() string {
 	return "if command -v omh >/dev/null 2>&1 && (cd /opt/data && omh setup --yes --no-interactive --no-omh-tui --no-menubar --core --default-executor hermes --memory-mode off >/opt/data/.repokit-omh.log 2>&1); then\n" +
 		"  if [ \"$(hermes -p default config get memory.provider 2>/dev/null)\" = omh ]; then hermes -p default config unset memory.provider >/dev/null; fi\n" +
 		"  printf '%s\\n' " + shellQuote(omhSetup) + " > /opt/data/" + omhRecord + "\n" +
-		"  if hermes -p default gateway status 2>/dev/null | grep -q 'Gateway is running' && ! hermes -p default kanban stats --json | grep -Eq '\"running\": *[1-9]'; then hermes -p default gateway restart >/dev/null 2>&1 || true; fi\n" +
+		"  if hermes -p default gateway status 2>/dev/null | grep -q 'Gateway is running' && ! hermes -p default kanban stats --json | grep -Eq '\"running\": *[1-9]' && " + quietChatShell() + "; then hermes -p default gateway restart >/dev/null 2>&1 || true; fi\n" +
 		"else\n  echo 'oh-my-hermes setup did not finish; see .hermes/.repokit-omh.log' >&2\nfi\n"
 }

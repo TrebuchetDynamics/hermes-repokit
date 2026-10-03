@@ -239,6 +239,13 @@ func convergeGateway(ctx context.Context, id target.Identity, dc string, r Input
 	default:
 		return "", errors.New("ambiguous native dispatch setting preserved")
 	}
+	if before != 0 {
+		// The policy takes effect through a gateway restart, which would drop
+		// a reply the owner is waiting for.
+		if quiet, ok := ChatQuiet(ctx, id, dc, r); ok && !quiet {
+			return "", errors.New("the owner was chatting in the last 10 minutes; the dispatch policy and gateway restart wait for a quiet chat; rerun install")
+		}
+	}
 	if busy, err := runningWork(run); err != nil || busy {
 		if LegacyPolicy(kanban) {
 			return "", errors.New("a card is running or Kanban is unreadable; the seven-profile dispatch policy stays until install runs on an idle board")

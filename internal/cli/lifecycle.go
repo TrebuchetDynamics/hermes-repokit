@@ -103,6 +103,13 @@ func (a App) startDeployment(id target.Identity, dc string, stdout, stderr io.Wr
 			u.note("recreate it when the work finishes: " + self() + " start")
 			return 0
 		}
+		// Recreating restarts the gateway, which would drop a reply the owner
+		// is waiting for.
+		if quiet, ok := native.ChatQuiet(context.Background(), id, dc, runner); ok && !quiet {
+			u.pending("Container", "upgraded image built; not recreated while the owner is mid-conversation")
+			u.note("recreate it once the chat has been quiet for 10 minutes: " + self() + " start")
+			return 0
+		}
 	}
 	if a.imageBuilt(id, dc) {
 		u.working("Container", "starting "+id.Container)
