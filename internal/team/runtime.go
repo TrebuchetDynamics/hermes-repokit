@@ -87,7 +87,10 @@ substitute for required same-card verification and review.
 		contract += `## Coordinator capability preflight
 
 Before creating or assigning a card, match its artifact, required inspection,
-acceptance and verification to the assignee's actual capabilities. Assign edits
+acceptance and verification to the assignee's actual capabilities. Create
+every card that reads or changes the repository with workspace_kind "dir" and
+workspace_path "/workspace": the default scratch workspace is an empty
+directory that holds no checkout and is deleted when the card ends. Assign edits
 to AGENTS.md, CLAUDE.md, SOUL.md or .cursorrules to executor, with tester and
 reviewer on the same card. Never require an attachment over 25 MB; ask for a workspace path and
 checksum instead. Pin a skill to a card only after confirming the assignee has

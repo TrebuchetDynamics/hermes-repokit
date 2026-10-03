@@ -199,3 +199,13 @@ func TestWorkerBaselinesGrantNoMemory(t *testing.T) {
 		}
 	}
 }
+
+// Live: a coordinator put a commit-and-push card in Hermes's default scratch
+// workspace, which holds no checkout. Default must place repository cards in
+// /workspace.
+func TestDefaultPlacesRepositoryCardsInWorkspace(t *testing.T) {
+	soul := Roster()[0].Soul + runtimeContract(target.Identity{Name: "atlas", Project: "repokit-123"}, "default")
+	if !strings.Contains(soul, `workspace_kind "dir"`) || !strings.Contains(soul, `workspace_path "/workspace"`) {
+		t.Fatal("default lacks the /workspace card rule")
+	}
+}
