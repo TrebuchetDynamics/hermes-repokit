@@ -3,13 +3,14 @@
 RepoKit configures a repository-specific Hermes team through public Hermes
 interfaces, proves what it can prove, then gets out of the way.
 
-**Released:** [v0.2.8](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.8)
+**Released:** [v0.2.9](https://github.com/TrebuchetDynamics/hermes-repokit/releases/tag/v0.2.9)
 (repository toolchains with nothing manual, autonomy stated at setup, memory
 left to the owner, fresh chats that follow default's identity in v0.2.4;
 v0.2.5 recognizes untouched SOULs by a recorded digest; v0.2.6 makes install
 one command with live progress and ships text to speech; v0.2.7 adds `repokit update`
 and keyless Exa web search by default; v0.2.8 adds `repokit list` and local speech
-to text). The same-card
+to text; v0.2.9 teaches the coordinator to talk to the owner plainly).
+The same-card
 executor → tester → reviewer loop is proven live; a reviewer request-changes
 correction cycle is not yet.
 
