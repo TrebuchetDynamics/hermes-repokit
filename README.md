@@ -97,9 +97,10 @@ leaves: nothing RepoKit-authored keeps running after install.
 | Safe install, update, verify and remove | Running the agent |
 | The host launcher `hermes-<repo>` | |
 
-RepoKit configures no memory provider of its own; it only turns on Hermes's
-built-in memory tool. The [oh-my-hermes](#oh-my-hermes) setup it runs adds
-OMH's plugin and memory provider.
+RepoKit configures no memory provider: it only turns on Hermes's built-in
+memory tool, and runs the [oh-my-hermes](#oh-my-hermes) setup with OMH's own
+memory off, so Hermes memory stays the only memory. A provider you chose
+yourself is kept.
 
 ## oh-my-hermes
 
